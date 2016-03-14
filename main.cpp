@@ -9,14 +9,22 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+
+#define QFPC_IMPLEMENTATION
+#include <qfpc.h>
+
 #include <cstdio>
 #include <cassert>
+#include <cstring>
 #include <type_traits>
 #include <vector>
 #include <sstream>
 #include <string>
 #include <fstream>
 #include <functional>
+#include <algorithm>
 
 PFNGLGETINTEGERVPROC glGetIntegerv;
 PFNGLGETSTRINGIPROC glGetStringi;
@@ -43,7 +51,13 @@ PFNGLGETPROGRAMIVPROC glGetProgramiv;
 PFNGLGETPROGRAMINFOLOGPROC glGetProgramInfoLog;
 PFNGLUSEPROGRAMPROC glUseProgram;
 PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocation;
+PFNGLUNIFORM1IPROC glUniform1i;
 PFNGLUNIFORMMATRIX4FVPROC glUniformMatrix4fv;
+PFNGLGENTEXTURESPROC glGenTextures;
+PFNGLBINDTEXTUREPROC glBindTexture;
+PFNGLACTIVETEXTUREPROC glActiveTexture;
+PFNGLTEXIMAGE2DPROC glTexImage2D;
+PFNGLGENERATEMIPMAPPROC glGenerateMipmap;
 PFNGLBINDFRAMEBUFFERPROC glBindFramebuffer;
 PFNGLDRAWELEMENTSINSTANCEDBASEVERTEXPROC glDrawElementsInstancedBaseVertex;
 
@@ -67,17 +81,34 @@ namespace Scene
         glm::vec3 Bitangent;
     };
 
+    // Geometry stuff
     GLuint VAO;
     GLuint VBO;
     GLuint EBO;
     
-    std::vector<GLDrawElementsIndirectCommand> DrawCmds;
-    std::vector<glm::mat4> ModelWorldTransforms;
+    // All unique diffuse textures in the scene
+    std::vector<GLuint> DiffuseTextures;
+    
+    // For each material, gives the index in the DiffuseTextures array for diffuse texture 0. -1 if there is no diffuse texture 0 for this material.
+    std::vector<int> MaterialDiffuse0TextureIndex;
 
+    // For each node in the scene, the draw arguments to draw it.
+    std::vector<GLDrawElementsIndirectCommand> NodeDrawCmds;
+    // For each node in the scene, the modelworld matrix.
+    std::vector<glm::mat4> NodeModelWorldTransforms;
+    // For each node in the scene, the material ID for it.
+    std::vector<int> NodeMaterialIDs;
+
+    // Shader stuff
     GLuint SP;
     GLuint VS;
     GLuint FS;
     GLint MVPLoc;
+    GLint Diffuse0Loc;
+
+    // Camera stuff
+    glm::vec3 CameraPosition = glm::vec3(100,100,100);
+    glm::vec4 CameraQuaternion = glm::vec4(-0.351835f, 0.231701f, 0.090335f, 0.902411f);
 }
 
 void APIENTRY DebugCallbackGL(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar *message, const void *userParam)
@@ -175,7 +206,13 @@ void InitGL()
     GetProc(glGetProgramInfoLog, "glGetProgramInfoLog");
     GetProc(glUseProgram, "glUseProgram");
     GetProc(glGetUniformLocation, "glGetUniformLocation");
+    GetProc(glUniform1i, "glUniform1i");
     GetProc(glUniformMatrix4fv, "glUniformMatrix4fv");
+    GetProc(glGenTextures, "glGenTextures");
+    GetProc(glBindTexture, "glBindTexture");
+    GetProc(glActiveTexture, "glActiveTexture");
+    GetProc(glTexImage2D, "glTexImage2D");
+    GetProc(glGenerateMipmap, "glGenerateMipmap");
     GetProc(glBindFramebuffer, "glBindFramebuffer");
     GetProc(glDrawElementsInstancedBaseVertex, "glDrawElementsInstancedBaseVertex");
 
@@ -230,11 +267,92 @@ void InitGL()
 void InitScene()
 {
     // load scene
+    std::string mtlpath = "assets/teapot/";
     const aiScene* scene = aiImportFile("assets/teapot/teapot.obj", aiProcessPreset_TargetRealtime_MaxQuality);
     if (!scene)
     {
         fprintf(stderr, "aiImportFile: %s\n", aiGetErrorString());
         exit(1);
+    }
+    
+    // find all textures that need to be loaded
+    std::vector<aiString> diffuseTexturesToLoad;
+    for (int materialIdx = 0; materialIdx < (int)scene->mNumMaterials; materialIdx++)
+    {
+        aiMaterial* material = scene->mMaterials[materialIdx];
+        unsigned int texturecount = aiGetMaterialTextureCount(material, aiTextureType_DIFFUSE);
+        if (texturecount > 1)
+        {
+            fprintf(stderr, "Expecting at most 1 diffuse texture per material, but found %u.\n", texturecount);
+            exit(1);
+        }
+
+        for (int textureIdxInStack = 0; textureIdxInStack < (int)texturecount; textureIdxInStack++)
+        {
+            aiString path;
+            aiReturn result = aiGetMaterialTexture(material, aiTextureType_DIFFUSE, textureIdxInStack, &path, NULL, NULL, NULL, NULL, NULL, NULL);
+            if (result != AI_SUCCESS)
+            {
+                fprintf(stderr, "aiGetMaterialTexture failed: %s\n", aiGetErrorString());
+                exit(1);
+            }
+
+            diffuseTexturesToLoad.push_back(path);
+        }
+    }
+
+    // keep only the unique textures
+    std::sort(begin(diffuseTexturesToLoad), end(diffuseTexturesToLoad), [](const aiString& a, const aiString& b) { return strcmp(a.data, b.data) < 0; });
+    diffuseTexturesToLoad.erase(std::unique(begin(diffuseTexturesToLoad), end(diffuseTexturesToLoad), [](const aiString& a, const aiString& b) { return strcmp(a.data, b.data) == 0; }), end(diffuseTexturesToLoad));
+
+    // load all the unique textures
+    Scene::DiffuseTextures.resize(diffuseTexturesToLoad.size());
+    for (int textureIdx = 0; textureIdx < (int)diffuseTexturesToLoad.size(); textureIdx++)
+    {
+        int width, height, comp;
+        stbi_set_flip_vertically_on_load(1); // because GL
+        std::string fullpath = mtlpath + diffuseTexturesToLoad[textureIdx].data;
+        stbi_uc* img = stbi_load(fullpath.c_str(), &width, &height, &comp, 4);
+        if (!img)
+        {
+            fprintf(stderr, "stbi_load: %s\n", stbi_failure_reason());
+            exit(1);
+        }
+
+        GLuint texture;
+        glGenTextures(1, &texture);
+        glBindTexture(GL_TEXTURE_2D, texture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, img);
+        glGenerateMipmap(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        Scene::DiffuseTextures[textureIdx] = texture;
+
+        stbi_image_free(img);
+    }
+
+    // hook up list of materials
+    for (int materialIdx = 0; materialIdx < (int)scene->mNumMaterials; materialIdx++)
+    {
+        aiMaterial* material = scene->mMaterials[materialIdx];
+        
+        unsigned int texturecount = aiGetMaterialTextureCount(material, aiTextureType_DIFFUSE);
+        if (texturecount == 0)
+        {
+            Scene::MaterialDiffuse0TextureIndex.push_back(-1);
+            continue;
+        }
+
+        aiString path;
+        aiReturn result = aiGetMaterialTexture(material, aiTextureType_DIFFUSE, 0, &path, NULL, NULL, NULL, NULL, NULL, NULL);
+        if (result != AI_SUCCESS)
+        {
+            fprintf(stderr, "aiGetMaterialTexture failed: %s\n", aiGetErrorString());
+            exit(1);
+        }
+
+        auto textureIt = std::lower_bound(begin(diffuseTexturesToLoad), end(diffuseTexturesToLoad), path, [](const aiString& a, const aiString& b) { return strcmp(a.data, b.data) < 0; });
+        Scene::MaterialDiffuse0TextureIndex.push_back((int)std::distance(begin(diffuseTexturesToLoad), textureIt));
     }
 
     // figure out how much memory is needed for the scene and check assumptions about data
@@ -345,7 +463,7 @@ void InitScene()
 
     // depth first traversal of scene to build draws
     std::function<void(const aiNode*, glm::mat4)> addNode;
-    addNode = [&addNode, &meshDraws](const aiNode* node, glm::mat4 transform)
+    addNode = [&addNode, &meshDraws, &scene](const aiNode* node, glm::mat4 transform)
     {
         transform = transform * glm::transpose(glm::make_mat4(&node->mTransformation.a1));
 
@@ -353,8 +471,9 @@ void InitScene()
         for (int nodeMeshIdx = 0; nodeMeshIdx < (int)node->mNumMeshes; nodeMeshIdx++)
         {
             GLDrawElementsIndirectCommand draw = meshDraws[node->mMeshes[nodeMeshIdx]];
-            Scene::DrawCmds.push_back(draw);
-            Scene::ModelWorldTransforms.push_back(transform);
+            Scene::NodeDrawCmds.push_back(draw);
+            Scene::NodeModelWorldTransforms.push_back(transform);
+            Scene::NodeMaterialIDs.push_back(scene->mMeshes[node->mMeshes[nodeMeshIdx]]->mMaterialIndex);
         }
 
         // traverse all children
@@ -443,10 +562,19 @@ void InitScene()
         fprintf(stderr, "Couldn't find ModelViewProjection uniform\n");
         exit(1);
     }
+
+    Scene::Diffuse0Loc = glGetUniformLocation(Scene::SP, "Diffuse0");
+    if (Scene::Diffuse0Loc == -1)
+    {
+        fprintf(stderr, "Couldn't find Diffuse0 uniform\n");
+        exit(1);
+    }
 }
 
-void PaintGL(SDL_Window* window)
+void PaintGL(SDL_Window* window, uint32_t dt_ticks)
 {
+    float dt = dt_ticks * 60 / 1000.0f;
+
     SDL_Event ev;
     while (SDL_PollEvent(&ev))
     {
@@ -456,10 +584,30 @@ void PaintGL(SDL_Window* window)
         }
     }
 
+    int relativeMouseX, relativeMouseY;
+    SDL_GetRelativeMouseState(&relativeMouseX, &relativeMouseY);
+    const uint8_t* keyboardState = SDL_GetKeyboardState(NULL);
+
+    glm::mat3 cameraRotation;
+    quatFirstPersonCamera(
+        glm::value_ptr(Scene::CameraPosition),
+        glm::value_ptr(Scene::CameraQuaternion),
+        glm::value_ptr(cameraRotation),
+        0.10f,
+        1.0f * dt,
+        relativeMouseX,
+        relativeMouseY,
+        keyboardState[SDL_SCANCODE_W],
+        keyboardState[SDL_SCANCODE_A],
+        keyboardState[SDL_SCANCODE_S],
+        keyboardState[SDL_SCANCODE_D],
+        keyboardState[SDL_SCANCODE_E],
+        keyboardState[SDL_SCANCODE_Q]);
+
     int windowWidth, windowHeight;
     SDL_GetWindowSize(window, &windowWidth, &windowHeight);
     glm::mat4 projection = glm::perspective(70.0f, (float)windowWidth / windowHeight, 0.01f, 1000.0f);
-    glm::mat4 worldView = glm::lookAt(glm::vec3(100), glm::vec3(0,20,0), glm::vec3(0, 1, 0));
+    glm::mat4 worldView = glm::translate(glm::mat4(cameraRotation), -Scene::CameraPosition);
     glm::mat4 worldViewProjection = projection * worldView;
 
     glClearColor(100.0f / 255.0f, 149.0f / 255.0f, 237.0f / 255.0f, 1.0f);
@@ -471,14 +619,28 @@ void PaintGL(SDL_Window* window)
     glBindVertexArray(Scene::VAO);
     glUseProgram(Scene::SP);
 
-    for (int drawIdx = 0; drawIdx < (int)Scene::DrawCmds.size(); drawIdx++)
+    glUniform1i(Scene::Diffuse0Loc, 0);
+
+    for (int drawIdx = 0; drawIdx < (int)Scene::NodeDrawCmds.size(); drawIdx++)
     {
-        GLDrawElementsIndirectCommand cmd = Scene::DrawCmds[drawIdx];
+        GLDrawElementsIndirectCommand cmd = Scene::NodeDrawCmds[drawIdx];
         assert(cmd.baseInstance == 0); // no base instance because OS X
         assert(cmd.primCount == 1); // assuming no instancing cuz lack of baseInstance makes it boring
 
-        glm::mat4 mvp = worldViewProjection * Scene::ModelWorldTransforms[drawIdx];
+        glm::mat4 mvp = worldViewProjection * Scene::NodeModelWorldTransforms[drawIdx];
         glUniformMatrix4fv(Scene::MVPLoc, 1, GL_FALSE, glm::value_ptr(mvp));
+
+        int materialID = Scene::NodeMaterialIDs[drawIdx];
+        int diffuseTexture0Index = Scene::MaterialDiffuse0TextureIndex[materialID];
+        glActiveTexture(GL_TEXTURE0);
+        if (diffuseTexture0Index == -1)
+        {
+            glBindTexture(GL_TEXTURE_2D, 0);
+        }
+        else
+        {
+            glBindTexture(GL_TEXTURE_2D, Scene::DiffuseTextures[diffuseTexture0Index]);
+        }
        
         glDrawElementsInstancedBaseVertex(GL_TRIANGLES, cmd.count, GL_UNSIGNED_INT, (GLvoid*)(cmd.firstIndex * sizeof(GLuint)), cmd.primCount, cmd.baseVertex);
     }
@@ -531,14 +693,22 @@ int main(int argc, char *argv[])
     InitGL();
     InitScene();
 
+    SDL_SetRelativeMouseMode(SDL_TRUE);
+
+    Uint32 lastTicks = SDL_GetTicks();
+
     // main loop
     for (;;)
     {
-        PaintGL(window);
+        Uint32 currTicks = SDL_GetTicks();
+
+        PaintGL(window, currTicks - lastTicks);
 
         // Bind 0 to the draw framebuffer before swapping the window, because otherwise in Mac OS X nothing will happen.
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
         SDL_GL_SwapWindow(window);
+
+        lastTicks = currTicks;
     }
 
     SDL_GL_DeleteContext(glctx);

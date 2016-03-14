@@ -2,9 +2,11 @@
 
 in vec2 fTexCoord0;
 
+uniform sampler2D Diffuse0;
+
 out vec3 FragColor;
 
 void main()
 {
-    FragColor = vec3(fTexCoord0, 0);
+    FragColor = texture(Diffuse0, fTexCoord0).rgb;
 }
