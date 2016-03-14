@@ -26,3 +26,12 @@
 *.exe
 *.out
 *.app
+
+# Incremental linker
+*.ilk
+
+# Debug database
+*.pdb
+
+# Thumbnails
+Thumbs.db

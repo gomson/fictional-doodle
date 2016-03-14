@@ -3,4 +3,8 @@
   <ItemGroup>
     <ClCompile Include="..\main.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\scene.frag" />
+    <None Include="..\scene.vert" />
+  </ItemGroup>
 </Project>
