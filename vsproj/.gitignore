@@ -1,3 +1,4 @@
 *.sdf
 *.opendb
 x64
+.vs
