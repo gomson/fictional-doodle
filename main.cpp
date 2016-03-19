@@ -193,61 +193,61 @@ void APIENTRY DebugCallbackGL(GLenum source, GLenum type, GLuint id, GLenum seve
         message);
 }
 
+template<class ProcT>
+void GetProcGL(ProcT& proc, const char* name)
+{
+    proc = reinterpret_cast<ProcT>(SDL_GL_GetProcAddress(name));
+    if (!proc)
+    {
+        fprintf(stderr, "SDL_GL_GetProcAddress(%s): %s\n", name, SDL_GetError());
+        exit(1);
+    }
+}
+
 void InitGL()
 {
-    // Get GL proc in a type safe way and assert its existence
-    auto GetProc = [](auto& proc, const char* name)
-    {
-        proc = reinterpret_cast<std::remove_reference_t<decltype(proc)>>(SDL_GL_GetProcAddress(name));
-        if (!proc)
-        {
-            fprintf(stderr, "SDL_GL_GetProcAddress(%s): %s\n", name, SDL_GetError());
-            exit(1);
-        }
-    };
-
-    GetProc(glGetIntegerv, "glGetIntegerv");
-    GetProc(glGetStringi, "glGetStringi");
-    GetProc(glClear, "glClear");
-    GetProc(glClearColor, "glClearColor");
-    GetProc(glEnable, "glEnable");
-    GetProc(glDisable, "glDisable");
-    GetProc(glGenBuffers, "glGenBuffers");
-    GetProc(glBindBuffer, "glBindBuffer");
-    GetProc(glBufferData, "glBufferData");
-    GetProc(glGenVertexArrays, "glGenVertexArrays");
-    GetProc(glBindVertexArray, "glBindVertexArray");
-    GetProc(glEnableVertexAttribArray, "glEnableVertexAttribArray");
-    GetProc(glVertexAttribPointer, "glVertexAttribPointer");
-    GetProc(glCreateShader, "glCreateShader");
-    GetProc(glShaderSource, "glShaderSource");
-    GetProc(glCompileShader, "glCompileShader");
-    GetProc(glGetShaderiv, "glGetShaderiv");
-    GetProc(glGetShaderInfoLog, "glGetShaderInfoLog");
-    GetProc(glCreateProgram, "glCreateProgram");
-    GetProc(glLinkProgram, "glLinkProgram");
-    GetProc(glAttachShader, "glAttachShader");
-    GetProc(glGetProgramiv, "glGetProgramiv");
-    GetProc(glGetProgramInfoLog, "glGetProgramInfoLog");
-    GetProc(glUseProgram, "glUseProgram");
-    GetProc(glGetUniformLocation, "glGetUniformLocation");
-    GetProc(glUniform1i, "glUniform1i");
-    GetProc(glUniformMatrix4fv, "glUniformMatrix4fv");
-    GetProc(glGenTextures, "glGenTextures");
-    GetProc(glDeleteTextures, "glDeleteTextures");
-    GetProc(glBindTexture, "glBindTexture");
-    GetProc(glActiveTexture, "glActiveTexture");
-    GetProc(glTexImage2D, "glTexImage2D");
-    GetProc(glTexParameteri, "glTexParameteri");
-    GetProc(glGenerateMipmap, "glGenerateMipmap");
-    GetProc(glDrawElementsInstancedBaseVertex, "glDrawElementsInstancedBaseVertex");
-    GetProc(glGenFramebuffers, "glGenFramebuffers");
-    GetProc(glDeleteFramebuffers, "glDeleteFramebuffers");
-    GetProc(glBindFramebuffer, "glBindFramebuffer");
-    GetProc(glFramebufferTexture, "glFramebufferTexture");
-    GetProc(glBlitFramebuffer, "glBlitFramebuffer");
-    GetProc(glDrawBuffers, "glDrawBuffers");
-    GetProc(glReadBuffer, "glReadBuffer");
+    GetProcGL(glGetIntegerv, "glGetIntegerv");
+    GetProcGL(glGetStringi, "glGetStringi");
+    GetProcGL(glClear, "glClear");
+    GetProcGL(glClearColor, "glClearColor");
+    GetProcGL(glEnable, "glEnable");
+    GetProcGL(glDisable, "glDisable");
+    GetProcGL(glGenBuffers, "glGenBuffers");
+    GetProcGL(glBindBuffer, "glBindBuffer");
+    GetProcGL(glBufferData, "glBufferData");
+    GetProcGL(glGenVertexArrays, "glGenVertexArrays");
+    GetProcGL(glBindVertexArray, "glBindVertexArray");
+    GetProcGL(glEnableVertexAttribArray, "glEnableVertexAttribArray");
+    GetProcGL(glVertexAttribPointer, "glVertexAttribPointer");
+    GetProcGL(glCreateShader, "glCreateShader");
+    GetProcGL(glShaderSource, "glShaderSource");
+    GetProcGL(glCompileShader, "glCompileShader");
+    GetProcGL(glGetShaderiv, "glGetShaderiv");
+    GetProcGL(glGetShaderInfoLog, "glGetShaderInfoLog");
+    GetProcGL(glCreateProgram, "glCreateProgram");
+    GetProcGL(glLinkProgram, "glLinkProgram");
+    GetProcGL(glAttachShader, "glAttachShader");
+    GetProcGL(glGetProgramiv, "glGetProgramiv");
+    GetProcGL(glGetProgramInfoLog, "glGetProgramInfoLog");
+    GetProcGL(glUseProgram, "glUseProgram");
+    GetProcGL(glGetUniformLocation, "glGetUniformLocation");
+    GetProcGL(glUniform1i, "glUniform1i");
+    GetProcGL(glUniformMatrix4fv, "glUniformMatrix4fv");
+    GetProcGL(glGenTextures, "glGenTextures");
+    GetProcGL(glDeleteTextures, "glDeleteTextures");
+    GetProcGL(glBindTexture, "glBindTexture");
+    GetProcGL(glActiveTexture, "glActiveTexture");
+    GetProcGL(glTexImage2D, "glTexImage2D");
+    GetProcGL(glTexParameteri, "glTexParameteri");
+    GetProcGL(glGenerateMipmap, "glGenerateMipmap");
+    GetProcGL(glDrawElementsInstancedBaseVertex, "glDrawElementsInstancedBaseVertex");
+    GetProcGL(glGenFramebuffers, "glGenFramebuffers");
+    GetProcGL(glDeleteFramebuffers, "glDeleteFramebuffers");
+    GetProcGL(glBindFramebuffer, "glBindFramebuffer");
+    GetProcGL(glFramebufferTexture, "glFramebufferTexture");
+    GetProcGL(glBlitFramebuffer, "glBlitFramebuffer");
+    GetProcGL(glDrawBuffers, "glDrawBuffers");
+    GetProcGL(glReadBuffer, "glReadBuffer");
 
     GLint majorVersion, minorVersion;
     glGetIntegerv(GL_MAJOR_VERSION, &majorVersion);
@@ -265,7 +265,7 @@ void InitGL()
         if (majorVersion > 4 || (majorVersion == 4 && minorVersion >= 3))
         {
             PFNGLDEBUGMESSAGECALLBACKPROC glDebugMessageCallback;
-            GetProc(glDebugMessageCallback, "glDebugMessageCallback");
+            GetProcGL(glDebugMessageCallback, "glDebugMessageCallback");
             glDebugMessageCallback(DebugCallbackGL, NULL);
             glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
             goto debug_enabled;
@@ -277,7 +277,7 @@ void InitGL()
             if (strcmp(ext, "GL_ARB_debug_output") == 0)
             {
                 PFNGLDEBUGMESSAGECALLBACKARBPROC glDebugMessageCallbackARB;
-                GetProc(glDebugMessageCallbackARB, "glDebugMessageCallbackARB");
+                GetProcGL(glDebugMessageCallbackARB, "glDebugMessageCallbackARB");
                 glDebugMessageCallbackARB(DebugCallbackGL, NULL);
                 glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
                 goto debug_enabled;
@@ -285,7 +285,7 @@ void InitGL()
             else if (strcmp(ext, "GL_KHR_debug") == 0)
             {
                 PFNGLDEBUGMESSAGECALLBACKPROC glDebugMessageCallback;
-                GetProc(glDebugMessageCallback, "glDebugMessageCallback");
+                GetProcGL(glDebugMessageCallback, "glDebugMessageCallback");
                 glDebugMessageCallback(DebugCallbackGL, NULL);
                 glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
                 goto debug_enabled;
