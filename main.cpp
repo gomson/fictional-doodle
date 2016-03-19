@@ -1,3 +1,12 @@
+// For Windows-specific code
+#ifdef _WIN32
+#define UNICODE 1
+#define NOMINMAX 1
+#include <Windows.h>
+#include <ShellScalingAPI.h>
+#include <comdef.h>
+#endif
+
 #include <SDL/SDL.h>
 #include <GL/glcorearb.h>
 
@@ -54,12 +63,20 @@ PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocation;
 PFNGLUNIFORM1IPROC glUniform1i;
 PFNGLUNIFORMMATRIX4FVPROC glUniformMatrix4fv;
 PFNGLGENTEXTURESPROC glGenTextures;
+PFNGLDELETETEXTURESPROC glDeleteTextures;
 PFNGLBINDTEXTUREPROC glBindTexture;
 PFNGLACTIVETEXTUREPROC glActiveTexture;
 PFNGLTEXIMAGE2DPROC glTexImage2D;
+PFNGLTEXPARAMETERIPROC glTexParameteri;
 PFNGLGENERATEMIPMAPPROC glGenerateMipmap;
-PFNGLBINDFRAMEBUFFERPROC glBindFramebuffer;
 PFNGLDRAWELEMENTSINSTANCEDBASEVERTEXPROC glDrawElementsInstancedBaseVertex;
+PFNGLGENFRAMEBUFFERSPROC glGenFramebuffers;
+PFNGLDELETEFRAMEBUFFERSPROC glDeleteFramebuffers;
+PFNGLBINDFRAMEBUFFERPROC glBindFramebuffer;
+PFNGLFRAMEBUFFERTEXTUREPROC glFramebufferTexture;
+PFNGLBLITFRAMEBUFFERPROC glBlitFramebuffer;
+PFNGLDRAWBUFFERSPROC glDrawBuffers;
+PFNGLREADBUFFERPROC glReadBuffer;
 
 struct GLDrawElementsIndirectCommand
 {
@@ -69,6 +86,14 @@ struct GLDrawElementsIndirectCommand
     GLuint baseVertex;
     GLuint baseInstance;
 };
+
+namespace Renderer
+{
+    // Framebuffer stuff
+    GLuint FBO;
+    GLuint ColorTexture;
+    GLuint DepthTexture;
+}
 
 namespace Scene
 {
@@ -209,12 +234,20 @@ void InitGL()
     GetProc(glUniform1i, "glUniform1i");
     GetProc(glUniformMatrix4fv, "glUniformMatrix4fv");
     GetProc(glGenTextures, "glGenTextures");
+    GetProc(glDeleteTextures, "glDeleteTextures");
     GetProc(glBindTexture, "glBindTexture");
     GetProc(glActiveTexture, "glActiveTexture");
     GetProc(glTexImage2D, "glTexImage2D");
+    GetProc(glTexParameteri, "glTexParameteri");
     GetProc(glGenerateMipmap, "glGenerateMipmap");
-    GetProc(glBindFramebuffer, "glBindFramebuffer");
     GetProc(glDrawElementsInstancedBaseVertex, "glDrawElementsInstancedBaseVertex");
+    GetProc(glGenFramebuffers, "glGenFramebuffers");
+    GetProc(glDeleteFramebuffers, "glDeleteFramebuffers");
+    GetProc(glBindFramebuffer, "glBindFramebuffer");
+    GetProc(glFramebufferTexture, "glFramebufferTexture");
+    GetProc(glBlitFramebuffer, "glBlitFramebuffer");
+    GetProc(glDrawBuffers, "glDrawBuffers");
+    GetProc(glReadBuffer, "glReadBuffer");
 
     GLint majorVersion, minorVersion;
     glGetIntegerv(GL_MAJOR_VERSION, &majorVersion);
@@ -262,6 +295,35 @@ void InitGL()
         fprintf(stdout, "Failed to init debug output\n");
     debug_enabled:;
     }
+}
+
+void ResizeGL(int windowWidth, int windowHeight, int drawableWidth, int drawableHeight)
+{
+    // Init rendertargets/depthstencils
+    glDeleteTextures(1, &Renderer::ColorTexture);
+    glGenTextures(1, &Renderer::ColorTexture);
+    glBindTexture(GL_TEXTURE_2D, Renderer::ColorTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, drawableWidth, drawableHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    glDeleteTextures(1, &Renderer::DepthTexture);
+    glGenTextures(1, &Renderer::DepthTexture);
+    glBindTexture(GL_TEXTURE_2D, Renderer::DepthTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, drawableWidth, drawableHeight, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    // Init framebuffer
+    glDeleteFramebuffers(1, &Renderer::FBO);
+    glGenFramebuffers(1, &Renderer::FBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, Renderer::FBO);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, Renderer::ColorTexture, 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, Renderer::DepthTexture, 0);
+    GLenum drawBufs[] = { GL_COLOR_ATTACHMENT0 };
+    glDrawBuffers(sizeof(drawBufs) / sizeof(*drawBufs), &drawBufs[0]);
+    glReadBuffer(GL_COLOR_ATTACHMENT0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 void InitScene()
@@ -582,6 +644,19 @@ void PaintGL(SDL_Window* window, uint32_t dt_ticks)
         {
             exit(0);
         }
+        else if (ev.type == SDL_WINDOWEVENT)
+        {
+            if (ev.window.event == SDL_WINDOWEVENT_RESIZED)
+            {
+                int drawableWidth, drawableHeight;
+                SDL_GL_GetDrawableSize(window, &drawableWidth, &drawableHeight);
+
+                int windowWidth, windowHeight;
+                SDL_GetWindowSize(window, &windowWidth, &windowHeight);
+
+                ResizeGL(windowWidth, windowHeight, drawableWidth, drawableHeight);
+            }
+        }
     }
 
     int relativeMouseX, relativeMouseY;
@@ -604,12 +679,18 @@ void PaintGL(SDL_Window* window, uint32_t dt_ticks)
         keyboardState[SDL_SCANCODE_E],
         keyboardState[SDL_SCANCODE_Q]);
 
+    int drawableWidth, drawableHeight;
+    SDL_GL_GetDrawableSize(window, &drawableWidth, &drawableHeight);
+
     int windowWidth, windowHeight;
     SDL_GetWindowSize(window, &windowWidth, &windowHeight);
     glm::mat4 projection = glm::perspective(70.0f, (float)windowWidth / windowHeight, 0.01f, 1000.0f);
     glm::mat4 worldView = glm::translate(glm::mat4(cameraRotation), -Scene::CameraPosition);
     glm::mat4 worldViewProjection = projection * worldView;
 
+    glBindFramebuffer(GL_FRAMEBUFFER, Renderer::FBO);
+
+    // Clear color is already SRGB encoded, so don't enable GL_FRAMEBUFFER_SRGB before it.
     glClearColor(100.0f / 255.0f, 149.0f / 255.0f, 237.0f / 255.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -650,11 +731,44 @@ void PaintGL(SDL_Window* window, uint32_t dt_ticks)
 
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_FRAMEBUFFER_SRGB);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    // Draw to window's framebuffer
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, Renderer::FBO);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); // default FBO
+    glBlitFramebuffer(
+        0, 0, windowWidth, windowHeight,
+        0, 0, drawableWidth, drawableHeight,
+        GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 extern "C"
 int main(int argc, char *argv[])
 {
+    // DPI awareness must be set before any other Window API calls. SDL doesn't do it for some reason?
+#ifdef _WIN32
+{
+    HMODULE ShcoreLib = LoadLibraryW(L"Shcore.dll");
+    if (ShcoreLib != NULL)
+    {
+        typedef HRESULT(WINAPI * PFNSETPROCESSDPIAWARENESSPROC)(PROCESS_DPI_AWARENESS);
+        PFNSETPROCESSDPIAWARENESSPROC pfnSetProcessDpiAwareness = (PFNSETPROCESSDPIAWARENESSPROC)GetProcAddress(ShcoreLib, "SetProcessDpiAwareness");
+        if (pfnSetProcessDpiAwareness != NULL)
+        {
+            HRESULT hr = pfnSetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
+            if (FAILED(hr))
+            {
+                _com_error err(hr);
+                fwprintf(stderr, L"SetProcessDpiAwareness failed: %s\n", err.ErrorMessage());
+            }
+        }
+        FreeLibrary(ShcoreLib);
+    }
+}
+#endif
+
     if (SDL_Init(SDL_INIT_EVERYTHING))
     {
         fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
@@ -676,8 +790,8 @@ int main(int argc, char *argv[])
     // Enable SRGB
     SDL_GL_SetAttribute(SDL_GL_FRAMEBUFFER_SRGB_CAPABLE, 1);
 
-    // Set depth buffer size
-    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 32);
+    // Don't need depth, it's done manually through the FBO.
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 0);
 
     SDL_Window* window = SDL_CreateWindow("fictional-doodle", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 1280, 720, SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI);
     if (!window)
@@ -694,6 +808,18 @@ int main(int argc, char *argv[])
     }
 
     InitGL();
+    
+    // Initial resize to create framebuffers
+    {
+        int drawableWidth, drawableHeight;
+        SDL_GL_GetDrawableSize(window, &drawableWidth, &drawableHeight);
+
+        int windowWidth, windowHeight;
+        SDL_GetWindowSize(window, &windowWidth, &windowHeight);
+
+        ResizeGL(windowWidth, windowHeight, drawableWidth, drawableHeight);
+    }
+
     InitScene();
 
     SDL_SetRelativeMouseMode(SDL_TRUE);
