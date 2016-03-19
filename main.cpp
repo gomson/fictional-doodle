@@ -740,7 +740,7 @@ void PaintGL(SDL_Window* window, uint32_t dt_ticks)
     glBlitFramebuffer(
         0, 0, windowWidth, windowHeight,
         0, 0, drawableWidth, drawableHeight,
-        GL_COLOR_BUFFER_BIT, GL_NEAREST);
+        GL_COLOR_BUFFER_BIT, GL_LINEAR);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
