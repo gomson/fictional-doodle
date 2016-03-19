@@ -878,6 +878,8 @@ int main(int argc, char *argv[])
 
     InitScene();
 
+    // Warping mouse seems necessary to acquire mouse focus for OS X track pad.
+    SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1");
     SDL_SetRelativeMouseMode(SDL_TRUE);
 
     Uint32 lastTicks = SDL_GetTicks();
@@ -885,6 +887,13 @@ int main(int argc, char *argv[])
     // main loop
     for (;;)
     {
+        const char* err = SDL_GetError();
+        if (*err)
+        {
+            fprintf(stdout, "%s\n", err);
+            SDL_ClearError();
+        }
+
         Uint32 currTicks = SDL_GetTicks();
 
         PaintGL(window, currTicks - lastTicks);
