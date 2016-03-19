@@ -173,7 +173,7 @@ void InitGL()
     // Get GL proc in a type safe way and assert its existence
     auto GetProc = [](auto& proc, const char* name)
     {
-        proc = static_cast<std::remove_reference_t<decltype(proc)>>(SDL_GL_GetProcAddress(name));
+        proc = reinterpret_cast<std::remove_reference_t<decltype(proc)>>(SDL_GL_GetProcAddress(name));
         if (!proc)
         {
             fprintf(stderr, "SDL_GL_GetProcAddress(%s): %s\n", name, SDL_GetError());
@@ -675,6 +675,9 @@ int main(int argc, char *argv[])
 
     // Enable SRGB
     SDL_GL_SetAttribute(SDL_GL_FRAMEBUFFER_SRGB_CAPABLE, 1);
+
+    // Set depth buffer size
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 32);
 
     SDL_Window* window = SDL_CreateWindow("fictional-doodle", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 1280, 720, SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI);
     if (!window)
