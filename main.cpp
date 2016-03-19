@@ -184,6 +184,8 @@ namespace Scene
     GLuint SP;
     GLuint VS;
     GLuint FS;
+    GLint ViewLoc;
+    GLint MVLoc;
     GLint MVPLoc;
     GLint Diffuse0Loc;
 
@@ -674,6 +676,20 @@ void InitScene()
         exit(1);
     }
 
+    Scene::ViewLoc = glGetUniformLocation(Scene::SP, "View");
+    if (Scene::ViewLoc == -1)
+    {
+        fprintf(stderr, "Couldn't find View uniform\n");
+        exit(1);
+    }
+
+    Scene::MVLoc = glGetUniformLocation(Scene::SP, "ModelView");
+    if (Scene::MVLoc == -1)
+    {
+        fprintf(stderr, "Couldn't find ModelView uniform\n");
+        exit(1);
+    }
+
     Scene::MVPLoc = glGetUniformLocation(Scene::SP, "ModelViewProjection");
     if (Scene::MVPLoc == -1)
     {
@@ -764,7 +780,10 @@ void PaintGL(SDL_Window* window, uint32_t dt_ticks)
         assert(cmd.baseInstance == 0); // no base instance because OS X
         assert(cmd.primCount == 1); // assuming no instancing cuz lack of baseInstance makes it boring
 
+        glm::mat4 mv = worldView * Scene::NodeModelWorldTransforms[drawIdx];
         glm::mat4 mvp = worldViewProjection * Scene::NodeModelWorldTransforms[drawIdx];
+        glUniformMatrix4fv(Scene::ViewLoc, 1, GL_FALSE, glm::value_ptr(worldView));
+        glUniformMatrix4fv(Scene::MVLoc, 1, GL_FALSE, glm::value_ptr(mv));
         glUniformMatrix4fv(Scene::MVPLoc, 1, GL_FALSE, glm::value_ptr(mvp));
 
         int materialID = Scene::NodeMaterialIDs[drawIdx];
