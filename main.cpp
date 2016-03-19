@@ -676,6 +676,9 @@ int main(int argc, char *argv[])
     // Enable SRGB
     SDL_GL_SetAttribute(SDL_GL_FRAMEBUFFER_SRGB_CAPABLE, 1);
 
+    // Set depth buffer size
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 32);
+
     SDL_Window* window = SDL_CreateWindow("fictional-doodle", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 1280, 720, SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI);
     if (!window)
     {
