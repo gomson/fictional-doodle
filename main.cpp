@@ -173,7 +173,7 @@ void InitGL()
     // Get GL proc in a type safe way and assert its existence
     auto GetProc = [](auto& proc, const char* name)
     {
-        proc = static_cast<std::remove_reference_t<decltype(proc)>>(SDL_GL_GetProcAddress(name));
+        proc = reinterpret_cast<std::remove_reference_t<decltype(proc)>>(SDL_GL_GetProcAddress(name));
         if (!proc)
         {
             fprintf(stderr, "SDL_GL_GetProcAddress(%s): %s\n", name, SDL_GetError());
