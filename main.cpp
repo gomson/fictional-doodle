@@ -7,12 +7,12 @@
 #include <comdef.h>
 #endif
 
-#include <SDL/SDL.h>
+#include <SDL.h>
 #include <GL/glcorearb.h>
 
-#include <assimp/cimport.h>
-#include <assimp/scene.h>
-#include <assimp/postprocess.h>
+#include <cimport.h>
+#include <scene.h>
+#include <postprocess.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>

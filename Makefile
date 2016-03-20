@@ -26,10 +26,11 @@ OBJECTS = $(SOURCES:.cpp=.o)
 
 # Headers
 CPPFLAGS = \
+	$(shell pkg-config --cflags $(DEPENDENCIES)) \
 	-D_DEBUG \
 	-I. \
 	-Iimgui \
-	-Iinclude
+	-Iinclude \
 
 # Libraries
 LDFLAGS = $(shell pkg-config --libs-only-L $(DEPENDENCIES))
