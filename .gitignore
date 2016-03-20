@@ -35,3 +35,6 @@
 
 # Thumbnails
 Thumbs.db
+
+# ImGui
+imgui.ini

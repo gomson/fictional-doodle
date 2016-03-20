@@ -24,6 +24,11 @@
 #define QFPC_IMPLEMENTATION
 #include <qfpc.h>
 
+#include "imgui/imgui.h"
+#include "imgui/imgui_impl_sdl_gl3.h"
+
+#include "opengl.h"
+
 #include <cstdio>
 #include <cassert>
 #include <cstring>
@@ -35,154 +40,14 @@
 #include <functional>
 #include <algorithm>
 
-#ifdef _MSC_VER
-#define BREAKPOINT __debugbreak()
-#else
-#define BREAKPOINT asm("int $3")
-#endif
-
-void CheckErrorGL(const char* fname)
-{
-    static PFNGLGETERRORPROC pfnglGetError = (PFNGLGETERRORPROC)SDL_GL_GetProcAddress("glGetError");
-    GLenum err = pfnglGetError();
-    const char* errmsg = NULL;
-    switch (err)
-    {
-    case GL_INVALID_ENUM: errmsg = "GL_INVALID_ENUM"; break;
-    case GL_INVALID_VALUE: errmsg = "GL_INVALID_VALUE"; break;
-    case GL_INVALID_OPERATION: errmsg = "GL_INVALID_OPERATION"; break;
-    case GL_STACK_OVERFLOW: errmsg = "GL_STACK_OVERFLOW"; break;
-    case GL_STACK_UNDERFLOW: errmsg = "GL_STACK_UNDERFLOW"; break;
-    case GL_OUT_OF_MEMORY: errmsg = "GL_OUT_OF_MEMORY"; break;
-    case GL_INVALID_FRAMEBUFFER_OPERATION: errmsg = "GL_INVALID_FRAMEBUFFER_OPERATION"; break;
-    case GL_CONTEXT_LOST: errmsg = "GL_CONTEXT_LOST"; break;
-    default: break;
-    }
-    if (errmsg != NULL)
-    {
-        fprintf(stderr, "OpenGL error (%s): %s\n", fname, errmsg);
-        BREAKPOINT;
-    }
-}
-
-const char* FramebufferStatusToString(GLenum err)
-{
-    const char* errmsg = NULL;
-    switch (err)
-    {
-    case GL_FRAMEBUFFER_COMPLETE: errmsg = "GL_FRAMEBUFFER_COMPLETE"; break;
-    case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT: errmsg = "GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT"; break;
-    case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT: errmsg = "GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT"; break;
-    case GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER: errmsg = "GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER"; break;
-    case GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER: errmsg = "GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER"; break;
-    case GL_FRAMEBUFFER_UNSUPPORTED: errmsg = "GL_FRAMEBUFFER_UNSUPPORTED"; break;
-    case GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE: errmsg = "GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE"; break;
-    case GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS: errmsg = "GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS"; break;
-    default: break;
-    }
-    if (errmsg != NULL)
-    {
-        fprintf(stderr, "OpenGL error: %s\n", errmsg);
-        BREAKPOINT;
-    }
-    return errmsg;
-}
-
-template<class F> struct ProcGL;
-
-template<class F, class... Args>
-struct ProcGL<F(*)(Args...)>
-{
-public:
-    F(*fptr)(Args...);
-    const char* fname;
-
-    F operator()(Args... args)
-    {
-        F f = fptr(args...);
-#ifdef _DEBUG
-        CheckErrorGL(fname);
-#endif
-        return f;
-    }
-};
-
-template<class... Args>
-struct ProcGL<void(*)(Args...)>
-{
-public:
-    void(*fptr)(Args...);
-    const char* fname;
-
-    void operator()(Args... args)
-    {
-        fptr(args...);
-#ifdef _DEBUG
-        CheckErrorGL(fname);
-#endif
-    }
-};
-
-ProcGL<PFNGLGETINTEGERVPROC> glGetIntegerv;
-ProcGL<PFNGLGETSTRINGIPROC> glGetStringi;
-ProcGL<PFNGLCLEARPROC> glClear;
-ProcGL<PFNGLCLEARCOLORPROC> glClearColor;
-ProcGL<PFNGLENABLEPROC> glEnable;
-ProcGL<PFNGLDISABLEPROC> glDisable;
-ProcGL<PFNGLGENBUFFERSPROC> glGenBuffers;
-ProcGL<PFNGLBINDBUFFERPROC> glBindBuffer;
-ProcGL<PFNGLBUFFERDATAPROC> glBufferData;
-ProcGL<PFNGLGENVERTEXARRAYSPROC> glGenVertexArrays;
-ProcGL<PFNGLBINDVERTEXARRAYPROC> glBindVertexArray;
-ProcGL<PFNGLENABLEVERTEXATTRIBARRAYPROC> glEnableVertexAttribArray;
-ProcGL<PFNGLVERTEXATTRIBPOINTERPROC> glVertexAttribPointer;
-ProcGL<PFNGLCREATESHADERPROC> glCreateShader;
-ProcGL<PFNGLSHADERSOURCEPROC> glShaderSource;
-ProcGL<PFNGLCOMPILESHADERPROC> glCompileShader;
-ProcGL<PFNGLGETSHADERIVPROC> glGetShaderiv;
-ProcGL<PFNGLGETSHADERINFOLOGPROC> glGetShaderInfoLog;
-ProcGL<PFNGLCREATEPROGRAMPROC> glCreateProgram;
-ProcGL<PFNGLLINKPROGRAMPROC> glLinkProgram;
-ProcGL<PFNGLATTACHSHADERPROC> glAttachShader;
-ProcGL<PFNGLGETPROGRAMIVPROC> glGetProgramiv;
-ProcGL<PFNGLGETPROGRAMINFOLOGPROC> glGetProgramInfoLog;
-ProcGL<PFNGLUSEPROGRAMPROC> glUseProgram;
-ProcGL<PFNGLGETUNIFORMLOCATIONPROC> glGetUniformLocation;
-ProcGL<PFNGLUNIFORM1IPROC> glUniform1i;
-ProcGL<PFNGLUNIFORMMATRIX4FVPROC> glUniformMatrix4fv;
-ProcGL<PFNGLGENTEXTURESPROC> glGenTextures;
-ProcGL<PFNGLDELETETEXTURESPROC> glDeleteTextures;
-ProcGL<PFNGLBINDTEXTUREPROC> glBindTexture;
-ProcGL<PFNGLACTIVETEXTUREPROC> glActiveTexture;
-ProcGL<PFNGLTEXIMAGE2DPROC> glTexImage2D;
-ProcGL<PFNGLTEXIMAGE2DMULTISAMPLEPROC> glTexImage2DMultisample;
-ProcGL<PFNGLTEXPARAMETERIPROC> glTexParameteri;
-ProcGL<PFNGLGENERATEMIPMAPPROC> glGenerateMipmap;
-ProcGL<PFNGLDRAWELEMENTSINSTANCEDBASEVERTEXPROC> glDrawElementsInstancedBaseVertex;
-ProcGL<PFNGLGENFRAMEBUFFERSPROC> glGenFramebuffers;
-ProcGL<PFNGLDELETEFRAMEBUFFERSPROC> glDeleteFramebuffers;
-ProcGL<PFNGLBINDFRAMEBUFFERPROC> glBindFramebuffer;
-ProcGL<PFNGLFRAMEBUFFERTEXTUREPROC> glFramebufferTexture;
-ProcGL<PFNGLBLITFRAMEBUFFERPROC> glBlitFramebuffer;
-ProcGL<PFNGLCHECKFRAMEBUFFERSTATUSPROC> glCheckFramebufferStatus;
-ProcGL<PFNGLDRAWBUFFERSPROC> glDrawBuffers;
-ProcGL<PFNGLREADBUFFERPROC> glReadBuffer;
-
-struct GLDrawElementsIndirectCommand
-{
-    GLuint count;
-    GLuint primCount;
-    GLuint firstIndex;
-    GLuint baseVertex;
-    GLuint baseInstance;
-};
-
 namespace Renderer
 {
     // Framebuffer stuff
-    GLuint FBO;
-    GLuint ColorTexture;
-    GLuint DepthTexture;
+    GLuint BackbufferFBO;
+    GLuint BackbufferColorTexture;
+    GLuint BackbufferDepthTexture;
+
+    bool GUIFocusEnabled;
 }
 
 namespace Scene
@@ -228,206 +93,41 @@ namespace Scene
     glm::vec4 CameraQuaternion = glm::vec4(-0.351835f, 0.231701f, 0.090335f, 0.902411f);
 }
 
-void APIENTRY DebugCallbackGL(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar *message, const void *userParam)
+void InitRenderer()
 {
-    auto DebugSourceToString = [](GLenum source)
-    {
-        switch (source)
-        {
-        case GL_DEBUG_SOURCE_API: return "GL_DEBUG_SOURCE_API";
-        case GL_DEBUG_SOURCE_WINDOW_SYSTEM: return "GL_DEBUG_SOURCE_WINDOW_SYSTEM";
-        case GL_DEBUG_SOURCE_SHADER_COMPILER: return "GL_DEBUG_SOURCE_SHADER_COMPILER";
-        case GL_DEBUG_SOURCE_THIRD_PARTY: return "GL_DEBUG_SOURCE_THIRD_PARTY";
-        case GL_DEBUG_SOURCE_APPLICATION: return "GL_DEBUG_SOURCE_APPLICATION";
-        case GL_DEBUG_SOURCE_OTHER: return "GL_DEBUG_SOURCE_OTHER";
-        default: return "(unknown)";
-        }
-    };
-
-    auto DebugTypeToString = [](GLenum type)
-    {
-        switch (type)
-        {
-        case GL_DEBUG_TYPE_ERROR: return "GL_DEBUG_TYPE_ERROR";
-        case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: return "GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR";
-        case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR: return "GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR";
-        case GL_DEBUG_TYPE_PORTABILITY: return "GL_DEBUG_TYPE_PORTABILITY";
-        case GL_DEBUG_TYPE_PERFORMANCE: return "GL_DEBUG_TYPE_PERFORMANCE";
-        case GL_DEBUG_TYPE_OTHER: return "GL_DEBUG_TYPE_OTHER";
-        default: return "(unknown)";
-        }
-    };
-
-    auto DebugSeverityToString = [](GLenum severity)
-    {
-        switch (severity)
-        {
-        case GL_DEBUG_SEVERITY_HIGH: return "GL_DEBUG_SEVERITY_HIGH";
-        case GL_DEBUG_SEVERITY_MEDIUM: return "GL_DEBUG_SEVERITY_MEDIUM";
-        case GL_DEBUG_SEVERITY_LOW: return "GL_DEBUG_SEVERITY_LOW";
-        case GL_DEBUG_SEVERITY_NOTIFICATION: return "GL_DEBUG_SEVERITY_NOTIFICATION";
-        default: return "(unknown)";
-        }
-    };
-
-    fprintf(stderr,
-        "Debug callback: {\n"
-        "  source = \"%s\",\n"
-        "  type = \"%s\",\n"
-        "  id = %d,\n"
-        "  severity = \"%s\",\n"
-        "  message = \"%s\"\n"
-        "}\n",
-        DebugSourceToString(source),
-        DebugTypeToString(type),
-        id,
-        DebugSeverityToString(severity),
-        message);
-    if (severity != GL_DEBUG_SEVERITY_NOTIFICATION)
-    {
-        BREAKPOINT;
-    }
 }
 
-template<class ProcT>
-void GetProcGL(ProcGL<ProcT>& proc, const char* name)
-{
-    proc.fptr = reinterpret_cast<ProcT>(SDL_GL_GetProcAddress(name));
-    proc.fname = name;
-    if (!proc.fptr)
-    {
-        fprintf(stderr, "SDL_GL_GetProcAddress(%s): %s\n", name, SDL_GetError());
-        exit(1);
-    }
-}
-
-void InitGL()
-{
-    GetProcGL(glGetIntegerv, "glGetIntegerv");
-    GetProcGL(glGetStringi, "glGetStringi");
-    GetProcGL(glClear, "glClear");
-    GetProcGL(glClearColor, "glClearColor");
-    GetProcGL(glEnable, "glEnable");
-    GetProcGL(glDisable, "glDisable");
-    GetProcGL(glGenBuffers, "glGenBuffers");
-    GetProcGL(glBindBuffer, "glBindBuffer");
-    GetProcGL(glBufferData, "glBufferData");
-    GetProcGL(glGenVertexArrays, "glGenVertexArrays");
-    GetProcGL(glBindVertexArray, "glBindVertexArray");
-    GetProcGL(glEnableVertexAttribArray, "glEnableVertexAttribArray");
-    GetProcGL(glVertexAttribPointer, "glVertexAttribPointer");
-    GetProcGL(glCreateShader, "glCreateShader");
-    GetProcGL(glShaderSource, "glShaderSource");
-    GetProcGL(glCompileShader, "glCompileShader");
-    GetProcGL(glGetShaderiv, "glGetShaderiv");
-    GetProcGL(glGetShaderInfoLog, "glGetShaderInfoLog");
-    GetProcGL(glCreateProgram, "glCreateProgram");
-    GetProcGL(glLinkProgram, "glLinkProgram");
-    GetProcGL(glAttachShader, "glAttachShader");
-    GetProcGL(glGetProgramiv, "glGetProgramiv");
-    GetProcGL(glGetProgramInfoLog, "glGetProgramInfoLog");
-    GetProcGL(glUseProgram, "glUseProgram");
-    GetProcGL(glGetUniformLocation, "glGetUniformLocation");
-    GetProcGL(glUniform1i, "glUniform1i");
-    GetProcGL(glUniformMatrix4fv, "glUniformMatrix4fv");
-    GetProcGL(glGenTextures, "glGenTextures");
-    GetProcGL(glDeleteTextures, "glDeleteTextures");
-    GetProcGL(glBindTexture, "glBindTexture");
-    GetProcGL(glActiveTexture, "glActiveTexture");
-    GetProcGL(glTexImage2D, "glTexImage2D");
-    GetProcGL(glTexImage2DMultisample, "glTexImage2DMultisample");
-    GetProcGL(glTexParameteri, "glTexParameteri");
-    GetProcGL(glGenerateMipmap, "glGenerateMipmap");
-    GetProcGL(glDrawElementsInstancedBaseVertex, "glDrawElementsInstancedBaseVertex");
-    GetProcGL(glGenFramebuffers, "glGenFramebuffers");
-    GetProcGL(glDeleteFramebuffers, "glDeleteFramebuffers");
-    GetProcGL(glBindFramebuffer, "glBindFramebuffer");
-    GetProcGL(glFramebufferTexture, "glFramebufferTexture");
-    GetProcGL(glBlitFramebuffer, "glBlitFramebuffer");
-    GetProcGL(glCheckFramebufferStatus, "glCheckFramebufferStatus");
-    GetProcGL(glDrawBuffers, "glDrawBuffers");
-    GetProcGL(glReadBuffer, "glReadBuffer");
-
-    GLint majorVersion, minorVersion;
-    glGetIntegerv(GL_MAJOR_VERSION, &majorVersion);
-    glGetIntegerv(GL_MINOR_VERSION, &minorVersion);
-
-    int contextFlags;
-    glGetIntegerv(GL_CONTEXT_FLAGS, &contextFlags);
-
-    GLint numExtensions;
-    glGetIntegerv(GL_NUM_EXTENSIONS, &numExtensions);
-
-    // set up debugging if this is a debug context
-    if (contextFlags & GL_CONTEXT_FLAG_DEBUG_BIT)
-    {
-        if (majorVersion > 4 || (majorVersion == 4 && minorVersion >= 3))
-        {
-            ProcGL<PFNGLDEBUGMESSAGECALLBACKPROC> glDebugMessageCallback;
-            GetProcGL(glDebugMessageCallback, "glDebugMessageCallback");
-            glDebugMessageCallback(DebugCallbackGL, NULL);
-            glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-            goto debug_enabled;
-        }
-
-        for (int i = 0; i < numExtensions; i++)
-        {
-            const char* ext = (const char*)glGetStringi(GL_EXTENSIONS, i);
-            if (strcmp(ext, "GL_ARB_debug_output") == 0)
-            {
-                ProcGL<PFNGLDEBUGMESSAGECALLBACKARBPROC> glDebugMessageCallbackARB;
-                GetProcGL(glDebugMessageCallbackARB, "glDebugMessageCallbackARB");
-                glDebugMessageCallbackARB(DebugCallbackGL, NULL);
-                glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
-                goto debug_enabled;
-            }
-            else if (strcmp(ext, "GL_KHR_debug") == 0)
-            {
-                ProcGL<PFNGLDEBUGMESSAGECALLBACKPROC> glDebugMessageCallback;
-                GetProcGL(glDebugMessageCallback, "glDebugMessageCallback");
-                glDebugMessageCallback(DebugCallbackGL, NULL);
-                glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-                goto debug_enabled;
-            }
-        }
-
-        fprintf(stdout, "Failed to init debug output\n");
-    debug_enabled:;
-    }
-}
-
-void ResizeGL(int windowWidth, int windowHeight, int drawableWidth, int drawableHeight, int numSamples)
+void ResizeRenderer(int windowWidth, int windowHeight, int drawableWidth, int drawableHeight, int numSamples)
 {
     // Init rendertargets/depthstencils
-    glDeleteTextures(1, &Renderer::ColorTexture);
-    glGenTextures(1, &Renderer::ColorTexture);
-    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, Renderer::ColorTexture);
-    glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, numSamples, GL_RGBA8, drawableWidth, drawableHeight, GL_TRUE);
+    glDeleteTextures(1, &Renderer::BackbufferColorTexture);
+    glGenTextures(1, &Renderer::BackbufferColorTexture);
+    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, Renderer::BackbufferColorTexture);
+    glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, numSamples, GL_SRGB8_ALPHA8, drawableWidth, drawableHeight, GL_TRUE);
     glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
 
-    glDeleteTextures(1, &Renderer::DepthTexture);
-    glGenTextures(1, &Renderer::DepthTexture);
-    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, Renderer::DepthTexture);
+    glDeleteTextures(1, &Renderer::BackbufferDepthTexture);
+    glGenTextures(1, &Renderer::BackbufferDepthTexture);
+    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, Renderer::BackbufferDepthTexture);
     glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, numSamples, GL_DEPTH_COMPONENT32F, drawableWidth, drawableHeight, GL_TRUE);
     glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
 
     // Init framebuffer
-    glDeleteFramebuffers(1, &Renderer::FBO);
-    glGenFramebuffers(1, &Renderer::FBO);
-    glBindFramebuffer(GL_FRAMEBUFFER, Renderer::FBO);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, Renderer::ColorTexture, 0);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, Renderer::DepthTexture, 0);
+    glDeleteFramebuffers(1, &Renderer::BackbufferFBO);
+    glGenFramebuffers(1, &Renderer::BackbufferFBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, Renderer::BackbufferFBO);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, Renderer::BackbufferColorTexture, 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, Renderer::BackbufferDepthTexture, 0);
     GLenum drawBufs[] = { GL_COLOR_ATTACHMENT0 };
     glDrawBuffers(sizeof(drawBufs) / sizeof(*drawBufs), &drawBufs[0]);
     glReadBuffer(GL_COLOR_ATTACHMENT0);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
     GLenum fboStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
     if (fboStatus != GL_FRAMEBUFFER_COMPLETE)
     {
-        fprintf(stderr, "Framebuffer status error: %s\n", FramebufferStatusToString(fboStatus));
+        fprintf(stderr, "Framebuffer status error: %s\n", FramebufferStatusToStringGL(fboStatus));
         exit(1);
     }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 void InitScene()
@@ -495,7 +195,7 @@ void InitScene()
         GLuint texture;
         glGenTextures(1, &texture);
         glBindTexture(GL_TEXTURE_2D, texture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, img);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8_ALPHA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, img);
         glGenerateMipmap(GL_TEXTURE_2D);
         glBindTexture(GL_TEXTURE_2D, 0);
 
@@ -758,54 +458,33 @@ void InitScene()
     }
 }
 
-void PaintGL(SDL_Window* window, uint32_t dt_ticks)
+void PaintRenderer(SDL_Window* window, uint32_t dt_ticks)
 {
     float dt = dt_ticks * 60 / 1000.0f;
 
-    SDL_Event ev;
-    while (SDL_PollEvent(&ev))
-    {
-        if (ev.type == SDL_QUIT)
-        {
-            exit(0);
-        }
-        else if (ev.type == SDL_WINDOWEVENT)
-        {
-            if (ev.window.event == SDL_WINDOWEVENT_RESIZED)
-            {
-                int drawableWidth, drawableHeight;
-                SDL_GL_GetDrawableSize(window, &drawableWidth, &drawableHeight);
-
-                int windowWidth, windowHeight;
-                SDL_GetWindowSize(window, &windowWidth, &windowHeight);
-
-                int numSamples;
-                SDL_GL_GetAttribute(SDL_GL_MULTISAMPLESAMPLES, &numSamples);
-
-                ResizeGL(windowWidth, windowHeight, drawableWidth, drawableHeight, numSamples);
-            }
-        }
-    }
-
-    int relativeMouseX, relativeMouseY;
-    SDL_GetRelativeMouseState(&relativeMouseX, &relativeMouseY);
-    const uint8_t* keyboardState = SDL_GetKeyboardState(NULL);
-
+    // Update camera
     glm::mat3 cameraRotation;
-    quatFirstPersonCamera(
-        glm::value_ptr(Scene::CameraPosition),
-        glm::value_ptr(Scene::CameraQuaternion),
-        glm::value_ptr(cameraRotation),
-        0.10f,
-        1.0f * dt,
-        relativeMouseX,
-        relativeMouseY,
-        keyboardState[SDL_SCANCODE_W],
-        keyboardState[SDL_SCANCODE_A],
-        keyboardState[SDL_SCANCODE_S],
-        keyboardState[SDL_SCANCODE_D],
-        keyboardState[SDL_SCANCODE_E],
-        keyboardState[SDL_SCANCODE_Q]);
+    {
+        int relativeMouseX, relativeMouseY;
+        SDL_GetRelativeMouseState(&relativeMouseX, &relativeMouseY);
+        
+        const uint8_t* keyboardState = SDL_GetKeyboardState(NULL);
+
+        quatFirstPersonCamera(
+            glm::value_ptr(Scene::CameraPosition),
+            glm::value_ptr(Scene::CameraQuaternion),
+            glm::value_ptr(cameraRotation),
+            0.10f,
+            1.0f * dt,
+            Renderer::GUIFocusEnabled ? 0 : relativeMouseX,
+            Renderer::GUIFocusEnabled ? 0 : relativeMouseY,
+            Renderer::GUIFocusEnabled ? 0 : keyboardState[SDL_SCANCODE_W],
+            Renderer::GUIFocusEnabled ? 0 : keyboardState[SDL_SCANCODE_A],
+            Renderer::GUIFocusEnabled ? 0 : keyboardState[SDL_SCANCODE_S],
+            Renderer::GUIFocusEnabled ? 0 : keyboardState[SDL_SCANCODE_D],
+            Renderer::GUIFocusEnabled ? 0 : keyboardState[SDL_SCANCODE_E],
+            Renderer::GUIFocusEnabled ? 0 : keyboardState[SDL_SCANCODE_Q]);
+    }
 
     int drawableWidth, drawableHeight;
     SDL_GL_GetDrawableSize(window, &drawableWidth, &drawableHeight);
@@ -816,57 +495,70 @@ void PaintGL(SDL_Window* window, uint32_t dt_ticks)
     glm::mat4 worldView = glm::translate(glm::mat4(cameraRotation), -Scene::CameraPosition);
     glm::mat4 worldViewProjection = projection * worldView;
 
-    glBindFramebuffer(GL_FRAMEBUFFER, Renderer::FBO);
-
-    // Clear color is already SRGB encoded, so don't enable GL_FRAMEBUFFER_SRGB before it.
-    glClearColor(100.0f / 255.0f, 149.0f / 255.0f, 237.0f / 255.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    glEnable(GL_FRAMEBUFFER_SRGB);
-    glEnable(GL_DEPTH_TEST);
-
-    glBindVertexArray(Scene::VAO);
-    glUseProgram(Scene::SP);
-
-    glUniform1i(Scene::Diffuse0Loc, 0);
-
-    for (int drawIdx = 0; drawIdx < (int)Scene::NodeDrawCmds.size(); drawIdx++)
+    // Scene rendering
     {
-        GLDrawElementsIndirectCommand cmd = Scene::NodeDrawCmds[drawIdx];
-        assert(cmd.baseInstance == 0); // no base instance because OS X
-        assert(cmd.primCount == 1); // assuming no instancing cuz lack of baseInstance makes it boring
+        glBindFramebuffer(GL_FRAMEBUFFER, Renderer::BackbufferFBO);
 
-        glm::mat4 mv = worldView * Scene::NodeModelWorldTransforms[drawIdx];
-        glm::mat4 mvp = worldViewProjection * Scene::NodeModelWorldTransforms[drawIdx];
-        glUniformMatrix4fv(Scene::ViewLoc, 1, GL_FALSE, glm::value_ptr(worldView));
-        glUniformMatrix4fv(Scene::MVLoc, 1, GL_FALSE, glm::value_ptr(mv));
-        glUniformMatrix4fv(Scene::MVPLoc, 1, GL_FALSE, glm::value_ptr(mvp));
+        // Clear color is already SRGB encoded, so don't enable GL_FRAMEBUFFER_SRGB before it.
+        glClearColor(100.0f / 255.0f, 149.0f / 255.0f, 237.0f / 255.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        int materialID = Scene::NodeMaterialIDs[drawIdx];
-        int diffuseTexture0Index = Scene::MaterialDiffuse0TextureIndex[materialID];
-        glActiveTexture(GL_TEXTURE0);
-        if (diffuseTexture0Index == -1)
+        glEnable(GL_FRAMEBUFFER_SRGB);
+        glEnable(GL_DEPTH_TEST);
+
+        glBindVertexArray(Scene::VAO);
+        glUseProgram(Scene::SP);
+
+        glUniform1i(Scene::Diffuse0Loc, 0);
+
+        for (int drawIdx = 0; drawIdx < (int)Scene::NodeDrawCmds.size(); drawIdx++)
         {
-            glBindTexture(GL_TEXTURE_2D, 0);
+            GLDrawElementsIndirectCommand cmd = Scene::NodeDrawCmds[drawIdx];
+            assert(cmd.baseInstance == 0); // no base instance because OS X
+            assert(cmd.primCount == 1); // assuming no instancing cuz lack of baseInstance makes it boring
+
+            glm::mat4 mv = worldView * Scene::NodeModelWorldTransforms[drawIdx];
+            glm::mat4 mvp = worldViewProjection * Scene::NodeModelWorldTransforms[drawIdx];
+            glUniformMatrix4fv(Scene::ViewLoc, 1, GL_FALSE, glm::value_ptr(worldView));
+            glUniformMatrix4fv(Scene::MVLoc, 1, GL_FALSE, glm::value_ptr(mv));
+            glUniformMatrix4fv(Scene::MVPLoc, 1, GL_FALSE, glm::value_ptr(mvp));
+
+            int materialID = Scene::NodeMaterialIDs[drawIdx];
+            int diffuseTexture0Index = Scene::MaterialDiffuse0TextureIndex[materialID];
+            glActiveTexture(GL_TEXTURE0);
+            if (diffuseTexture0Index == -1)
+            {
+                glBindTexture(GL_TEXTURE_2D, 0);
+            }
+            else
+            {
+                glBindTexture(GL_TEXTURE_2D, Scene::DiffuseTextures[diffuseTexture0Index]);
+            }
+
+            glDrawElementsInstancedBaseVertex(GL_TRIANGLES, cmd.count, GL_UNSIGNED_INT, (GLvoid*)(cmd.firstIndex * sizeof(GLuint)), cmd.primCount, cmd.baseVertex);
         }
-        else
-        {
-            glBindTexture(GL_TEXTURE_2D, Scene::DiffuseTextures[diffuseTexture0Index]);
-        }
-       
-        glDrawElementsInstancedBaseVertex(GL_TRIANGLES, cmd.count, GL_UNSIGNED_INT, (GLvoid*)(cmd.firstIndex * sizeof(GLuint)), cmd.primCount, cmd.baseVertex);
+
+        glBindVertexArray(0);
+        glUseProgram(0);
+
+        glDisable(GL_DEPTH_TEST);
+
+        glDisable(GL_FRAMEBUFFER_SRGB);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 
-    glBindVertexArray(0);
-    glUseProgram(0);
-
-    glDisable(GL_DEPTH_TEST);
-    glDisable(GL_FRAMEBUFFER_SRGB);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    // GUI rendering
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, Renderer::BackbufferFBO);
+        glEnable(GL_FRAMEBUFFER_SRGB);
+        ImGui::Render();
+        glDisable(GL_FRAMEBUFFER_SRGB);
+        glBindFramebuffer(GL_FRAMEBUFFER, Renderer::BackbufferFBO);
+    }
 
     // Draw to window's framebuffer
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, Renderer::FBO);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, Renderer::BackbufferFBO);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); // default FBO
     glBlitFramebuffer(
         0, 0, drawableWidth, drawableHeight,
@@ -924,7 +616,33 @@ int main(int argc, char *argv[])
     // Don't need depth, it's done manually through the FBO.
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 0);
 
-    SDL_Window* window = SDL_CreateWindow("fictional-doodle", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 1280, 720, SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI);
+    // Scale window accoridng to DPI zoom
+    int windowDpiScaledWidth, windowDpiScaledHeight;
+    {
+        int windowDpiUnscaledWidth = 1280, windowDpiUnscaledHeight = 720;
+
+        float ddpi, hdpi, vdpi;
+        if (SDL_GetDisplayDPI(0, &ddpi, &hdpi, &vdpi))
+        {
+            fprintf(stderr, "SDL_GetDisplayDPI: %s\n", SDL_GetError());
+            exit(1);
+        }
+
+        float defaultDpi;
+#ifdef __APPLE__
+        defaultDpi = 72.0f;
+#else
+        defaultDpi = 96.0f;
+#endif
+        windowDpiScaledWidth = int(windowDpiUnscaledWidth * hdpi / defaultDpi);
+        windowDpiScaledHeight = int(windowDpiUnscaledHeight * vdpi / defaultDpi);
+    }
+
+    SDL_Window* window = SDL_CreateWindow(
+        "fictional-doodle", 
+        SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 
+        windowDpiScaledWidth, windowDpiScaledHeight, 
+        SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI);
     if (!window)
     {
         fprintf(stderr, "SDL_CreateWindow: %s\n", SDL_GetError());
@@ -939,7 +657,10 @@ int main(int argc, char *argv[])
     }
 
     InitGL();
-    
+    InitRenderer();
+
+    ImGui_ImplSdlGL3_Init(window);
+
     // Initial resize to create framebuffers
     {
         int drawableWidth, drawableHeight;
@@ -951,30 +672,80 @@ int main(int argc, char *argv[])
         int numSamples;
         SDL_GL_GetAttribute(SDL_GL_MULTISAMPLESAMPLES, &numSamples);
 
-        ResizeGL(windowWidth, windowHeight, drawableWidth, drawableHeight, numSamples);
+        ResizeRenderer(windowWidth, windowHeight, drawableWidth, drawableHeight, numSamples);
     }
 
     InitScene();
 
-    // Warping mouse seems necessary to acquire mouse focus for OS X track pad.
-    SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1");
-    SDL_SetRelativeMouseMode(SDL_TRUE);
+    auto updateGuiFocus = [&] 
+    {
+        if (Renderer::GUIFocusEnabled)
+        {
+            // Warping mouse seems necessary to acquire mouse focus for OS X track pad.
+            SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "0");
+            SDL_SetRelativeMouseMode(SDL_FALSE);
+        }
+        else
+        {
+            SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1");
+            SDL_SetRelativeMouseMode(SDL_TRUE);
+        }
+    };
+
+    updateGuiFocus();
 
     Uint32 lastTicks = SDL_GetTicks();
 
     // main loop
     for (;;)
     {
-        const char* err = SDL_GetError();
-        if (*err)
+        SDL_Event ev;
+        while (SDL_PollEvent(&ev))
         {
-            fprintf(stdout, "%s\n", err);
-            SDL_ClearError();
+            if (Renderer::GUIFocusEnabled)
+            {
+                ImGui_ImplSdlGL3_ProcessEvent(&ev);
+            }
+
+            if (ev.type == SDL_QUIT)
+            {
+                goto endmainloop;
+            }
+            else if (ev.type == SDL_WINDOWEVENT)
+            {
+                if (ev.window.event == SDL_WINDOWEVENT_RESIZED)
+                {
+                    int drawableWidth, drawableHeight;
+                    SDL_GL_GetDrawableSize(window, &drawableWidth, &drawableHeight);
+
+                    int windowWidth, windowHeight;
+                    SDL_GetWindowSize(window, &windowWidth, &windowHeight);
+
+                    int numSamples;
+                    SDL_GL_GetAttribute(SDL_GL_MULTISAMPLESAMPLES, &numSamples);
+
+                    ResizeRenderer(windowWidth, windowHeight, drawableWidth, drawableHeight, numSamples);
+                }
+            }
+            else if (ev.type == SDL_KEYDOWN)
+            {
+                if (ev.key.keysym.sym == SDLK_ESCAPE)
+                {
+                    Renderer::GUIFocusEnabled = !Renderer::GUIFocusEnabled;
+                }
+
+                updateGuiFocus();
+            }
         }
 
-        Uint32 currTicks = SDL_GetTicks();
+        ImGui_ImplSdlGL3_NewFrame();
 
-        PaintGL(window, currTicks - lastTicks);
+        // for testing the gui
+        ImGui::ShowTestWindow();
+        ImGui::ShowMetricsWindow();
+
+        Uint32 currTicks = SDL_GetTicks();
+        PaintRenderer(window, currTicks - lastTicks);
 
         // Bind 0 to the draw framebuffer before swapping the window, because otherwise in Mac OS X nothing will happen.
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
@@ -982,8 +753,12 @@ int main(int argc, char *argv[])
 
         lastTicks = currTicks;
     }
+    endmainloop:
 
+    ImGui_ImplSdlGL3_Shutdown();
     SDL_GL_DeleteContext(glctx);
     SDL_DestroyWindow(window);
     SDL_Quit();
+
+    return 0;
 }
