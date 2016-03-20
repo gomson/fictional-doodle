@@ -2,9 +2,10 @@
 
 #include <glm/glm.hpp>
 
+#define DEFAULT_DYNAMICS_NUM_ITERATIONS 10
+
 void SimulateDynamics(
-    const glm::vec3* oldVertexPositionXYZs,
-    const glm::vec3* oldVertexVelocityXYZs,
-    glm::vec3* newVertexPositionXYZs,
-    glm::vec3* newVertexVelocityXYZs,
-    int numParticles);
+    const glm::vec3* oldPositions, const glm::vec3* oldVelocitys,
+    glm::vec3* newPositions, glm::vec3* newVelocitys,
+    int numParticles,
+    int numIterations);

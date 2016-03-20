@@ -739,7 +739,7 @@ int main(int argc, char *argv[])
             }
         }
 
-        ImGui_ImplSdlGL3_NewFrame();
+        ImGui_ImplSdlGL3_NewFrame(Renderer::GUIFocusEnabled);
 
         // for testing the gui
         ImGui::ShowTestWindow();

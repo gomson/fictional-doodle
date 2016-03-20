@@ -338,7 +338,7 @@ void ImGui_ImplSdlGL3_Shutdown()
     ImGui::Shutdown();
 }
 
-void ImGui_ImplSdlGL3_NewFrame()
+void ImGui_ImplSdlGL3_NewFrame(bool guiFocusEnabled)
 {
     if (!g_FontTexture)
         ImGui_ImplSdlGL3_CreateDeviceObjects();
@@ -387,7 +387,7 @@ void ImGui_ImplSdlGL3_NewFrame()
     // (we already got mouse wheel, keyboard keys & characters from SDL_PollEvent())
     int mx, my;
     Uint32 mouseMask = SDL_GetMouseState(&mx, &my);
-    if (SDL_GetWindowFlags(g_Window) & SDL_WINDOW_MOUSE_FOCUS)
+    if (guiFocusEnabled && (SDL_GetWindowFlags(g_Window) & SDL_WINDOW_MOUSE_FOCUS))
     {
         io.MousePos.x = (float)mx / io.DisplayFramebufferScale.x;
         io.MousePos.y = (float)my / io.DisplayFramebufferScale.y;
