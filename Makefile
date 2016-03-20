@@ -10,14 +10,14 @@ DEPENDENCIES = assimp sdl2
 
 # Compiler
 CXX = clang++
-CXXFLAGS = -std=c++14 -Wall -Werror
+CXXFLAGS = -g -std=c++14 -Wall -Werror
 
 # Source
 SOURCES = main.cpp
 OBJECTS = $(SOURCES:.cpp=.o)
 
 # Headers
-CPPFLAGS = -Iinclude
+CPPFLAGS = -D_DEBUG -Iinclude
 
 # Libraries
 LDFLAGS = $(shell pkg-config --libs-only-L $(DEPENDENCIES))
