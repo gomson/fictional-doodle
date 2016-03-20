@@ -13,17 +13,29 @@ CXX = clang++
 CXXFLAGS = -g -std=c++14 -Wall -Werror
 
 # Source
-SOURCES = main.cpp
+SOURCES = \
+	imgui_impl_sdl_gl3.cpp \
+	imgui/imgui.cpp \
+	imgui/imgui_demo.cpp \
+	imgui/imgui_draw.cpp \
+	main.cpp \
+	opengl.cpp
+
+# Object files
 OBJECTS = $(SOURCES:.cpp=.o)
 
 # Headers
-CPPFLAGS = -D_DEBUG -Iinclude
+CPPFLAGS = \
+	-D_DEBUG \
+	-I. \
+	-Iimgui \
+	-Iinclude
 
 # Libraries
 LDFLAGS = $(shell pkg-config --libs-only-L $(DEPENDENCIES))
 LDLIBS = $(shell pkg-config --libs-only-l $(DEPENDENCIES))
 
-$(EXECUTABLE): $(OBJECTS)
+$(EXECUTABLE): $(notdir $(OBJECTS))
 	$(CXX) $(LDFLAGS) $(LDLIBS) $^ -o $@.out
 
 %.o: %.cpp
