@@ -354,20 +354,25 @@ void ImGui_ImplSdlGL3_NewFrame()
 
     // Compute display scale
     {
+        float defaultDpi;
+#ifdef __APPLE__
+        defaultDpi = 72.0f;
+#else
+        defaultDpi = 96.0f;
+#endif
+
         int displayIndex = SDL_GetWindowDisplayIndex(g_Window);
 
-        float ddpi, hdpi, vdpi;
-        SDL_GetDisplayDPI(displayIndex, &ddpi, &hdpi, &vdpi);
+        float hdpi, vdpi;
+        if (SDL_GetDisplayDPI(displayIndex, NULL, &hdpi, &vdpi))
+        {
+            hdpi = defaultDpi;
+            vdpi = defaultDpi;
+        }
 
         int w, h;
         SDL_GetWindowSize(g_Window, &w, &h);
 
-        int defaultDpi;
-#ifdef __APPLE__
-        defaultDpi = 72;
-#else
-        defaultDpi = 96;
-#endif
         io.DisplayFramebufferScale.x = float(int(hdpi) / defaultDpi);
         io.DisplayFramebufferScale.y = float(int(vdpi) / defaultDpi);
     }

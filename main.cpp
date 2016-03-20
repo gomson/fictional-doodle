@@ -621,19 +621,20 @@ int main(int argc, char *argv[])
     {
         int windowDpiUnscaledWidth = 1280, windowDpiUnscaledHeight = 720;
 
-        float ddpi, hdpi, vdpi;
-        if (SDL_GetDisplayDPI(0, &ddpi, &hdpi, &vdpi))
-        {
-            fprintf(stderr, "SDL_GetDisplayDPI: %s\n", SDL_GetError());
-            exit(1);
-        }
-
         float defaultDpi;
 #ifdef __APPLE__
         defaultDpi = 72.0f;
 #else
         defaultDpi = 96.0f;
 #endif
+
+        float hdpi, vdpi;
+        if (SDL_GetDisplayDPI(0, NULL, &hdpi, &vdpi))
+        {
+            hdpi = defaultDpi;
+            vdpi = defaultDpi;
+        }
+
         windowDpiScaledWidth = int(windowDpiUnscaledWidth * hdpi / defaultDpi);
         windowDpiScaledHeight = int(windowDpiUnscaledHeight * vdpi / defaultDpi);
     }

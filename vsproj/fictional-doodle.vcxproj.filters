@@ -13,6 +13,7 @@
     </ClCompile>
     <ClCompile Include="..\opengl.cpp" />
     <ClCompile Include="..\imgui_impl_sdl_gl3.cpp" />
+    <ClCompile Include="..\dynamics.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\scene.frag" />
@@ -41,5 +42,6 @@
     </ClInclude>
     <ClInclude Include="..\opengl.h" />
     <ClInclude Include="..\imgui_impl_sdl_gl3.h" />
+    <ClInclude Include="..\dynamics.h" />
   </ItemGroup>
 </Project>
