@@ -418,8 +418,8 @@ void ResizeGL(int windowWidth, int windowHeight, int drawableWidth, int drawable
 void InitScene()
 {
     // load scene
-    std::string mtlpath = "assets/teapot/";
-    const aiScene* scene = aiImportFile("assets/teapot/teapot.obj", aiProcessPreset_TargetRealtime_MaxQuality);
+    std::string mtlpath = "assets/hellknight/";
+    const aiScene* scene = aiImportFile("assets/hellknight/hellknight.md5mesh", aiProcessPreset_TargetRealtime_MaxQuality);
     if (!scene)
     {
         fprintf(stderr, "aiImportFile: %s\n", aiGetErrorString());
