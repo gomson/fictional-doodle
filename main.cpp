@@ -41,7 +41,7 @@
 #define BREAKPOINT asm("int $3")
 #endif
 
-void CheckErrorGL()
+void CheckErrorGL(const char* fname)
 {
     static PFNGLGETERRORPROC pfnglGetError = (PFNGLGETERRORPROC)SDL_GL_GetProcAddress("glGetError");
     GLenum err = pfnglGetError();
@@ -60,7 +60,7 @@ void CheckErrorGL()
     }
     if (errmsg != NULL)
     {
-        fprintf(stderr, "OpenGL error: %s\n", errmsg);
+        fprintf(stderr, "OpenGL error (%s): %s\n", fname, errmsg);
         BREAKPOINT;
     }
 }
@@ -95,12 +95,13 @@ struct ProcGL<F(*)(Args...)>
 {
 public:
     F(*fptr)(Args...);
+    const char* fname;
 
     F operator()(Args... args)
     {
         F f = fptr(args...);
 #ifdef _DEBUG
-        CheckErrorGL();
+        CheckErrorGL(fname);
 #endif
         return f;
     }
@@ -111,12 +112,13 @@ struct ProcGL<void(*)(Args...)>
 {
 public:
     void(*fptr)(Args...);
+    const char* fname;
 
     void operator()(Args... args)
     {
         fptr(args...);
 #ifdef _DEBUG
-        CheckErrorGL();
+        CheckErrorGL(fname);
 #endif
     }
 };
@@ -291,6 +293,7 @@ template<class ProcT>
 void GetProcGL(ProcGL<ProcT>& proc, const char* name)
 {
     proc.fptr = reinterpret_cast<ProcT>(SDL_GL_GetProcAddress(name));
+    proc.fname = name;
     if (!proc.fptr)
     {
         fprintf(stderr, "SDL_GL_GetProcAddress(%s): %s\n", name, SDL_GetError());
