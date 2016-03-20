@@ -1,10 +1,12 @@
 #version 410
 
-layout(location = 0) in vec4 Position;
-layout(location = 1) in vec2 TexCoord0;
-layout(location = 2) in vec3 Normal;
-layout(location = 3) in vec3 Tangent;
-layout(location = 4) in vec4 Bitangent;
+layout(location = 0) in  vec4 Position;
+layout(location = 1) in  vec2 TexCoord0;
+layout(location = 2) in  vec3 Normal;
+layout(location = 3) in  vec3 Tangent;
+layout(location = 4) in  vec4 Bitangent;
+layout(location = 5) in uvec4 BoneIDs;
+layout(location = 6) in  vec4 Weights;
 
 uniform mat4 View;
 uniform mat4 ModelView;

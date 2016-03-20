@@ -90,6 +90,9 @@ namespace Scene
     // Bone indices by bone name.
     std::unordered_map<std::string, GLuint> BoneIDs;
 
+    // Animation stuff
+    GLuint BoneVBO;
+
     // Geometry stuff
     GLuint VAO;
     GLuint VBO;
@@ -371,21 +374,37 @@ void InitScene()
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, meshIndices.size() * sizeof(meshIndices[0]), meshIndices.data(), GL_STATIC_DRAW);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
+    // Upload animation data
+    glGenBuffers(1, &Scene::BoneVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, Scene::BoneVBO);
+    glBufferData(GL_ARRAY_BUFFER, Scene::VertexBones.size() * sizeof(Scene::VertexBones[0]), Scene::VertexBones.data(), GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
     // Setup VAO
     glGenVertexArrays(1, &Scene::VAO);
     glBindVertexArray(Scene::VAO);
+
+    // Vertex geometry
     glBindBuffer(GL_ARRAY_BUFFER, Scene::VBO);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Scene::Vertex), (GLvoid*)offsetof(Scene::Vertex, Position));
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Scene::Vertex), (GLvoid*)offsetof(Scene::Vertex, TexCoord0));
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Scene::Vertex), (GLvoid*)offsetof(Scene::Vertex, Normal));
     glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(Scene::Vertex), (GLvoid*)offsetof(Scene::Vertex, Tangent));
     glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(Scene::Vertex), (GLvoid*)offsetof(Scene::Vertex, Bitangent));
+
+    // Vertex bone weights
+    glBindBuffer(GL_ARRAY_BUFFER, Scene::BoneVBO);
+    glVertexAttribPointer(5, 4, GL_UNSIGNED_INT, GL_FALSE, sizeof(Scene::VertexBoneData), (GLvoid*)offsetof(Scene::VertexBoneData, BoneIDs));
+    glVertexAttribPointer(6, 4, GL_FLOAT,        GL_FALSE, sizeof(Scene::VertexBoneData), (GLvoid*)offsetof(Scene::VertexBoneData, Weights));
+
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glEnableVertexAttribArray(0); // position
     glEnableVertexAttribArray(1); // texcoord0
     glEnableVertexAttribArray(2); // normal
     glEnableVertexAttribArray(3); // tangent
     glEnableVertexAttribArray(4); // bitangent
+    glEnableVertexAttribArray(5); // bone IDs
+    glEnableVertexAttribArray(6); // bone weights
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Scene::EBO);
     glBindVertexArray(0);
 
