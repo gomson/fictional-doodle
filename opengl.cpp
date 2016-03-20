@@ -13,10 +13,10 @@
 #define BREAKPOINT asm("int $3")
 #endif
 
-void GetProcGL(void* (&proc), const char* name)
+void GetProcGL(void** proc, const char* name)
 {
-    proc = SDL_GL_GetProcAddress(name);
-    if (!proc)
+    *proc = SDL_GL_GetProcAddress(name);
+    if (!*proc)
     {
         fprintf(stderr, "SDL_GL_GetProcAddress(%s): %s\n", name, SDL_GetError());
         exit(1);

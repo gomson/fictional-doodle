@@ -126,6 +126,11 @@ void SimulateDynamics(
     const Constraint* cs, int nc,
     float* xs_f, float* vs_f)
 {
+    if (np == 0)
+    {
+        return;
+    }
+
     const vec3* x0s = (const vec3*)&x0s_f[0];
     const vec3* v0s = (const vec3*)&v0s_f[0];
     const vec3* fexts = (const  vec3*)&fexts_f[0];

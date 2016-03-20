@@ -94,6 +94,8 @@ xcopy /d /y "$(SolutionDir)lib\assimp.dll" "$(OutDir)"</Command>
     <ClCompile Include="..\imgui_impl_sdl_gl3.cpp" />
     <ClCompile Include="..\main.cpp" />
     <ClCompile Include="..\opengl.cpp" />
+    <ClCompile Include="..\renderer.cpp" />
+    <ClCompile Include="..\scene.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\scene.frag" />
@@ -108,6 +110,8 @@ xcopy /d /y "$(SolutionDir)lib\assimp.dll" "$(OutDir)"</Command>
     <ClInclude Include="..\imgui\stb_textedit.h" />
     <ClInclude Include="..\imgui_impl_sdl_gl3.h" />
     <ClInclude Include="..\opengl.h" />
+    <ClInclude Include="..\renderer.h" />
+    <ClInclude Include="..\scene.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

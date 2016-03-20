@@ -3,7 +3,7 @@
 #include <GL/glcorearb.h>
 
 void InitGL();
-void GetProcGL(void* (&proc), const char* name);
+void GetProcGL(void** proc, const char* name);
 void CheckErrorGL(const char* description);
 
 const char* FramebufferStatusToStringGL(GLenum err);
@@ -114,7 +114,7 @@ PROCGL(PFNGLREADBUFFERPROC, glReadBuffer);
 template<class ProcT>
 void GetProcGL(ProcGL<ProcT>& proc, const char* name)
 {
-    GetProcGL((void*&) proc.fptr, name);
+    GetProcGL((void**)&proc.fptr, name);
     proc.fname = name;
 }
 
