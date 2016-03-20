@@ -35,48 +35,104 @@
 #include <functional>
 #include <algorithm>
 
-PFNGLGETINTEGERVPROC glGetIntegerv;
-PFNGLGETSTRINGIPROC glGetStringi;
-PFNGLCLEARPROC glClear;
-PFNGLCLEARCOLORPROC glClearColor;
-PFNGLENABLEPROC glEnable;
-PFNGLDISABLEPROC glDisable;
-PFNGLGENBUFFERSPROC glGenBuffers;
-PFNGLBINDBUFFERPROC glBindBuffer;
-PFNGLBUFFERDATAPROC glBufferData;
-PFNGLGENVERTEXARRAYSPROC glGenVertexArrays;
-PFNGLBINDVERTEXARRAYPROC glBindVertexArray;
-PFNGLENABLEVERTEXATTRIBARRAYPROC glEnableVertexAttribArray;
-PFNGLVERTEXATTRIBPOINTERPROC glVertexAttribPointer;
-PFNGLCREATESHADERPROC glCreateShader;
-PFNGLSHADERSOURCEPROC glShaderSource;
-PFNGLCOMPILESHADERPROC glCompileShader;
-PFNGLGETSHADERIVPROC glGetShaderiv;
-PFNGLGETSHADERINFOLOGPROC glGetShaderInfoLog;
-PFNGLCREATEPROGRAMPROC glCreateProgram;
-PFNGLLINKPROGRAMPROC glLinkProgram;
-PFNGLATTACHSHADERPROC glAttachShader;
-PFNGLGETPROGRAMIVPROC glGetProgramiv;
-PFNGLGETPROGRAMINFOLOGPROC glGetProgramInfoLog;
-PFNGLUSEPROGRAMPROC glUseProgram;
-PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocation;
-PFNGLUNIFORM1IPROC glUniform1i;
-PFNGLUNIFORMMATRIX4FVPROC glUniformMatrix4fv;
-PFNGLGENTEXTURESPROC glGenTextures;
-PFNGLDELETETEXTURESPROC glDeleteTextures;
-PFNGLBINDTEXTUREPROC glBindTexture;
-PFNGLACTIVETEXTUREPROC glActiveTexture;
-PFNGLTEXIMAGE2DPROC glTexImage2D;
-PFNGLTEXPARAMETERIPROC glTexParameteri;
-PFNGLGENERATEMIPMAPPROC glGenerateMipmap;
-PFNGLDRAWELEMENTSINSTANCEDBASEVERTEXPROC glDrawElementsInstancedBaseVertex;
-PFNGLGENFRAMEBUFFERSPROC glGenFramebuffers;
-PFNGLDELETEFRAMEBUFFERSPROC glDeleteFramebuffers;
-PFNGLBINDFRAMEBUFFERPROC glBindFramebuffer;
-PFNGLFRAMEBUFFERTEXTUREPROC glFramebufferTexture;
-PFNGLBLITFRAMEBUFFERPROC glBlitFramebuffer;
-PFNGLDRAWBUFFERSPROC glDrawBuffers;
-PFNGLREADBUFFERPROC glReadBuffer;
+void CheckErrorGL()
+{
+    static PFNGLGETERRORPROC pfnglGetError = (PFNGLGETERRORPROC)SDL_GL_GetProcAddress("glGetError");
+    GLenum err = pfnglGetError();
+    const char* errmsg = NULL;
+    switch (err)
+    {
+    case GL_INVALID_ENUM: errmsg = "GL_INVALID_ENUM"; break;
+    case GL_INVALID_VALUE: errmsg = "GL_INVALID_VALUE"; break;
+    case GL_INVALID_OPERATION: errmsg = "GL_INVALID_OPERATION"; break;
+    case GL_STACK_OVERFLOW: errmsg = "GL_STACK_OVERFLOW"; break;
+    case GL_STACK_UNDERFLOW: errmsg = "GL_STACK_UNDERFLOW"; break;
+    case GL_OUT_OF_MEMORY: errmsg = "GL_OUT_OF_MEMORY"; break;
+    case GL_INVALID_FRAMEBUFFER_OPERATION: errmsg = "GL_INVALID_FRAMEBUFFER_OPERATION"; break;
+    case GL_CONTEXT_LOST: errmsg = "GL_CONTEXT_LOST"; break;
+    default: break;
+    }
+    if (errmsg != NULL)
+    {
+        fprintf(stderr, "OpenGL error: %s\n", errmsg);
+    }
+}
+
+template<class F> struct ProcGL;
+
+template<class F, class... Args>
+struct ProcGL<F(*)(Args...)>
+{
+public:
+    F(*fptr)(Args...);
+
+    F operator()(Args... args)
+    {
+        F f = fptr(args...);
+#ifdef _DEBUG
+        CheckErrorGL();
+#endif
+        return f;
+    }
+};
+
+template<class... Args>
+struct ProcGL<void(*)(Args...)>
+{
+public:
+    void(*fptr)(Args...);
+
+    void operator()(Args... args)
+    {
+        fptr(args...);
+#ifdef _DEBUG
+        CheckErrorGL();
+#endif
+    }
+};
+
+ProcGL<PFNGLGETINTEGERVPROC> glGetIntegerv;
+ProcGL<PFNGLGETSTRINGIPROC> glGetStringi;
+ProcGL<PFNGLCLEARPROC> glClear;
+ProcGL<PFNGLCLEARCOLORPROC> glClearColor;
+ProcGL<PFNGLENABLEPROC> glEnable;
+ProcGL<PFNGLDISABLEPROC> glDisable;
+ProcGL<PFNGLGENBUFFERSPROC> glGenBuffers;
+ProcGL<PFNGLBINDBUFFERPROC> glBindBuffer;
+ProcGL<PFNGLBUFFERDATAPROC> glBufferData;
+ProcGL<PFNGLGENVERTEXARRAYSPROC> glGenVertexArrays;
+ProcGL<PFNGLBINDVERTEXARRAYPROC> glBindVertexArray;
+ProcGL<PFNGLENABLEVERTEXATTRIBARRAYPROC> glEnableVertexAttribArray;
+ProcGL<PFNGLVERTEXATTRIBPOINTERPROC> glVertexAttribPointer;
+ProcGL<PFNGLCREATESHADERPROC> glCreateShader;
+ProcGL<PFNGLSHADERSOURCEPROC> glShaderSource;
+ProcGL<PFNGLCOMPILESHADERPROC> glCompileShader;
+ProcGL<PFNGLGETSHADERIVPROC> glGetShaderiv;
+ProcGL<PFNGLGETSHADERINFOLOGPROC> glGetShaderInfoLog;
+ProcGL<PFNGLCREATEPROGRAMPROC> glCreateProgram;
+ProcGL<PFNGLLINKPROGRAMPROC> glLinkProgram;
+ProcGL<PFNGLATTACHSHADERPROC> glAttachShader;
+ProcGL<PFNGLGETPROGRAMIVPROC> glGetProgramiv;
+ProcGL<PFNGLGETPROGRAMINFOLOGPROC> glGetProgramInfoLog;
+ProcGL<PFNGLUSEPROGRAMPROC> glUseProgram;
+ProcGL<PFNGLGETUNIFORMLOCATIONPROC> glGetUniformLocation;
+ProcGL<PFNGLUNIFORM1IPROC> glUniform1i;
+ProcGL<PFNGLUNIFORMMATRIX4FVPROC> glUniformMatrix4fv;
+ProcGL<PFNGLGENTEXTURESPROC> glGenTextures;
+ProcGL<PFNGLDELETETEXTURESPROC> glDeleteTextures;
+ProcGL<PFNGLBINDTEXTUREPROC> glBindTexture;
+ProcGL<PFNGLACTIVETEXTUREPROC> glActiveTexture;
+ProcGL<PFNGLTEXIMAGE2DPROC> glTexImage2D;
+ProcGL<PFNGLTEXPARAMETERIPROC> glTexParameteri;
+ProcGL<PFNGLGENERATEMIPMAPPROC> glGenerateMipmap;
+ProcGL<PFNGLDRAWELEMENTSINSTANCEDBASEVERTEXPROC> glDrawElementsInstancedBaseVertex;
+ProcGL<PFNGLGENFRAMEBUFFERSPROC> glGenFramebuffers;
+ProcGL<PFNGLDELETEFRAMEBUFFERSPROC> glDeleteFramebuffers;
+ProcGL<PFNGLBINDFRAMEBUFFERPROC> glBindFramebuffer;
+ProcGL<PFNGLFRAMEBUFFERTEXTUREPROC> glFramebufferTexture;
+ProcGL<PFNGLBLITFRAMEBUFFERPROC> glBlitFramebuffer;
+ProcGL<PFNGLDRAWBUFFERSPROC> glDrawBuffers;
+ProcGL<PFNGLREADBUFFERPROC> glReadBuffer;
 
 struct GLDrawElementsIndirectCommand
 {
@@ -194,10 +250,10 @@ void APIENTRY DebugCallbackGL(GLenum source, GLenum type, GLuint id, GLenum seve
 }
 
 template<class ProcT>
-void GetProcGL(ProcT& proc, const char* name)
+void GetProcGL(ProcGL<ProcT>& proc, const char* name)
 {
-    proc = reinterpret_cast<ProcT>(SDL_GL_GetProcAddress(name));
-    if (!proc)
+    proc.fptr = reinterpret_cast<ProcT>(SDL_GL_GetProcAddress(name));
+    if (!proc.fptr)
     {
         fprintf(stderr, "SDL_GL_GetProcAddress(%s): %s\n", name, SDL_GetError());
         exit(1);
@@ -264,7 +320,7 @@ void InitGL()
     {
         if (majorVersion > 4 || (majorVersion == 4 && minorVersion >= 3))
         {
-            PFNGLDEBUGMESSAGECALLBACKPROC glDebugMessageCallback;
+            ProcGL<PFNGLDEBUGMESSAGECALLBACKPROC> glDebugMessageCallback;
             GetProcGL(glDebugMessageCallback, "glDebugMessageCallback");
             glDebugMessageCallback(DebugCallbackGL, NULL);
             glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
@@ -276,7 +332,7 @@ void InitGL()
             const char* ext = (const char*)glGetStringi(GL_EXTENSIONS, i);
             if (strcmp(ext, "GL_ARB_debug_output") == 0)
             {
-                PFNGLDEBUGMESSAGECALLBACKARBPROC glDebugMessageCallbackARB;
+                ProcGL<PFNGLDEBUGMESSAGECALLBACKARBPROC> glDebugMessageCallbackARB;
                 GetProcGL(glDebugMessageCallbackARB, "glDebugMessageCallbackARB");
                 glDebugMessageCallbackARB(DebugCallbackGL, NULL);
                 glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
@@ -284,7 +340,7 @@ void InitGL()
             }
             else if (strcmp(ext, "GL_KHR_debug") == 0)
             {
-                PFNGLDEBUGMESSAGECALLBACKPROC glDebugMessageCallback;
+                ProcGL<PFNGLDEBUGMESSAGECALLBACKPROC> glDebugMessageCallback;
                 GetProcGL(glDebugMessageCallback, "glDebugMessageCallback");
                 glDebugMessageCallback(DebugCallbackGL, NULL);
                 glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
