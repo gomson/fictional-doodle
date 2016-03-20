@@ -10,7 +10,7 @@ uniform mat4 View;
 uniform mat4 ModelView;
 uniform mat4 ModelViewProjection;
 
-const vec4 kLightPosition = vec4(1000.0, 1000.0, 200.0, 1.0);
+const vec4 kLightPosition = vec4(200.0, 1000.0, 200.0, 1.0);
 
 out vec2 fTexCoord0;
 out vec3 fNormal;

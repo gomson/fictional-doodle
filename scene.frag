@@ -6,8 +6,8 @@ in vec3 fLight;
 
 uniform sampler2D Diffuse0;
 
-const float kA = 0.2;
-const float kD = 0.6;
+const float kA = 0.05;
+const float kD = 0.5;
 
 out vec3 FragColor;
 
