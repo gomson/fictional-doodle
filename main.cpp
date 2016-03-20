@@ -639,11 +639,17 @@ int main(int argc, char *argv[])
         windowDpiScaledHeight = int(windowDpiUnscaledHeight * vdpi / defaultDpi);
     }
 
+#ifdef __APPLE__
+    Uint32 windowFlags = SDL_WINDOW_OPENGL;
+#else
+    Uint32 windowFlags = SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI;
+#endif
+
     SDL_Window* window = SDL_CreateWindow(
         "fictional-doodle", 
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 
-        windowDpiScaledWidth, windowDpiScaledHeight, 
-        SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI);
+        windowDpiScaledWidth, windowDpiScaledHeight, windowFlags);
+
     if (!window)
     {
         fprintf(stderr, "SDL_CreateWindow: %s\n", SDL_GetError());
