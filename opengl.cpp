@@ -1,7 +1,7 @@
 #define OPENGL_IMPLEMENTATION
 #include "opengl.h"
 
-#include <SDL/SDL.h>
+#include <SDL.h>
 #include <GL/glcorearb.h>
 
 #include <vector>

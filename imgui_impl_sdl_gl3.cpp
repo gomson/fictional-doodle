@@ -8,11 +8,11 @@
 #include "imgui_impl_sdl_gl3.h"
 
 // SDL, GL
-#include <SDL/SDL.h>
+#include <SDL.h>
 
 // ~Special improvements for Windows~
 #ifdef _WIN32
-#include <SDL/SDL_syswm.h>
+#include <SDL_syswm.h>
 #endif
 
 #include "opengl.h"

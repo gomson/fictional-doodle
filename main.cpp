@@ -7,12 +7,12 @@
 #include <comdef.h>
 #endif
 
-#include <SDL/SDL.h>
+#include <SDL.h>
 #include <GL/glcorearb.h>
 
-#include <assimp/cimport.h>
-#include <assimp/scene.h>
-#include <assimp/postprocess.h>
+#include <cimport.h>
+#include <scene.h>
+#include <postprocess.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -641,11 +641,16 @@ int main(int argc, char *argv[])
         windowDpiScaledHeight = int(windowDpiUnscaledHeight * vdpi / defaultDpi);
     }
 
+    Uint32 windowFlags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
+#ifdef _WIN32
+    windowFlags |= SDL_WINDOW_ALLOW_HIGHDPI;
+#endif
+
     SDL_Window* window = SDL_CreateWindow(
-        "fictional-doodle", 
-        SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 
-        windowDpiScaledWidth, windowDpiScaledHeight, 
-        SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_RESIZABLE);
+        "fictional-doodle",
+        SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+        windowDpiScaledWidth, windowDpiScaledHeight,
+        windowFlags);
     if (!window)
     {
         fprintf(stderr, "SDL_CreateWindow: %s\n", SDL_GetError());
