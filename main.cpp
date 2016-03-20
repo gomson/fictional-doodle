@@ -35,6 +35,12 @@
 #include <functional>
 #include <algorithm>
 
+#ifdef _MSC_VER
+#define BREAKPOINT __debugbreak()
+#else
+#define BREAKPOINT asm("int $3")
+#endif
+
 void CheckErrorGL()
 {
     static PFNGLGETERRORPROC pfnglGetError = (PFNGLGETERRORPROC)SDL_GL_GetProcAddress("glGetError");
@@ -55,6 +61,7 @@ void CheckErrorGL()
     if (errmsg != NULL)
     {
         fprintf(stderr, "OpenGL error: %s\n", errmsg);
+        BREAKPOINT;
     }
 }
 
@@ -76,6 +83,7 @@ const char* FramebufferStatusToString(GLenum err)
     if (errmsg != NULL)
     {
         fprintf(stderr, "OpenGL error: %s\n", errmsg);
+        BREAKPOINT;
     }
     return errmsg;
 }
@@ -273,6 +281,10 @@ void APIENTRY DebugCallbackGL(GLenum source, GLenum type, GLuint id, GLenum seve
         id,
         DebugSeverityToString(severity),
         message);
+    if (severity != GL_DEBUG_SEVERITY_NOTIFICATION)
+    {
+        BREAKPOINT;
+    }
 }
 
 template<class ProcT>
