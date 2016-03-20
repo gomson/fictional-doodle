@@ -433,8 +433,15 @@ void ResizeGL(int windowWidth, int windowHeight, int drawableWidth, int drawable
 void InitScene()
 {
     // load scene
+#if 1
     std::string mtlpath = "assets/hellknight/";
-    const aiScene* scene = aiImportFile("assets/hellknight/hellknight.md5mesh", aiProcessPreset_TargetRealtime_MaxQuality);
+    std::string scenepath = "assets/hellknight/hellknight.md5mesh";
+#else
+    std::string mtlpath = "assets/teapot/";
+    std::string scenepath = "assets/teapot/teapot.obj";
+#endif
+
+    const aiScene* scene = aiImportFile(scenepath.c_str(), aiProcessPreset_TargetRealtime_MaxQuality);
     if (!scene)
     {
         fprintf(stderr, "aiImportFile: %s\n", aiGetErrorString());
@@ -488,7 +495,7 @@ void InitScene()
         GLuint texture;
         glGenTextures(1, &texture);
         glBindTexture(GL_TEXTURE_2D, texture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, img);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, img);
         glGenerateMipmap(GL_TEXTURE_2D);
         glBindTexture(GL_TEXTURE_2D, 0);
 
