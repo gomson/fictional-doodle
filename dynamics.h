@@ -26,10 +26,9 @@ void SimulateDynamics(
     float deltaTimeSeconds,
     const float* particleOldPositionXYZs, 
     const float* particleOldVelocityXYZs,
-    const float* particleOneOverMassXYZs,
+    const float* particleMasses,
     const float* particleExternalForceXYZs,
     int numParticles, int numIterations,
-    const Constraint* constraints,
-    int numConstraints,
+    const Constraint* constraints, int numConstraints,
     float* particleNewPositionXYZs, 
     float* particleNewVelocityXYZs);

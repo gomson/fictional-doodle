@@ -348,7 +348,7 @@ void InitScene()
             if (Scene::BoneIDs.find(boneName) == Scene::BoneIDs.end())
             {
                 glm::mat4 boneTransform = glm::transpose(glm::make_mat4(&bone->mOffsetMatrix.a1));
-                Scene::BoneIDs[boneName] = Scene::BoneTransforms.size();
+                Scene::BoneIDs[boneName] = (GLuint)Scene::BoneTransforms.size();
                 Scene::BoneTransforms.push_back(boneTransform);
             }
 
