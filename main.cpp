@@ -39,6 +39,7 @@
 #include <fstream>
 #include <functional>
 #include <algorithm>
+#include <unordered_map>
 
 namespace Renderer
 {
@@ -50,6 +51,8 @@ namespace Renderer
     bool GUIFocusEnabled;
 }
 
+#define NUM_BONES_PER_VERTEX 4
+
 namespace Scene
 {
     struct Vertex
@@ -60,6 +63,32 @@ namespace Scene
         glm::vec3 Tangent;
         glm::vec3 Bitangent;
     };
+
+    struct VertexBoneData
+    {
+        GLuint  BoneIDs[NUM_BONES_PER_VERTEX];
+        GLfloat Weights[NUM_BONES_PER_VERTEX];
+
+        void AddBone(GLuint boneID, GLfloat weight)
+        {
+            for (int i = 0; i < NUM_BONES_PER_VERTEX; i++)
+            {
+                if (Weights[i] == 0.0)
+                {
+                    Weights[i] = weight;
+                    BoneIDs[i] = boneID;
+                    break;
+                }
+            }
+        }
+    };
+
+    // Bones and weights for every vertex in scene
+    std::vector<VertexBoneData> VertexBones;
+    // Transformation for every bone in scene.
+    std::vector<glm::mat4> BoneTransforms;
+    // Bone indices by bone name.
+    std::unordered_map<std::string, GLuint> BoneIDs;
 
     // Geometry stuff
     GLuint VAO;
@@ -280,6 +309,9 @@ void InitScene()
     std::vector<Scene::Vertex> meshVertices(totalNumVertices);
     std::vector<glm::uvec3> meshIndices(totalNumIndices);
 
+    // allocate memory for vertex bones
+    Scene::VertexBones.resize(totalNumVertices);
+
     // read mesh geometry data
     for (int sceneMeshIdx = 0, currVertexIdx = 0, currIndexIdx = 0; sceneMeshIdx < (int)scene->mNumMeshes; sceneMeshIdx++)
     {
@@ -302,6 +334,29 @@ void InitScene()
         {
             meshIndices[currIndexIdx] = glm::make_vec3(&mesh->mFaces[faceIdx].mIndices[0]);
             currIndexIdx++;
+        }
+
+        for (int boneIdx = 0; boneIdx < (int)mesh->mNumBones; boneIdx++)
+        {
+            aiBone* bone = mesh->mBones[boneIdx];
+            std::string boneName(bone->mName.data);
+
+            // Create bone name to ID mapping if none exists.
+            if (Scene::BoneIDs.find(boneName) == Scene::BoneIDs.end())
+            {
+                glm::mat4 boneTransform = glm::transpose(glm::make_mat4(&bone->mOffsetMatrix.a1));
+                Scene::BoneIDs[boneName] = Scene::BoneTransforms.size();
+                Scene::BoneTransforms.push_back(boneTransform);
+            }
+
+            GLuint boneID = Scene::BoneIDs[boneName];
+
+            for (int weightIdx = 0; weightIdx < (int)bone->mNumWeights; weightIdx++)
+            {
+                aiVertexWeight& weight = bone->mWeights[weightIdx];
+                int vertexIdx = meshDraws[sceneMeshIdx].baseVertex + weight.mVertexId;
+                Scene::VertexBones[vertexIdx].AddBone(boneID, weight.mWeight);
+            }
         }
     }
 
