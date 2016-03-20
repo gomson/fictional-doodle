@@ -862,8 +862,8 @@ void PaintGL(SDL_Window* window, uint32_t dt_ticks)
     glBindFramebuffer(GL_READ_FRAMEBUFFER, Renderer::FBO);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); // default FBO
     glBlitFramebuffer(
-        0, 0, windowWidth, windowHeight,
         0, 0, drawableWidth, drawableHeight,
+        0, 0, windowWidth, windowHeight,
         GL_COLOR_BUFFER_BIT, GL_LINEAR);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
@@ -907,9 +907,11 @@ int main(int argc, char *argv[])
 #endif
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
+#ifndef __APPLE__
     // Enable multisampling
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
+#endif
 
     // Enable SRGB
     SDL_GL_SetAttribute(SDL_GL_FRAMEBUFFER_SRGB_CAPABLE, 1);
