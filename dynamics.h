@@ -21,7 +21,10 @@ typedef struct Constraint
     ConstraintType Type;
 } Constraint;
 
+#ifdef _MSC_VER
 extern "C"
+_declspec(dllexport)
+#endif
 void SimulateDynamics(
     float deltaTimeSeconds,
     const float* particleOldPositionXYZs, 
@@ -32,3 +35,5 @@ void SimulateDynamics(
     const Constraint* constraints, int numConstraints,
     float* particleNewPositionXYZs, 
     float* particleNewVelocityXYZs);
+
+using PFNSIMULATEDYNAMICSPROC = decltype(SimulateDynamics)*;

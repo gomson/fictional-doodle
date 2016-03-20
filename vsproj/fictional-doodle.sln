@@ -4,6 +4,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 VisualStudioVersion = 14.0.24720.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "fictional-doodle", "fictional-doodle.vcxproj", "{11319E2E-B676-4EFE-A17C-C93C2D4A83CB}"
+	ProjectSection(ProjectDependencies) = postProject
+		{1A0CF3AB-3F84-4AA0-AB80-F3BA013A9261} = {1A0CF3AB-3F84-4AA0-AB80-F3BA013A9261}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SimulateDynamics", "SimulateDynamics.vcxproj", "{1A0CF3AB-3F84-4AA0-AB80-F3BA013A9261}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +20,10 @@ Global
 		{11319E2E-B676-4EFE-A17C-C93C2D4A83CB}.Debug|x64.Build.0 = Debug|x64
 		{11319E2E-B676-4EFE-A17C-C93C2D4A83CB}.Release|x64.ActiveCfg = Release|x64
 		{11319E2E-B676-4EFE-A17C-C93C2D4A83CB}.Release|x64.Build.0 = Release|x64
+		{1A0CF3AB-3F84-4AA0-AB80-F3BA013A9261}.Debug|x64.ActiveCfg = Debug|x64
+		{1A0CF3AB-3F84-4AA0-AB80-F3BA013A9261}.Debug|x64.Build.0 = Debug|x64
+		{1A0CF3AB-3F84-4AA0-AB80-F3BA013A9261}.Release|x64.ActiveCfg = Release|x64
+		{1A0CF3AB-3F84-4AA0-AB80-F3BA013A9261}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -29,6 +29,7 @@
 
 # Incremental linker
 *.ilk
+*.exp
 
 # Debug database
 *.pdb

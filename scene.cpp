@@ -1,6 +1,7 @@
 #include "scene.h"
 
 #include "dynamics.h"
+#include "runtimecpp.h"
 
 // assimp includes
 #include <cimport.h>
@@ -425,7 +426,6 @@ void UpdateScene(Scene* scene, uint32_t dt_ms)
     {
         int relativeMouseX, relativeMouseY;
         SDL_GetRelativeMouseState(&relativeMouseX, &relativeMouseY);
-        printf("%d\n", scene->EnableCamera);
 
         const uint8_t* keyboardState = SDL_GetKeyboardState(NULL);
 
@@ -445,5 +445,23 @@ void UpdateScene(Scene* scene, uint32_t dt_ms)
             !scene->EnableCamera ? 0 : keyboardState[SDL_SCANCODE_Q]);
     }
 
-    SimulateDynamics(0, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, NULL);
+    static PFNSIMULATEDYNAMICSPROC pfnSimulateDynamics = NULL;
+
+#ifdef _MSC_VER
+    static RuntimeCpp runtimeSimulateDynamics(
+        L"SimulateDynamics.dll",
+        { "SimulateDynamics" }
+    );
+    if (PollDLLs(&runtimeSimulateDynamics))
+    {
+        runtimeSimulateDynamics.GetProc(pfnSimulateDynamics, "SimulateDynamics");
+    }
+#else
+    pfnSimulateDynamics = SimulateDynamics;
+#endif
+
+    if (pfnSimulateDynamics)
+    {
+        pfnSimulateDynamics(0, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, NULL);
+    }
 }

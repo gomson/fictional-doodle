@@ -5,6 +5,7 @@
 
 #include <memory>
 #include <vector>
+#include <cstdio>
 
 using glm::vec3;
 using glm::mat3;
