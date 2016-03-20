@@ -58,6 +58,28 @@ void CheckErrorGL()
     }
 }
 
+const char* FramebufferStatusToString(GLenum err)
+{
+    const char* errmsg = NULL;
+    switch (err)
+    {
+    case GL_FRAMEBUFFER_COMPLETE: errmsg = "GL_FRAMEBUFFER_COMPLETE"; break;
+    case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT: errmsg = "GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT"; break;
+    case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT: errmsg = "GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT"; break;
+    case GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER: errmsg = "GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER"; break;
+    case GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER: errmsg = "GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER"; break;
+    case GL_FRAMEBUFFER_UNSUPPORTED: errmsg = "GL_FRAMEBUFFER_UNSUPPORTED"; break;
+    case GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE: errmsg = "GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE"; break;
+    case GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS: errmsg = "GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS"; break;
+    default: break;
+    }
+    if (errmsg != NULL)
+    {
+        fprintf(stderr, "OpenGL error: %s\n", errmsg);
+    }
+    return errmsg;
+}
+
 template<class F> struct ProcGL;
 
 template<class F, class... Args>
@@ -123,6 +145,7 @@ ProcGL<PFNGLDELETETEXTURESPROC> glDeleteTextures;
 ProcGL<PFNGLBINDTEXTUREPROC> glBindTexture;
 ProcGL<PFNGLACTIVETEXTUREPROC> glActiveTexture;
 ProcGL<PFNGLTEXIMAGE2DPROC> glTexImage2D;
+ProcGL<PFNGLTEXIMAGE2DMULTISAMPLEPROC> glTexImage2DMultisample;
 ProcGL<PFNGLTEXPARAMETERIPROC> glTexParameteri;
 ProcGL<PFNGLGENERATEMIPMAPPROC> glGenerateMipmap;
 ProcGL<PFNGLDRAWELEMENTSINSTANCEDBASEVERTEXPROC> glDrawElementsInstancedBaseVertex;
@@ -131,6 +154,7 @@ ProcGL<PFNGLDELETEFRAMEBUFFERSPROC> glDeleteFramebuffers;
 ProcGL<PFNGLBINDFRAMEBUFFERPROC> glBindFramebuffer;
 ProcGL<PFNGLFRAMEBUFFERTEXTUREPROC> glFramebufferTexture;
 ProcGL<PFNGLBLITFRAMEBUFFERPROC> glBlitFramebuffer;
+ProcGL<PFNGLCHECKFRAMEBUFFERSTATUSPROC> glCheckFramebufferStatus;
 ProcGL<PFNGLDRAWBUFFERSPROC> glDrawBuffers;
 ProcGL<PFNGLREADBUFFERPROC> glReadBuffer;
 
@@ -296,6 +320,7 @@ void InitGL()
     GetProcGL(glBindTexture, "glBindTexture");
     GetProcGL(glActiveTexture, "glActiveTexture");
     GetProcGL(glTexImage2D, "glTexImage2D");
+    GetProcGL(glTexImage2DMultisample, "glTexImage2DMultisample");
     GetProcGL(glTexParameteri, "glTexParameteri");
     GetProcGL(glGenerateMipmap, "glGenerateMipmap");
     GetProcGL(glDrawElementsInstancedBaseVertex, "glDrawElementsInstancedBaseVertex");
@@ -304,6 +329,7 @@ void InitGL()
     GetProcGL(glBindFramebuffer, "glBindFramebuffer");
     GetProcGL(glFramebufferTexture, "glFramebufferTexture");
     GetProcGL(glBlitFramebuffer, "glBlitFramebuffer");
+    GetProcGL(glCheckFramebufferStatus, "glCheckFramebufferStatus");
     GetProcGL(glDrawBuffers, "glDrawBuffers");
     GetProcGL(glReadBuffer, "glReadBuffer");
 
@@ -355,22 +381,20 @@ void InitGL()
     }
 }
 
-void ResizeGL(int windowWidth, int windowHeight, int drawableWidth, int drawableHeight)
+void ResizeGL(int windowWidth, int windowHeight, int drawableWidth, int drawableHeight, int numSamples)
 {
     // Init rendertargets/depthstencils
     glDeleteTextures(1, &Renderer::ColorTexture);
     glGenTextures(1, &Renderer::ColorTexture);
-    glBindTexture(GL_TEXTURE_2D, Renderer::ColorTexture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, drawableWidth, drawableHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-    glBindTexture(GL_TEXTURE_2D, 0);
+    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, Renderer::ColorTexture);
+    glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, numSamples, GL_RGBA8, drawableWidth, drawableHeight, GL_TRUE);
+    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
 
     glDeleteTextures(1, &Renderer::DepthTexture);
     glGenTextures(1, &Renderer::DepthTexture);
-    glBindTexture(GL_TEXTURE_2D, Renderer::DepthTexture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, drawableWidth, drawableHeight, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-    glBindTexture(GL_TEXTURE_2D, 0);
+    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, Renderer::DepthTexture);
+    glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, numSamples, GL_DEPTH_COMPONENT32F, drawableWidth, drawableHeight, GL_TRUE);
+    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
 
     // Init framebuffer
     glDeleteFramebuffers(1, &Renderer::FBO);
@@ -382,6 +406,13 @@ void ResizeGL(int windowWidth, int windowHeight, int drawableWidth, int drawable
     glDrawBuffers(sizeof(drawBufs) / sizeof(*drawBufs), &drawBufs[0]);
     glReadBuffer(GL_COLOR_ATTACHMENT0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    GLenum fboStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    if (fboStatus != GL_FRAMEBUFFER_COMPLETE)
+    {
+        fprintf(stderr, "Framebuffer status error: %s\n", FramebufferStatusToString(fboStatus));
+        exit(1);
+    }
 }
 
 void InitScene()
@@ -726,7 +757,10 @@ void PaintGL(SDL_Window* window, uint32_t dt_ticks)
                 int windowWidth, windowHeight;
                 SDL_GetWindowSize(window, &windowWidth, &windowHeight);
 
-                ResizeGL(windowWidth, windowHeight, drawableWidth, drawableHeight);
+                int numSamples;
+                SDL_GL_GetAttribute(SDL_GL_MULTISAMPLESAMPLES, &numSamples);
+
+                ResizeGL(windowWidth, windowHeight, drawableWidth, drawableHeight, numSamples);
             }
         }
     }
@@ -892,7 +926,10 @@ int main(int argc, char *argv[])
         int windowWidth, windowHeight;
         SDL_GetWindowSize(window, &windowWidth, &windowHeight);
 
-        ResizeGL(windowWidth, windowHeight, drawableWidth, drawableHeight);
+        int numSamples;
+        SDL_GL_GetAttribute(SDL_GL_MULTISAMPLESAMPLES, &numSamples);
+
+        ResizeGL(windowWidth, windowHeight, drawableWidth, drawableHeight, numSamples);
     }
 
     InitScene();
