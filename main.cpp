@@ -805,7 +805,7 @@ void PaintGL(SDL_Window* window, uint32_t dt_ticks)
 
     int windowWidth, windowHeight;
     SDL_GetWindowSize(window, &windowWidth, &windowHeight);
-    glm::mat4 projection = glm::perspective(70.0f, (float)windowWidth / windowHeight, 0.01f, 1000.0f);
+    glm::mat4 projection = glm::perspective(70.0f, (float)drawableWidth / drawableHeight, 0.01f, 1000.0f);
     glm::mat4 worldView = glm::translate(glm::mat4(cameraRotation), -Scene::CameraPosition);
     glm::mat4 worldViewProjection = projection * worldView;
 
