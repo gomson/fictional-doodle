@@ -499,6 +499,8 @@ void PaintRenderer(SDL_Window* window, uint32_t dt_ticks)
     {
         glBindFramebuffer(GL_FRAMEBUFFER, Renderer::BackbufferFBO);
 
+        glViewport(0, 0, drawableWidth, drawableHeight);
+
         // Clear color is already SRGB encoded, so don't enable GL_FRAMEBUFFER_SRGB before it.
         glClearColor(100.0f / 255.0f, 149.0f / 255.0f, 237.0f / 255.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -643,7 +645,7 @@ int main(int argc, char *argv[])
         "fictional-doodle", 
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 
         windowDpiScaledWidth, windowDpiScaledHeight, 
-        SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI);
+        SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_RESIZABLE);
     if (!window)
     {
         fprintf(stderr, "SDL_CreateWindow: %s\n", SDL_GetError());
@@ -733,9 +735,23 @@ int main(int argc, char *argv[])
                 if (ev.key.keysym.sym == SDLK_ESCAPE)
                 {
                     Renderer::GUIFocusEnabled = !Renderer::GUIFocusEnabled;
+                    updateGuiFocus();
                 }
-
-                updateGuiFocus();
+                else if (ev.key.keysym.sym == SDLK_RETURN)
+                {
+                    if (ev.key.keysym.mod & KMOD_ALT)
+                    {
+                        Uint32 wflags = SDL_GetWindowFlags(window);
+                        if (wflags & SDL_WINDOW_FULLSCREEN_DESKTOP)
+                        {
+                            SDL_SetWindowFullscreen(window, 0);
+                        }
+                        else
+                        {
+                            SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+                        }
+                    }
+                }
             }
         }
 
