@@ -73,4 +73,4 @@ struct Scene
 
 void InitScene(Scene* scene);
 
-void UpdateScene(Scene* scene, uint32_t deltaTicks);
+void UpdateScene(Scene* scene, uint32_t deltaMilliseconds);

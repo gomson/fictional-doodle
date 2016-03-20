@@ -413,10 +413,9 @@ void InitScene(Scene* scene)
     scene->EnableCamera = true;
 }
 
-void UpdateScene(Scene* scene, uint32_t deltaTicks)
+void UpdateScene(Scene* scene, uint32_t dt_ms)
 {
-#pragma message("what")
-    float dt = deltaTicks * 60 / 1000.0f;
+    float dt_s = dt_ms / 1000.0f;
 
     // for testing the gui
     ImGui::ShowTestWindow();
@@ -435,7 +434,7 @@ void UpdateScene(Scene* scene, uint32_t deltaTicks)
             glm::value_ptr(scene->CameraQuaternion),
             glm::value_ptr(scene->CameraRotation),
             0.10f,
-            1.0f * dt,
+            60.0f * dt_s,
             !scene->EnableCamera ? 0 : relativeMouseX,
             !scene->EnableCamera ? 0 : relativeMouseY,
             !scene->EnableCamera ? 0 : keyboardState[SDL_SCANCODE_W],
