@@ -9,7 +9,12 @@
 
 // SDL, GL
 #include <SDL/SDL.h>
+
+// ~Special improvements for Windows~
+#ifdef _WIN32
 #include <SDL/SDL_syswm.h>
+#endif
+
 #include "opengl.h"
 
 // Data

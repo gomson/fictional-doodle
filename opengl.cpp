@@ -1,13 +1,10 @@
-#include <vector>
-
 #define OPENGL_IMPLEMENTATION
 #include "opengl.h"
-
-#pragma once
 
 #include <SDL/SDL.h>
 #include <GL/glcorearb.h>
 
+#include <vector>
 #include <cstdio>
 
 #ifdef _MSC_VER
