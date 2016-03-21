@@ -39,3 +39,6 @@ Thumbs.db
 
 # ImGui
 imgui.ini
+
+# Makefile build directory
+.build
