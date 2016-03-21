@@ -1,11 +1,12 @@
 #include "dynamics.h"
 
-#include <glm/glm.hpp>
+#include <glm/vec3.hpp>
+#include <glm/mat3x3.hpp>
 #include <glm/gtx/matrix_cross_product.hpp>
 
-#include <memory>
 #include <vector>
 #include <cstdio>
+#include <cassert>
 
 using glm::vec3;
 using glm::mat3;
@@ -82,12 +83,44 @@ static void generateCollisionConstraints(
 
 }
 
-static void projectConstraints(
-    const Constraint* cs, int nc,
-    const Constraint* colls, int ncoll,
-    const vec3* ps, const float* ws, int np)
+// Want to solve dp (delta p) that maintains the constraint
+// euler integration: C(p + dp) ~= C(p) + dC/dp(p) * dp
+// do a bunch of math and you end up with:
+//  dp[i] = -s * w[i] * dC/dp[i](p1,...,pn)
+// where s = C(p1,...,pn) / sum_j(w[j] * lengthSquared(dC/dp[j](p1,...,pn)))
+static void projectConstraint(
+    const Constraint* c,
+    const float* ws, int np,
+    vec3* ps)
 {
+    if (c->Func == CONSTRAINT_FUNC_DISTANCE)
+    {
+        assert(c->NumParticles == 2);
+        int i0 = c->ParticleIDs[0];
+        int i1 = c->ParticleIDs[1];
 
+        if (c->Type == CONSTRAINT_TYPE_EQUALITY)
+        {
+            // C(p1, p2) = length(p1 - p2) - d = 0
+            float w0 = ws[i0];
+            float w1 = ws[i1];
+            vec3 p1_to_p0 = ps[i1] - ps[i0];
+            float p1_to_p0_len = length(p1_to_p0);
+            vec3 p1_to_p0_dir = p1_to_p0_len > 0.0f ? p1_to_p0 / p1_to_p0_len : vec3(0.0f);
+            vec3 dp0 = -(w0 / (w0 + w1)) * (p1_to_p0 - c->Distance * p1_to_p0_dir);
+            vec3 dp1 = +(w1 / (w0 + w1)) * (p1_to_p0 - c->Distance * p1_to_p0_dir);
+            ps[i0] += dp0;
+            ps[i1] += dp1;
+        }
+        else
+        {
+            assert(false && "Unhandled constraint type");
+        }
+    }
+    else
+    {
+        assert(false && "Unhandled constraint function");
+    }
 }
 
 // The velocity of each vertex for which a collision constraint
@@ -138,13 +171,13 @@ void SimulateDynamics(
     vec3* xs = (vec3*)&xs_f[0];
     vec3* vs = (vec3*)&vs_f[0];
 
-    std::unique_ptr<float[]> ws(new float[np]);
+    float* ws = new float[np];
     for (int i = 0; i < np; i++)
     {
         ws[i] = 1.0f / ms[i];
     }
 
-    std::unique_ptr<float[]> ps_f(new float[np]);
+    float* ps_f = new float[np];
     vec3* ps = (vec3*)&ps_f[0];
 
     std::vector<ParticleCollision> pcs;
@@ -178,7 +211,14 @@ void SimulateDynamics(
 
     for (int iter = 0; iter < ni; iter++)
     {
-        projectConstraints(&cs[0], nc, &coll_cs[0], (int)coll_cs.size(), &ps[0], &ws[0], np);
+        for (int i = 0; i < nc; i++)
+        {
+            projectConstraint(&cs[i], &ws[0], np, &ps[0]);
+        }
+        for (int i = 0; i < (int)coll_cs.size(); i++)
+        {
+            projectConstraint(&coll_cs[0], &ws[0], np, &ps[0]);
+        }
     }
 
     for (int i = 0; i < np; i++)
@@ -188,4 +228,7 @@ void SimulateDynamics(
     }
 
     velocityUpdate(&pcs[0], (int)pcs.size(), &vs[0]);
+
+    delete[] ps_f;
+    delete[] ws;
 }

@@ -4,6 +4,7 @@
 
 typedef enum ConstraintFunc
 {
+    CONSTRAINT_FUNC_DISTANCE
 } ConstraintFunc;
 
 typedef enum ConstraintType
@@ -19,6 +20,9 @@ typedef struct Constraint
     int* ParticleIDs;
     float Stiffness;
     ConstraintType Type;
+
+    // Rest length for distance constraints
+    float Distance;
 } Constraint;
 
 #ifdef _MSC_VER
@@ -27,13 +31,13 @@ _declspec(dllexport)
 #endif
 void SimulateDynamics(
     float deltaTimeSeconds,
-    const float* particleOldPositionXYZs, 
+    const float* particleOldPositionXYZs,
     const float* particleOldVelocityXYZs,
     const float* particleMasses,
     const float* particleExternalForceXYZs,
     int numParticles, int numIterations,
     const Constraint* constraints, int numConstraints,
-    float* particleNewPositionXYZs, 
+    float* particleNewPositionXYZs,
     float* particleNewVelocityXYZs);
 
 using PFNSIMULATEDYNAMICSPROC = decltype(SimulateDynamics)*;
