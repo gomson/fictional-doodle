@@ -34,6 +34,8 @@ struct Scene
 
     // Animation stuff
     GLuint BoneVBO;
+    GLuint BoneTBO;
+    GLuint BoneTex;
 
     // Geometry stuff
     GLuint VAO;
@@ -61,6 +63,7 @@ struct Scene
     GLint MVLoc;
     GLint MVPLoc;
     GLint Diffuse0Loc;
+    GLint BoneTransformsLoc;
 
     // Camera stuff
     glm::vec3 CameraPosition;

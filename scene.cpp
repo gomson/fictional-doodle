@@ -252,6 +252,17 @@ void LoadScene(Scene* scene)
     glBufferData(GL_ARRAY_BUFFER, scene->VertexBones.size() * sizeof(scene->VertexBones[0]), scene->VertexBones.data(), GL_STATIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
+    // Create texture buffer for skinning transformation
+    glGenBuffers(1, &scene->BoneTBO);
+    glBindBuffer(GL_TEXTURE_BUFFER, scene->BoneTBO);
+    glBindBuffer(GL_TEXTURE_BUFFER, 0);
+
+    // Create texture and attach buffer object to texture
+    glGenTextures(1, &scene->BoneTex);
+    glBindTexture(GL_TEXTURE_BUFFER, scene->BoneTex);
+    glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32F, scene->BoneTBO);
+    glBindTexture(GL_TEXTURE_BUFFER, 0);
+
     // Setup VAO
     glGenVertexArrays(1, &scene->VAO);
     glBindVertexArray(scene->VAO);
@@ -267,7 +278,7 @@ void LoadScene(Scene* scene)
 
     // Vertex bone weights
     glBindBuffer(GL_ARRAY_BUFFER, scene->BoneVBO);
-    glVertexAttribPointer(5, 4, GL_UNSIGNED_INT, GL_FALSE, sizeof(VertexWeights), (GLvoid*)offsetof(VertexWeights, BoneIDs));
+    glVertexAttribIPointer(5, 4, GL_UNSIGNED_BYTE, sizeof(VertexWeights), (GLvoid*)offsetof(VertexWeights, BoneIDs));
     glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(VertexWeights), (GLvoid*)offsetof(VertexWeights, Weights));
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
@@ -320,6 +331,11 @@ void LoadScene(Scene* scene)
     addNode(aiscene->mRootNode, glm::mat4());
 
     aiReleaseImport(aiscene);
+
+    // Upload initial skinning transformations
+    glBindBuffer(GL_TEXTURE_BUFFER, scene->BoneTBO);
+    glBufferData(GL_TEXTURE_BUFFER, scene->BoneSkinningTransforms.size() * sizeof(scene->BoneSkinningTransforms[0]), scene->BoneSkinningTransforms.data(), GL_DYNAMIC_DRAW);
+    glBindBuffer(GL_TEXTURE_BUFFER, 0);
 
     // Build shaders
     const char* vsrc, *fsrc;
@@ -416,6 +432,12 @@ void LoadScene(Scene* scene)
     {
         fprintf(stderr, "Couldn't find Diffuse0 uniform\n");
         exit(1);
+    }
+
+    scene->BoneTransformsLoc = glGetUniformLocation(scene->SP, "BoneTransforms");
+    if (scene->BoneTransformsLoc == -1)
+    {
+        fprintf(stderr, "Couldn't find BoneTransforms uniform\n");
     }
 }
 
