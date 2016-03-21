@@ -454,16 +454,20 @@ void UpdateSceneDynamics(Scene* scene, uint32_t dt_ms)
     int numConstraints = (int)constraints.size();
 
     float dt_s = dt_ms / 1000.0f;
-    pfnSimulateDynamics(
-        dt_s,
-        (float*)data(oldPositions),
-        (float*)data(oldVelocities),
-        (float*)data(masses),
-        (float*)data(externalForces),
-        numParticles, DEFAULT_DYNAMICS_NUM_ITERATIONS,
-        data(constraints), numConstraints,
-        (float*)data(newPositions),
-        (float*)data(newVelocities));
+
+    if (numParticles > 0)
+    {
+        pfnSimulateDynamics(
+            dt_s,
+            (float*)oldPositions.data(),
+            (float*)oldVelocities.data(),
+            (float*)masses.data(),
+            (float*)externalForces.data(),
+            numParticles, DEFAULT_DYNAMICS_NUM_ITERATIONS,
+            numConstraints == 0 ? NULL : constraints.data(), numConstraints,
+            (float*)newPositions.data(),
+            (float*)newVelocities.data());
+    }
 
     // swap buffers
     scene->BoneDynamicsBackBufferIndex = (scene->BoneDynamicsBackBufferIndex + 1) % scene->NUM_BONE_DYNAMICS_BUFFERS;
