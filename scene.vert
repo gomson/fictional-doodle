@@ -21,15 +21,9 @@ out vec3 fLight;
 
 void main()
 {
-    // Compute view space positions.
-    vec4 viewSpacePosition = ModelView * Position;
-    vec4 viewSpaceLightPosition = View * kLightPosition;
-
-    // Compute fragment shader input.
-    fLight = viewSpaceLightPosition.xyz - viewSpacePosition.xyz;
-    fNormal = mat3(ModelView) * Normal;
     fTexCoord0 = TexCoord0;
 
+    // TODO: Use transform feedback to skin separately.
     mat4 skinningTransform = mat4(0.0);
 
     for (int i = 0; i < 4; i++)
@@ -45,5 +39,15 @@ void main()
         skinningTransform += Weights[i] * boneTransform;
     }
 
-    gl_Position = ModelViewProjection * skinningTransform * Position;
+    vec4 skinnedPosition = skinningTransform * Position;
+    vec4 viewSpacePosition = ModelView * skinnedPosition;
+    vec4 viewSpaceLightPosition = View * kLightPosition;
+
+    fLight = viewSpaceLightPosition.xyz - viewSpacePosition.xyz;
+
+    vec3 skinnedNormal = mat3(skinningTransform) * Normal;
+
+    fNormal = mat3(ModelView) * skinnedNormal;
+
+    gl_Position = ModelViewProjection * skinnedPosition;
 }
