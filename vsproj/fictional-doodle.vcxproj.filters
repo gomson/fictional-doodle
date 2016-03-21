@@ -16,6 +16,7 @@
     <ClCompile Include="..\scene.cpp" />
     <ClCompile Include="..\renderer.cpp" />
     <ClCompile Include="..\runtimecpp.cpp" />
+    <ClCompile Include="..\shaderreloader.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\scene.frag" />
@@ -48,5 +49,6 @@
     <ClInclude Include="..\renderer.h" />
     <ClInclude Include="..\dynamics.h" />
     <ClInclude Include="..\runtimecpp.h" />
+    <ClInclude Include="..\shaderreloader.h" />
   </ItemGroup>
 </Project>

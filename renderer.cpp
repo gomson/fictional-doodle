@@ -61,6 +61,11 @@ void PaintRenderer(
     SDL_Window* window, 
     Scene* scene)
 {
+    if (!scene->AllShadersOK)
+    {
+        return;
+    }
+
     int drawableWidth, drawableHeight;
     SDL_GL_GetDrawableSize(window, &drawableWidth, &drawableHeight);
 
@@ -84,9 +89,9 @@ void PaintRenderer(
         glEnable(GL_DEPTH_TEST);
 
         glBindVertexArray(scene->VAO);
-        glUseProgram(scene->SP);
+        glUseProgram(scene->SceneSP.Handle);
 
-        glUniform1i(scene->Diffuse0Loc, 0);
+        glUniform1i(scene->SceneSP_Diffuse0Loc, 0);
 
         for (int drawIdx = 0; drawIdx < (int)scene->NodeDrawCmds.size(); drawIdx++)
         {
@@ -96,9 +101,9 @@ void PaintRenderer(
 
             glm::mat4 mv = worldView * scene->NodeModelWorldTransforms[drawIdx];
             glm::mat4 mvp = worldViewProjection * scene->NodeModelWorldTransforms[drawIdx];
-            glUniformMatrix4fv(scene->ViewLoc, 1, GL_FALSE, glm::value_ptr(worldView));
-            glUniformMatrix4fv(scene->MVLoc, 1, GL_FALSE, glm::value_ptr(mv));
-            glUniformMatrix4fv(scene->MVPLoc, 1, GL_FALSE, glm::value_ptr(mvp));
+            glUniformMatrix4fv(scene->SceneSP_ViewLoc, 1, GL_FALSE, glm::value_ptr(worldView));
+            glUniformMatrix4fv(scene->SceneSP_MVLoc, 1, GL_FALSE, glm::value_ptr(mv));
+            glUniformMatrix4fv(scene->SceneSP_MVPLoc, 1, GL_FALSE, glm::value_ptr(mvp));
 
             int materialID = scene->NodeMaterialIDs[drawIdx];
             int diffuseTexture0Index = scene->MaterialDiffuse0TextureIndex[materialID];

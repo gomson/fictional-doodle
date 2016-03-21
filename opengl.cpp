@@ -125,7 +125,8 @@ void APIENTRY DebugCallbackGL(GLenum source, GLenum type, GLuint id, GLenum seve
         id,
         DebugSeverityToStringGL(severity),
         message);
-    if (severity != GL_DEBUG_SEVERITY_NOTIFICATION)
+    if (severity != GL_DEBUG_SEVERITY_NOTIFICATION &&
+        source != GL_DEBUG_SOURCE_SHADER_COMPILER)
     {
         BREAKPOINT;
     }

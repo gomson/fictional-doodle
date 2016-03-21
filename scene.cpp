@@ -305,108 +305,13 @@ void LoadScene(Scene* scene)
     addNode(aiscene->mRootNode, glm::mat4());
 
     aiReleaseImport(aiscene);
-
-    // Build shaders
-    const char* vsrc, *fsrc;
-    GLint compileStatus, linkStatus;
-
-    std::ifstream vsrcifs("scene.vert");
-    if (!vsrcifs)
-    {
-        fprintf(stderr, "Couldn't open scene.vert\n");
-        exit(1);
-    }
-    std::string vsrcs(
-        std::istreambuf_iterator<char>{vsrcifs},
-        std::istreambuf_iterator<char>{});
-    vsrc = vsrcs.c_str();
-
-    std::ifstream fsrcifs("scene.frag");
-    if (!fsrcifs)
-    {
-        fprintf(stderr, "Couldn't open scene.frag\n");
-        exit(1);
-    }
-    std::string fsrcs(
-        std::istreambuf_iterator<char>{fsrcifs},
-        std::istreambuf_iterator<char>{});
-    fsrc = fsrcs.c_str();
-
-    scene->VS = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(scene->VS, 1, &vsrc, NULL);
-    glCompileShader(scene->VS);
-    glGetShaderiv(scene->VS, GL_COMPILE_STATUS, &compileStatus);
-    if (!compileStatus)
-    {
-        GLint logLength;
-        glGetShaderiv(scene->VS, GL_INFO_LOG_LENGTH, &logLength);
-        std::vector<GLchar> log(logLength + 1);
-        glGetShaderInfoLog(scene->VS, (GLsizei)log.size(), NULL, log.data());
-        fprintf(stderr, "Error compiling vertex shader: %s\n", log.data());
-        exit(1);
-    }
-
-    scene->FS = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(scene->FS, 1, &fsrc, NULL);
-    glCompileShader(scene->FS);
-    glGetShaderiv(scene->FS, GL_COMPILE_STATUS, &compileStatus);
-    if (!compileStatus)
-    {
-        GLint logLength;
-        glGetShaderiv(scene->FS, GL_INFO_LOG_LENGTH, &logLength);
-        std::vector<GLchar> log(logLength + 1);
-        glGetShaderInfoLog(scene->FS, (GLsizei)log.size(), NULL, log.data());
-        fprintf(stderr, "Error compiling fragment shader: %s\n", log.data());
-        exit(1);
-    }
-
-    scene->SP = glCreateProgram();
-    glAttachShader(scene->SP, scene->VS);
-    glAttachShader(scene->SP, scene->FS);
-    glLinkProgram(scene->SP);
-    glGetProgramiv(scene->SP, GL_LINK_STATUS, &linkStatus);
-    if (!linkStatus)
-    {
-        GLint logLength;
-        glGetProgramiv(scene->SP, GL_INFO_LOG_LENGTH, &logLength);
-        std::vector<GLchar> log(logLength + 1);
-        glGetProgramInfoLog(scene->SP, (GLsizei)log.size(), NULL, log.data());
-        fprintf(stderr, "Error linking program: %s\n", log.data());
-        exit(1);
-    }
-
-    scene->ViewLoc = glGetUniformLocation(scene->SP, "View");
-    if (scene->ViewLoc == -1)
-    {
-        fprintf(stderr, "Couldn't find View uniform\n");
-        exit(1);
-    }
-
-    scene->MVLoc = glGetUniformLocation(scene->SP, "ModelView");
-    if (scene->MVLoc == -1)
-    {
-        fprintf(stderr, "Couldn't find ModelView uniform\n");
-        exit(1);
-    }
-
-    scene->MVPLoc = glGetUniformLocation(scene->SP, "ModelViewProjection");
-    if (scene->MVPLoc == -1)
-    {
-        fprintf(stderr, "Couldn't find ModelViewProjection uniform\n");
-        exit(1);
-    }
-
-    scene->Diffuse0Loc = glGetUniformLocation(scene->SP, "Diffuse0");
-    if (scene->Diffuse0Loc == -1)
-    {
-        fprintf(stderr, "Couldn't find Diffuse0 uniform\n");
-        exit(1);
-    }
 }
 
 void InitScene(Scene* scene)
 {
     LoadScene(scene);
+
+    scene->AllShadersOK = false;
 
     // initial camera position
     scene->CameraPosition = glm::vec3(100, 100, 100);
@@ -414,8 +319,58 @@ void InitScene(Scene* scene)
     scene->EnableCamera = true;
 }
 
+static void ReloadShaders(Scene* scene)
+{
+    // Convenience functions to make things more concise
+    GLuint sp;
+    bool programZero = false;
+    auto reload = [&sp, &programZero](ReloadableProgram* program)
+    {
+        bool newProgram = ReloadProgram(program);
+        sp = program->Handle;
+        if (sp == 0) programZero = true;
+        return newProgram;
+    };
+
+    auto getU = [&sp](GLint* result, const char* name)
+    {
+        *result = glGetUniformLocation(sp, name);
+        if (*result == -1)
+        {
+            fprintf(stderr, "Couldn't find uniform %s\n", name);
+        }
+        return *result == -1;
+    };
+
+    scene->AllShadersOK = false;
+
+    // Reload shaders & uniforms
+    if (reload(&scene->SceneSP))
+    {
+        if (getU(&scene->SceneSP_ViewLoc, "View") ||
+            getU(&scene->SceneSP_MVLoc, "ModelView") ||
+            getU(&scene->SceneSP_MVPLoc, "ModelViewProjection") ||
+            getU(&scene->SceneSP_Diffuse0Loc, "Diffuse0"))
+        {
+            return;
+        }
+    }
+
+    if (!programZero)
+    {
+        scene->AllShadersOK = true;
+    }
+}
+
 void UpdateScene(Scene* scene, uint32_t dt_ms)
 {
+    ReloadShaders(scene);
+    
+    if (!scene->AllShadersOK)
+    {
+        return;
+    }
+
     float dt_s = dt_ms / 1000.0f;
 
     // for testing the gui

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "opengl.h"
+#include "shaderreloader.h"
 
 #include <glm/glm.hpp>
 
@@ -55,13 +56,15 @@ struct Scene
     std::vector<int> NodeMaterialIDs;
 
     // Shader stuff
-    GLuint SP;
-    GLuint VS;
-    GLuint FS;
-    GLint ViewLoc;
-    GLint MVLoc;
-    GLint MVPLoc;
-    GLint Diffuse0Loc;
+    ReloadableShader SceneVS{ "scene.vert" };
+    ReloadableShader SceneFS{ "scene.frag" };
+    ReloadableProgram SceneSP{ &SceneVS, &SceneFS };
+    GLint SceneSP_ViewLoc;
+    GLint SceneSP_MVLoc;
+    GLint SceneSP_MVPLoc;
+    GLint SceneSP_Diffuse0Loc;
+
+    bool AllShadersOK;
 
     // Camera stuff
     glm::vec3 CameraPosition;

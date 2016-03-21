@@ -98,6 +98,7 @@ xcopy /d /y "$(SolutionDir)lib\assimp.dll" "$(OutDir)"</Command>
     <ClCompile Include="..\renderer.cpp" />
     <ClCompile Include="..\runtimecpp.cpp" />
     <ClCompile Include="..\scene.cpp" />
+    <ClCompile Include="..\shaderreloader.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\scene.frag" />
@@ -115,6 +116,7 @@ xcopy /d /y "$(SolutionDir)lib\assimp.dll" "$(OutDir)"</Command>
     <ClInclude Include="..\renderer.h" />
     <ClInclude Include="..\runtimecpp.h" />
     <ClInclude Include="..\scene.h" />
+    <ClInclude Include="..\shaderreloader.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
