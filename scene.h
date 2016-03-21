@@ -10,6 +10,8 @@
 #include <vector>
 #include <unordered_map>
 
+struct SDL_Window;
+
 struct SceneVertex
 {
     glm::vec3 Position;
@@ -41,6 +43,11 @@ struct Scene
 
     // How the bone is animated
     std::vector<BoneControlMode> BoneControls;
+
+    // Animation sequences
+    std::vector<std::string> AnimSequenceNames;
+    // The currently playing animation sequence
+    int CurrAnimSequence;
 
     // Positions/velocities of the last update for dynamics animation
     int BoneDynamicsBackBufferIndex;
@@ -93,4 +100,4 @@ struct Scene
 
 void InitScene(Scene* scene);
 
-void UpdateScene(Scene* scene, uint32_t deltaMilliseconds);
+void UpdateScene(Scene* scene, SDL_Window* window, uint32_t deltaMilliseconds);

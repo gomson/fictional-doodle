@@ -140,6 +140,7 @@ void InitGL()
 {
     GetProcGL(glGetIntegerv, "glGetIntegerv");
     GetProcGL(glGetStringi, "glGetStringi");
+    GetProcGL(glGetString, "glGetString");
     GetProcGL(glClear, "glClear");
     GetProcGL(glClearColor, "glClearColor");
     GetProcGL(glEnable, "glEnable");

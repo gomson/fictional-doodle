@@ -29,14 +29,32 @@
 void LoadScene(Scene* scene)
 {
 #if 1
-    std::string mtlpath = "assets/hellknight/";
-    std::string scenepath = "assets/hellknight/hellknight.md5mesh";
+    std::string scenepath = "assets/hellknight/";
+    std::string modelname = "hellknight.md5mesh";
+    std::vector<std::string> animnames{
+        "attack3.md5anim",
+        "chest.md5anim",
+        "headpain.md5anim",
+        "idle2.md5anim",
+        "leftslash.md5anim",
+        "pain_luparm.md5anim",
+        "pain_ruparm.md5anim",
+        "pain1.md5anim",
+        "range_attack2.md5anim",
+        "roar1.md5anim",
+        "stand.md5anim",
+        "turret_attack.md5anim",
+        "walk7.md5anim",
+        "walk7_left.md5anim"
+    };
 #else
-    std::string mtlpath = "assets/teapot/";
-    std::string scenepath = "assets/teapot/teapot.obj";
+    std::string scenepath = "assets/teapot/";
+    std::string modelname = "teapot.obj";
+    std::vector<std::string> animnames;
 #endif
 
-    const aiScene* aiscene = aiImportFile(scenepath.c_str(), aiProcessPreset_TargetRealtime_MaxQuality);
+    std::string modelpath = scenepath + modelname;
+    const aiScene* aiscene = aiImportFile(modelpath.c_str(), aiProcessPreset_TargetRealtime_MaxQuality);
     if (!aiscene)
     {
         fprintf(stderr, "aiImportFile: %s\n", aiGetErrorString());
@@ -79,11 +97,11 @@ void LoadScene(Scene* scene)
     {
         int width, height, comp;
         stbi_set_flip_vertically_on_load(1); // because GL
-        std::string fullpath = mtlpath + diffuseTexturesToLoad[textureIdx].data;
+        std::string fullpath = scenepath + diffuseTexturesToLoad[textureIdx].data;
         stbi_uc* img = stbi_load(fullpath.c_str(), &width, &height, &comp, 4);
         if (!img)
         {
-            fprintf(stderr, "stbi_load: %s\n", stbi_failure_reason());
+            fprintf(stderr, "stbi_load (%s): %s\n", fullpath.c_str(), stbi_failure_reason());
             exit(1);
         }
 
@@ -349,6 +367,27 @@ void LoadScene(Scene* scene)
         scene->BoneDynamicsPositions[i].resize(numBones);
         scene->BoneDynamicsVelocities[i].resize(numBones);
     }
+
+    // Load animations
+
+    for (int animToLoadIdx = 0; animToLoadIdx < (int)animnames.size(); animToLoadIdx++)
+    {
+        std::string fullpath = scenepath + animnames[animToLoadIdx];
+        const aiScene* animScene = aiImportFile(fullpath.c_str(), aiProcessPreset_TargetRealtime_MaxQuality);
+        if (!animScene)
+        {
+            fprintf(stderr, "Failed to load animation %s: %s\n", fullpath.c_str(), aiGetErrorString());
+            exit(1);
+        }
+
+        for (int animIdx = 0; animIdx < (int)animScene->mNumAnimations; animIdx++)
+        {
+            aiAnimation* animation = animScene->mAnimations[animIdx];
+            scene->AnimSequenceNames.push_back(animnames[animToLoadIdx]);
+        }
+
+        aiReleaseImport(animScene);
+    }
 }
 
 void InitScene(Scene* scene)
@@ -480,7 +519,57 @@ void UpdateSceneDynamics(Scene* scene, uint32_t dt_ms)
     }
 }
 
-void UpdateScene(Scene* scene, uint32_t dt_ms)
+void ShowSystemInfoGUI(Scene* scene)
+{
+    ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiSetCond_Always);
+    if (ImGui::Begin("Info", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize))
+    {
+        int cpuInfo[4] = { -1 };
+        char cpuBrandString[0x40];
+
+        memset(cpuBrandString, 0, sizeof(cpuBrandString));
+        __cpuid(cpuInfo, 0x80000002);
+        memcpy(cpuBrandString, cpuInfo, sizeof(cpuInfo));
+        __cpuid(cpuInfo, 0x80000003);
+        memcpy(cpuBrandString + 16, cpuInfo, sizeof(cpuInfo));
+        __cpuid(cpuInfo, 0x80000004);
+        memcpy(cpuBrandString + 32, cpuInfo, sizeof(cpuInfo));
+
+        ImGui::Text("CPU: %s\n", cpuBrandString);
+        ImGui::Text("GL_VENDOR: %s", glGetString(GL_VENDOR));
+        ImGui::Text("GL_RENDERER: %s", glGetString(GL_RENDERER));
+        ImGui::Text("GL_VERSION: %s", glGetString(GL_VERSION));
+        ImGui::Text("GL_SHADING_LANGUAGE_VERSION: %s", glGetString(GL_SHADING_LANGUAGE_VERSION));
+    }
+    ImGui::End();
+}
+
+void ShowToolboxGUI(Scene* scene, SDL_Window* window)
+{
+    int w, h;
+    SDL_GetWindowSize(window, &w, &h);
+
+    int toolboxW = 300, toolboxH = 400;
+
+    ImGui::SetNextWindowSize(ImVec2((float)toolboxW, (float)toolboxH), ImGuiSetCond_Always);
+    ImGui::SetNextWindowPos(ImVec2((float)w - toolboxW, 0), ImGuiSetCond_Always);
+    if (ImGui::Begin("Toolbox", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize))
+    {
+        std::vector<const char*> animSequenceNames(scene->AnimSequenceNames.size());
+        for (int i = 0; i < (int)animSequenceNames.size(); i++)
+        {
+            animSequenceNames[i] = scene->AnimSequenceNames[i].c_str();
+        }
+        if (!animSequenceNames.empty())
+        {
+            ImGui::Text("Animation Sequence");
+            ImGui::ListBox("##animsequences", &scene->CurrAnimSequence, &animSequenceNames[0], (int)animSequenceNames.size());
+        }
+    }
+    ImGui::End();
+}
+
+void UpdateScene(Scene* scene, SDL_Window* window, uint32_t dt_ms)
 {
     ReloadShaders(scene);
     
@@ -489,9 +578,8 @@ void UpdateScene(Scene* scene, uint32_t dt_ms)
         return;
     }
 
-    // for testing the gui
-    ImGui::ShowTestWindow();
-    ImGui::ShowMetricsWindow();
+    ShowSystemInfoGUI(scene);
+    ShowToolboxGUI(scene, window);
 
     // Update camera
     {

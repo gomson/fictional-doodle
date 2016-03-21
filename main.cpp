@@ -118,7 +118,7 @@ int main(int argc, char *argv[])
 
     InitGL();
 
-    Renderer renderer;
+    Renderer renderer{};
     InitRenderer(&renderer);
 
     ImGui_ImplSdlGL3_Init(window);
@@ -137,7 +137,7 @@ int main(int argc, char *argv[])
         ResizeRenderer(&renderer,windowWidth, windowHeight, drawableWidth, drawableHeight, numSamples);
     }
 
-    Scene scene;
+    Scene scene{};
     InitScene(&scene);
 
     bool guiFocusEnabled = false;
@@ -223,7 +223,7 @@ int main(int argc, char *argv[])
         Uint32 currTicks = SDL_GetTicks();
         Uint32 deltaTicks = currTicks - lastTicks;
 
-        UpdateScene(&scene, deltaTicks);
+        UpdateScene(&scene, window, deltaTicks);
         PaintRenderer(&renderer, window, &scene);
 
         // Bind 0 to the draw framebuffer before swapping the window, because otherwise in Mac OS X nothing will happen.
