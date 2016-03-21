@@ -177,7 +177,7 @@ void SimulateDynamics(
         ws[i] = 1.0f / ms[i];
     }
 
-    float* ps_f = new float[np];
+    float* ps_f = new float[np * 3];
     vec3* ps = (vec3*)&ps_f[0];
 
     std::vector<ParticleCollision> pcs;
@@ -227,7 +227,10 @@ void SimulateDynamics(
         xs[i] = ps[i];
     }
 
-    velocityUpdate(&pcs[0], (int)pcs.size(), &vs[0]);
+    if (!pcs.empty())
+    {
+        velocityUpdate(&pcs[0], (int)pcs.size(), &vs[0]);
+    }
 
     delete[] ps_f;
     delete[] ws;

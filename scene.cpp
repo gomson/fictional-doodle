@@ -295,9 +295,6 @@ void LoadScene(Scene* scene)
     // Create storage for skinning transformations
     scene->BoneSkinningTransforms.resize(scene->BoneInverseBindPoseTransforms.size());
 
-    // Storage for bone controls. Initially animated by the animation engine.
-    scene->BoneControls.resize(scene->BoneInverseBindPoseTransforms.size(), BONECONTROL_ANIMATION);
-
     // Compute inverse model transformation used to compute skinning transformation
     glm::mat4 inverseModelTransform = glm::inverseTranspose(glm::make_mat4(&aiscene->mRootNode->mTransformation.a1));
 
@@ -339,6 +336,19 @@ void LoadScene(Scene* scene)
     glBindBuffer(GL_TEXTURE_BUFFER, scene->BoneTBO);
     glBufferData(GL_TEXTURE_BUFFER, scene->BoneSkinningTransforms.size() * sizeof(scene->BoneSkinningTransforms[0]), scene->BoneSkinningTransforms.data(), GL_DYNAMIC_DRAW);
     glBindBuffer(GL_TEXTURE_BUFFER, 0);
+
+    int numBones = (int)scene->BoneInverseBindPoseTransforms.size();
+
+    // Storage for bone controls. Initially animated by the animation engine.
+    scene->BoneControls.resize(numBones, BONECONTROL_ANIMATION);
+
+    // Storage for dynamics
+    scene->BoneDynamicsBackBufferIndex = 0;
+    for (int i = 0; i < scene->NUM_BONE_DYNAMICS_BUFFERS; i++)
+    {
+        scene->BoneDynamicsPositions[i].resize(numBones);
+        scene->BoneDynamicsVelocities[i].resize(numBones);
+    }
 }
 
 void InitScene(Scene* scene)
@@ -419,18 +429,29 @@ void UpdateSceneDynamics(Scene* scene, uint32_t dt_ms)
         return;
     }
 
-    std::vector<glm::vec3> oldPositions;
-    std::vector<glm::vec3> oldVelocities;
-    std::vector<float> masses;
-    std::vector<glm::vec3> externalForces;
+    // read from frontbuffer
+    const std::vector<glm::vec3>& oldPositions = scene->BoneDynamicsPositions[(scene->BoneDynamicsBackBufferIndex + 1) % scene->NUM_BONE_DYNAMICS_BUFFERS];
+    const std::vector<glm::vec3>& oldVelocities = scene->BoneDynamicsVelocities[(scene->BoneDynamicsBackBufferIndex + 1) % scene->NUM_BONE_DYNAMICS_BUFFERS];
+    
+    // write to backbuffer
+    std::vector<glm::vec3>& newPositions = scene->BoneDynamicsPositions[scene->BoneDynamicsBackBufferIndex];
+    std::vector<glm::vec3>& newVelocities = scene->BoneDynamicsVelocities[scene->BoneDynamicsBackBufferIndex];
 
     int numParticles = (int)oldPositions.size();
 
+    // unit masses for now
+    std::vector<float> masses(numParticles, 1.0f);
+
+    // just gravity for now
+    std::vector<glm::vec3> externalForces(numParticles);
+    for (int i = 0; i < numParticles; i++)
+    {
+        externalForces[i] = glm::vec3(0.0f, -9.8f, 0.0f) * masses[i];
+    }
+
+    // no constraints yet
     std::vector<Constraint> constraints;
     int numConstraints = (int)constraints.size();
-
-    std::vector<glm::vec3> newPositions(numParticles);
-    std::vector<glm::vec3> newVelocities(numParticles);
 
     float dt_s = dt_ms / 1000.0f;
     pfnSimulateDynamics(
@@ -443,6 +464,20 @@ void UpdateSceneDynamics(Scene* scene, uint32_t dt_ms)
         data(constraints), numConstraints,
         (float*)data(newPositions),
         (float*)data(newVelocities));
+
+    // swap buffers
+    scene->BoneDynamicsBackBufferIndex = (scene->BoneDynamicsBackBufferIndex + 1) % scene->NUM_BONE_DYNAMICS_BUFFERS;
+
+    // Update select bones based on dynamics
+    for (int b = 0; b < (int)scene->BoneSkinningTransforms.size(); b++)
+    {
+        if (scene->BoneControls[b] != BONECONTROL_DYNAMICS)
+        {
+            continue;
+        }
+
+        // TODO: Update bone transform
+    }
 }
 
 void UpdateScene(Scene* scene, uint32_t dt_ms)

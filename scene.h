@@ -22,7 +22,7 @@ struct SceneVertex
 enum BoneControlMode
 {
     BONECONTROL_ANIMATION,
-    BONECONTROL_SIMULATION
+    BONECONTROL_DYNAMICS
 };
 
 struct Scene
@@ -41,6 +41,12 @@ struct Scene
 
     // How the bone is animated
     std::vector<BoneControlMode> BoneControls;
+
+    // Positions/velocities of the last update for dynamics animation
+    int BoneDynamicsBackBufferIndex;
+    static const int NUM_BONE_DYNAMICS_BUFFERS = 2;
+    std::vector<glm::vec3> BoneDynamicsPositions[NUM_BONE_DYNAMICS_BUFFERS];
+    std::vector<glm::vec3> BoneDynamicsVelocities[NUM_BONE_DYNAMICS_BUFFERS];
 
     // Animation stuff
     GLuint BoneVBO;
