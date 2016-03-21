@@ -209,23 +209,23 @@ void LoadScene(Scene* scene)
             // Create bone name to ID mapping if none exists.
             if (scene->BoneIDs.find(boneName) == scene->BoneIDs.end())
             {
-                glm::mat4 boneTransform = glm::transpose(glm::make_mat4(&bone->mOffsetMatrix.a1));
-                scene->BoneIDs[boneName] = (GLuint)scene->BoneTransforms.size();
-                scene->BoneTransforms.push_back(boneTransform);
+                // Store the bone's inverse bind pose matrix.
+                glm::mat4 transform = glm::transpose(glm::make_mat4(&bone->mOffsetMatrix.a1));
+                scene->BoneIDs[boneName] = (GLuint)scene->BoneInverseBindPoseTransforms.size();
+                scene->BoneInverseBindPoseTransforms.push_back(transform);
             }
 
             GLuint boneID = scene->BoneIDs[boneName];
 
             for (int weightIdx = 0; weightIdx < (int)bone->mNumWeights; weightIdx++)
             {
-                aiVertexWeight& weight = bone->mWeights[weightIdx];
-                int vertexIdx = meshDraws[sceneMeshIdx].baseVertex + weight.mVertexId;
+                int vertexIdx = meshDraws[sceneMeshIdx].baseVertex + bone->mWeights[weightIdx].mVertexId;
 
-                for (int i = 0; i < NUM_BONES_PER_VERTEX; i++)
+                for (int i = 0; i < scene->VertexBones[vertexIdx].Weights.length(); i++)
                 {
                     if (scene->VertexBones[vertexIdx].Weights[i] == 0.0)
                     {
-                        scene->VertexBones[vertexIdx].Weights[i] = weight.mWeight;
+                        scene->VertexBones[vertexIdx].Weights[i] = bone->mWeights[weightIdx].mWeight;
                         scene->VertexBones[vertexIdx].BoneIDs[i] = boneID;
                         break;
                     }
@@ -266,8 +266,8 @@ void LoadScene(Scene* scene)
 
     // Vertex bone weights
     glBindBuffer(GL_ARRAY_BUFFER, scene->BoneVBO);
-    glVertexAttribPointer(5, 4, GL_UNSIGNED_INT, GL_FALSE, sizeof(SceneVertexBoneData), (GLvoid*)offsetof(SceneVertexBoneData, BoneIDs));
-    glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(SceneVertexBoneData), (GLvoid*)offsetof(SceneVertexBoneData, Weights));
+    glVertexAttribPointer(5, 4, GL_UNSIGNED_INT, GL_FALSE, sizeof(VertexWeights), (GLvoid*)offsetof(VertexWeights, BoneIDs));
+    glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(VertexWeights), (GLvoid*)offsetof(VertexWeights, Weights));
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     glEnableVertexAttribArray(0); // position

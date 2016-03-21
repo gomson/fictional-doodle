@@ -1,9 +1,11 @@
 #pragma once
 
 #include "opengl.h"
+#include "skinning.h"
 
 #include <glm/glm.hpp>
 
+#include <string>
 #include <vector>
 #include <unordered_map>
 
@@ -16,22 +18,19 @@ struct SceneVertex
     glm::vec3 Bitangent;
 };
 
-#define NUM_BONES_PER_VERTEX 4
-
-struct SceneVertexBoneData
-{
-    GLuint  BoneIDs[NUM_BONES_PER_VERTEX];
-    GLfloat Weights[NUM_BONES_PER_VERTEX];
-};
-
 struct Scene
 {
-    // Bones and weights for every vertex in scene
-    std::vector<SceneVertexBoneData> VertexBones;
-    // Transformation for every bone in scene.
-    std::vector<glm::mat4> BoneTransforms;
-    // Bone indices by bone name.
-    std::unordered_map<std::string, GLuint> BoneIDs;
+    // Bone weights per vertex.
+    std::vector<VertexWeights> VertexBones;
+
+    // Bone indices by name.
+    std::unordered_map<std::string, GLubyte> BoneIDs;
+
+    // Transforms a vertex from model space to bone space.
+    std::vector<glm::mat4> BoneInverseBindPoseTransforms;
+
+    // Transforms a vertex in bone space.
+    std::vector<glm::mat4> BoneSkinningTransforms;
 
     // Animation stuff
     GLuint BoneVBO;

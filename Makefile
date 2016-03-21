@@ -14,12 +14,16 @@ CXXFLAGS = -g -std=c++14 -Wall -Werror
 
 # Source
 SOURCES = \
+	dynamics.cpp \
 	imgui_impl_sdl_gl3.cpp \
 	imgui/imgui.cpp \
 	imgui/imgui_demo.cpp \
 	imgui/imgui_draw.cpp \
 	main.cpp \
-	opengl.cpp
+	opengl.cpp \
+	renderer.cpp \
+	runtimecpp.cpp \
+	scene.cpp
 
 # Object files
 OBJECTS = $(SOURCES:.cpp=.o)
@@ -30,17 +34,17 @@ CPPFLAGS = \
 	-D_DEBUG \
 	-I. \
 	-Iimgui \
-	-Iinclude \
+	-Iinclude
 
 # Libraries
 LDFLAGS = $(shell pkg-config --libs-only-L $(DEPENDENCIES))
 LDLIBS = $(shell pkg-config --libs-only-l $(DEPENDENCIES))
 
-$(EXECUTABLE): $(notdir $(OBJECTS))
-	$(CXX) $(LDFLAGS) $(LDLIBS) $^ -o $@.out
+$(EXECUTABLE): $(OBJECTS)
+	$(CXX) $(LDFLAGS) $(LDLIBS) $(notdir $^) -o $@.out
 
 %.o: %.cpp
-	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -c $<
+	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -c $< -o $(notdir $@)
 
 clean:
-	rm $(EXECUTABLE).out $(OBJECTS)
+	rm $(EXECUTABLE).out $(notdir $(OBJECTS))
