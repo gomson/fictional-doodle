@@ -27,6 +27,10 @@
 #include <fstream>
 #include <functional>
 
+#ifdef __APPLE__
+#include <sys/sysctl.h>
+#endif
+
 void LoadScene(Scene* scene)
 {
 #if 1
@@ -690,16 +694,22 @@ void ShowSystemInfoGUI(Scene* scene)
     ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiSetCond_Always);
     if (ImGui::Begin("Info", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize))
     {
-        int cpuInfo[4] = { -1 };
         char cpuBrandString[0x40];
-
         memset(cpuBrandString, 0, sizeof(cpuBrandString));
+
+        // Get CPU brand string.
+#ifdef _WIN32
+        int cpuInfo[4] = { -1 };
         __cpuid(cpuInfo, 0x80000002);
         memcpy(cpuBrandString, cpuInfo, sizeof(cpuInfo));
         __cpuid(cpuInfo, 0x80000003);
         memcpy(cpuBrandString + 16, cpuInfo, sizeof(cpuInfo));
         __cpuid(cpuInfo, 0x80000004);
         memcpy(cpuBrandString + 32, cpuInfo, sizeof(cpuInfo));
+#elif __APPLE__
+        size_t len = sizeof(cpuBrandString);
+        sysctlbyname("machdep.cpu.brand_string", &cpuBrandString, &len, NULL, 0);
+#endif
 
         ImGui::Text("CPU: %s\n", cpuBrandString);
         ImGui::Text("GL_VENDOR: %s", glGetString(GL_VENDOR));
