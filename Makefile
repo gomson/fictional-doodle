@@ -10,7 +10,7 @@ LIBRARIES = assimp sdl2
 
 # Compiler
 CXX = clang++
-CXXFLAGS = -g -std=c++14 -Wall -Werror
+CXXFLAGS = -g -std=c++1z -Wall -Werror
 
 # Source
 SOURCES = $(shell find . -name "*.cpp" -not -path "./include/*")
