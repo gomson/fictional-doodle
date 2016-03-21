@@ -397,6 +397,54 @@ static void ReloadShaders(Scene* scene)
     }
 }
 
+void UpdateSceneDynamics(Scene* scene, uint32_t dt_ms)
+{
+    static PFNSIMULATEDYNAMICSPROC pfnSimulateDynamics = NULL;
+
+#ifdef _MSC_VER
+    static RuntimeCpp runtimeSimulateDynamics(
+        L"SimulateDynamics.dll",
+        { "SimulateDynamics" }
+    );
+    if (PollDLLs(&runtimeSimulateDynamics))
+    {
+        runtimeSimulateDynamics.GetProc(pfnSimulateDynamics, "SimulateDynamics");
+    }
+#else
+    pfnSimulateDynamics = SimulateDynamics;
+#endif
+
+    if (!pfnSimulateDynamics)
+    {
+        return;
+    }
+
+    std::vector<glm::vec3> oldPositions;
+    std::vector<glm::vec3> oldVelocities;
+    std::vector<float> masses;
+    std::vector<glm::vec3> externalForces;
+
+    int numParticles = (int)oldPositions.size();
+
+    std::vector<Constraint> constraints;
+    int numConstraints = (int)constraints.size();
+
+    std::vector<glm::vec3> newPositions(numParticles);
+    std::vector<glm::vec3> newVelocities(numParticles);
+
+    float dt_s = dt_ms / 1000.0f;
+    pfnSimulateDynamics(
+        dt_s,
+        (float*)data(oldPositions),
+        (float*)data(oldVelocities),
+        (float*)data(masses),
+        (float*)data(externalForces),
+        numParticles, DEFAULT_DYNAMICS_NUM_ITERATIONS,
+        data(constraints), numConstraints,
+        (float*)data(newPositions),
+        (float*)data(newVelocities));
+}
+
 void UpdateScene(Scene* scene, uint32_t dt_ms)
 {
     ReloadShaders(scene);
@@ -406,14 +454,14 @@ void UpdateScene(Scene* scene, uint32_t dt_ms)
         return;
     }
 
-    float dt_s = dt_ms / 1000.0f;
-
     // for testing the gui
     ImGui::ShowTestWindow();
     ImGui::ShowMetricsWindow();
 
     // Update camera
     {
+        float dt_s = dt_ms / 1000.0f;
+
         int relativeMouseX, relativeMouseY;
         SDL_GetRelativeMouseState(&relativeMouseX, &relativeMouseY);
 
@@ -435,23 +483,5 @@ void UpdateScene(Scene* scene, uint32_t dt_ms)
             !scene->EnableCamera ? 0 : keyboardState[SDL_SCANCODE_LCTRL] || keyboardState[SDL_SCANCODE_LSHIFT]);
     }
 
-    static PFNSIMULATEDYNAMICSPROC pfnSimulateDynamics = NULL;
-
-#ifdef _MSC_VER
-    static RuntimeCpp runtimeSimulateDynamics(
-        L"SimulateDynamics.dll",
-        { "SimulateDynamics" }
-    );
-    if (PollDLLs(&runtimeSimulateDynamics))
-    {
-        runtimeSimulateDynamics.GetProc(pfnSimulateDynamics, "SimulateDynamics");
-    }
-#else
-    pfnSimulateDynamics = SimulateDynamics;
-#endif
-
-    if (pfnSimulateDynamics)
-    {
-        pfnSimulateDynamics(0, NULL, NULL, NULL, NULL, 0, 0, NULL, 0, NULL, NULL);
-    }
+    UpdateSceneDynamics(scene, dt_ms);
 }
