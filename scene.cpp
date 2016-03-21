@@ -255,13 +255,13 @@ void LoadScene(Scene* scene)
     }
 
     // Upload geometry data
-    glGenBuffers(1, &scene->VBO);
-    glBindBuffer(GL_ARRAY_BUFFER, scene->VBO);
+    glGenBuffers(1, &scene->StaticGeometryVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, scene->StaticGeometryVBO);
     glBufferData(GL_ARRAY_BUFFER, meshVertices.size() * sizeof(meshVertices[0]), meshVertices.data(), GL_STATIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-    glGenBuffers(1, &scene->EBO);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, scene->EBO);
+    glGenBuffers(1, &scene->StaticGeometryEBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, scene->StaticGeometryEBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, meshIndices.size() * sizeof(meshIndices[0]), meshIndices.data(), GL_STATIC_DRAW);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
@@ -272,44 +272,71 @@ void LoadScene(Scene* scene)
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     // Create texture buffer for skinning transformation
-    glGenBuffers(1, &scene->BoneTBO);
-    glBindBuffer(GL_TEXTURE_BUFFER, scene->BoneTBO);
+    glGenBuffers(1, &scene->SkinningMatrixPaletteTBO);
+    glBindBuffer(GL_TEXTURE_BUFFER, scene->SkinningMatrixPaletteTBO);
     glBindBuffer(GL_TEXTURE_BUFFER, 0);
 
     // Create texture and attach buffer object to texture
-    glGenTextures(1, &scene->BoneTex);
-    glBindTexture(GL_TEXTURE_BUFFER, scene->BoneTex);
-    glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32F, scene->BoneTBO);
+    glGenTextures(1, &scene->SkinningMatrixPaletteTexture);
+    glBindTexture(GL_TEXTURE_BUFFER, scene->SkinningMatrixPaletteTexture);
+    glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32F, scene->SkinningMatrixPaletteTBO);
     glBindTexture(GL_TEXTURE_BUFFER, 0);
 
-    // Setup VAO
-    glGenVertexArrays(1, &scene->VAO);
-    glBindVertexArray(scene->VAO);
+    // Setup VAO for ordinary static meshes
+    {
+        glGenVertexArrays(1, &scene->StaticMeshVAO);
+        glBindVertexArray(scene->StaticMeshVAO);
 
-    // Vertex geometry
-    glBindBuffer(GL_ARRAY_BUFFER, scene->VBO);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(SceneVertex), (GLvoid*)offsetof(SceneVertex, Position));
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(SceneVertex), (GLvoid*)offsetof(SceneVertex, TexCoord0));
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(SceneVertex), (GLvoid*)offsetof(SceneVertex, Normal));
-    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(SceneVertex), (GLvoid*)offsetof(SceneVertex, Tangent));
-    glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(SceneVertex), (GLvoid*)offsetof(SceneVertex, Bitangent));
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+        // Vertex geometry
+        glBindBuffer(GL_ARRAY_BUFFER, scene->StaticGeometryVBO);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(SceneVertex), (GLvoid*)offsetof(SceneVertex, Position));
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(SceneVertex), (GLvoid*)offsetof(SceneVertex, TexCoord0));
+        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(SceneVertex), (GLvoid*)offsetof(SceneVertex, Normal));
+        glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(SceneVertex), (GLvoid*)offsetof(SceneVertex, Tangent));
+        glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(SceneVertex), (GLvoid*)offsetof(SceneVertex, Bitangent));
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-    // Vertex bone weights
-    glBindBuffer(GL_ARRAY_BUFFER, scene->BoneVBO);
-    glVertexAttribIPointer(5, 4, GL_UNSIGNED_BYTE, sizeof(VertexWeights), (GLvoid*)offsetof(VertexWeights, BoneIDs));
-    glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(VertexWeights), (GLvoid*)offsetof(VertexWeights, Weights));
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glEnableVertexAttribArray(0); // position
+        glEnableVertexAttribArray(1); // texcoord0
+        glEnableVertexAttribArray(2); // normal
+        glEnableVertexAttribArray(3); // tangent
+        glEnableVertexAttribArray(4); // bitangent
 
-    glEnableVertexAttribArray(0); // position
-    glEnableVertexAttribArray(1); // texcoord0
-    glEnableVertexAttribArray(2); // normal
-    glEnableVertexAttribArray(3); // tangent
-    glEnableVertexAttribArray(4); // bitangent
-    glEnableVertexAttribArray(5); // bone IDs
-    glEnableVertexAttribArray(6); // bone weights
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, scene->EBO);
-    glBindVertexArray(0);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, scene->StaticGeometryEBO);
+        glBindVertexArray(0);
+    }
+
+    // Setup VAO for skinned meshes
+    {
+        glGenVertexArrays(1, &scene->SkinnedMeshVAO);
+        glBindVertexArray(scene->SkinnedMeshVAO);
+
+        // Vertex geometry
+        glBindBuffer(GL_ARRAY_BUFFER, scene->StaticGeometryVBO);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(SceneVertex), (GLvoid*)offsetof(SceneVertex, Position));
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(SceneVertex), (GLvoid*)offsetof(SceneVertex, TexCoord0));
+        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(SceneVertex), (GLvoid*)offsetof(SceneVertex, Normal));
+        glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(SceneVertex), (GLvoid*)offsetof(SceneVertex, Tangent));
+        glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(SceneVertex), (GLvoid*)offsetof(SceneVertex, Bitangent));
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+        // Vertex bone weights
+        glBindBuffer(GL_ARRAY_BUFFER, scene->BoneVBO);
+        glVertexAttribIPointer(5, 4, GL_UNSIGNED_BYTE, sizeof(VertexWeights), (GLvoid*)offsetof(VertexWeights, BoneIDs));
+        glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(VertexWeights), (GLvoid*)offsetof(VertexWeights, Weights));
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+        glEnableVertexAttribArray(0); // position
+        glEnableVertexAttribArray(1); // texcoord0
+        glEnableVertexAttribArray(2); // normal
+        glEnableVertexAttribArray(3); // tangent
+        glEnableVertexAttribArray(4); // bitangent
+        glEnableVertexAttribArray(5); // bone IDs
+        glEnableVertexAttribArray(6); // bone weights
+
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, scene->StaticGeometryEBO);
+        glBindVertexArray(0);
+    }
 
     // Create storage for skinning transformations
     scene->BoneSkinningTransforms.resize(scene->BoneInverseBindPoseTransforms.size());
@@ -325,6 +352,7 @@ void LoadScene(Scene* scene)
         transform = transform * glm::transpose(glm::make_mat4(&node->mTransformation.a1));
         std::string boneName(node->mName.C_Str());
 
+        printf("%s\n", boneName.c_str());
         // if the node is a bone, compute and store its skinning transformation
         if (scene->BoneIDs.find(boneName) != scene->BoneIDs.end())
         {
@@ -353,7 +381,7 @@ void LoadScene(Scene* scene)
     aiReleaseImport(aiscene);
 
     // Upload initial skinning transformations
-    glBindBuffer(GL_TEXTURE_BUFFER, scene->BoneTBO);
+    glBindBuffer(GL_TEXTURE_BUFFER, scene->SkinningMatrixPaletteTBO);
     glBufferData(GL_TEXTURE_BUFFER, scene->BoneSkinningTransforms.size() * sizeof(scene->BoneSkinningTransforms[0]), scene->BoneSkinningTransforms.data(), GL_DYNAMIC_DRAW);
     glBindBuffer(GL_TEXTURE_BUFFER, 0);
 

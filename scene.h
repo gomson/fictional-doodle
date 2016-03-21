@@ -84,15 +84,20 @@ struct Scene
     std::vector<glm::vec3> BoneDynamicsPositions[NUM_BONE_DYNAMICS_BUFFERS];
     std::vector<glm::vec3> BoneDynamicsVelocities[NUM_BONE_DYNAMICS_BUFFERS];
 
-    // Animation stuff
+    // Animation stuff:
+    // buffer containing boneIDs and weights
     GLuint BoneVBO;
-    GLuint BoneTBO;
-    GLuint BoneTex;
+    // the matrices used to transform the bones
+    GLuint SkinningMatrixPaletteTBO;
+    GLuint SkinningMatrixPaletteTexture;
 
     // Geometry stuff
-    GLuint VAO;
-    GLuint VBO;
-    GLuint EBO;
+    GLuint StaticGeometryVBO;
+    GLuint StaticGeometryEBO;
+
+    // Vertex formats
+    GLuint StaticMeshVAO;
+    GLuint SkinnedMeshVAO;
 
     // All unique diffuse textures in the scene
     std::vector<GLuint> DiffuseTextures;
