@@ -154,6 +154,7 @@ void InitGL()
     GetProcGL(glBindVertexArray, "glBindVertexArray");
     GetProcGL(glEnableVertexAttribArray, "glEnableVertexAttribArray");
     GetProcGL(glVertexAttribPointer, "glVertexAttribPointer");
+    GetProcGL(glVertexAttribIPointer, "glVertexAttribIPointer");
     GetProcGL(glCreateShader, "glCreateShader");
     GetProcGL(glDeleteShader, "glDeleteShader");
     GetProcGL(glShaderSource, "glShaderSource");
@@ -177,6 +178,7 @@ void InitGL()
     GetProcGL(glDeleteTextures, "glDeleteTextures");
     GetProcGL(glBindTexture, "glBindTexture");
     GetProcGL(glActiveTexture, "glActiveTexture");
+    GetProcGL(glTexBuffer, "glTexBuffer");
     GetProcGL(glTexImage2D, "glTexImage2D");
     GetProcGL(glTexImage2DMultisample, "glTexImage2DMultisample");
     GetProcGL(glTexParameteri, "glTexParameteri");
