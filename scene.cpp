@@ -18,6 +18,7 @@
 
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/matrix_inverse.hpp>
 
 #include <SDL.h>
 
@@ -280,11 +281,25 @@ void LoadScene(Scene* scene)
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, scene->EBO);
     glBindVertexArray(0);
 
-    // depth first traversal of scene to build draws
+    // Create storage for skinning transformations
+    scene->BoneSkinningTransforms.resize(scene->BoneInverseBindPoseTransforms.size());
+
+    // Compute inverse model transformation used to compute skinning transformation
+    glm::mat4 inverseModelTransform = glm::inverseTranspose(glm::make_mat4(&aiscene->mRootNode->mTransformation.a1));
+
+    // depth first traversal of scene to build draws and skinning transformations
     std::function<void(const aiNode*, glm::mat4)> addNode;
-    addNode = [&addNode, &meshDraws, &aiscene, &scene](const aiNode* node, glm::mat4 transform)
+    addNode = [&addNode, &meshDraws, &aiscene, &scene, &inverseModelTransform](const aiNode* node, glm::mat4 transform)
     {
         transform = transform * glm::transpose(glm::make_mat4(&node->mTransformation.a1));
+        std::string boneName(node->mName.data);
+
+        // if the node is a bone, compute and store its skinning transformation
+        if (scene->BoneIDs.find(boneName) != scene->BoneIDs.end())
+        {
+            GLubyte boneID = scene->BoneIDs[boneName];
+            scene->BoneSkinningTransforms[boneID] = inverseModelTransform * transform * scene->BoneInverseBindPoseTransforms[boneID];
+        }
 
         // add draws for all meshes assigned to this node
         for (int nodeMeshIdx = 0; nodeMeshIdx < (int)node->mNumMeshes; nodeMeshIdx++)
