@@ -112,19 +112,23 @@ const char* DebugSeverityToStringGL(GLenum severity)
 
 void APIENTRY DebugCallbackGL(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar *message, const void *userParam)
 {
-    fprintf(stderr,
-        "Debug callback: {\n"
-        "  source = \"%s\",\n"
-        "  type = \"%s\",\n"
-        "  id = %d,\n"
-        "  severity = \"%s\",\n"
-        "  message = \"%s\"\n"
-        "}\n",
-        DebugSourceToStringGL(source),
-        DebugTypeToStringGL(type),
-        id,
-        DebugSeverityToStringGL(severity),
-        message);
+    if (severity != GL_DEBUG_SEVERITY_NOTIFICATION)
+    {
+        fprintf(stderr,
+            "Debug callback: {\n"
+            "  source = \"%s\",\n"
+            "  type = \"%s\",\n"
+            "  id = %d,\n"
+            "  severity = \"%s\",\n"
+            "  message = \"%s\"\n"
+            "}\n",
+            DebugSourceToStringGL(source),
+            DebugTypeToStringGL(type),
+            id,
+            DebugSeverityToStringGL(severity),
+            message);
+    }
+
     if (severity != GL_DEBUG_SEVERITY_NOTIFICATION &&
         source != GL_DEBUG_SOURCE_SHADER_COMPILER)
     {

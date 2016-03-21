@@ -373,8 +373,8 @@ void ImGui_ImplSdlGL3_NewFrame(bool guiFocusEnabled)
         int w, h;
         SDL_GetWindowSize(g_Window, &w, &h);
 
-        io.DisplayFramebufferScale.x = float(int(hdpi) / defaultDpi);
-        io.DisplayFramebufferScale.y = float(int(vdpi) / defaultDpi);
+        io.DisplayFramebufferScale.x = float(int(hdpi / defaultDpi));
+        io.DisplayFramebufferScale.y = float(int(vdpi / defaultDpi));
     }
 
     // Setup time step
