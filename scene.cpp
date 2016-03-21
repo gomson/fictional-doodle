@@ -295,6 +295,9 @@ void LoadScene(Scene* scene)
     // Create storage for skinning transformations
     scene->BoneSkinningTransforms.resize(scene->BoneInverseBindPoseTransforms.size());
 
+    // Storage for bone controls. Initially animated by the animation engine.
+    scene->BoneControls.resize(scene->BoneInverseBindPoseTransforms.size(), BONECONTROL_ANIMATION);
+
     // Compute inverse model transformation used to compute skinning transformation
     glm::mat4 inverseModelTransform = glm::inverseTranspose(glm::make_mat4(&aiscene->mRootNode->mTransformation.a1));
 

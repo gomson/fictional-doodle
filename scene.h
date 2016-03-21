@@ -19,6 +19,12 @@ struct SceneVertex
     glm::vec3 Bitangent;
 };
 
+enum BoneControlMode
+{
+    BONECONTROL_ANIMATION,
+    BONECONTROL_SIMULATION
+};
+
 struct Scene
 {
     // Bone weights per vertex.
@@ -32,6 +38,9 @@ struct Scene
 
     // Transforms a vertex in bone space.
     std::vector<glm::mat4> BoneSkinningTransforms;
+
+    // How the bone is animated
+    std::vector<BoneControlMode> BoneControls;
 
     // Animation stuff
     GLuint BoneVBO;
