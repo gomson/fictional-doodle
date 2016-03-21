@@ -9,7 +9,7 @@ EXECUTABLE = fictional-doodle.out
 LIBRARIES = assimp sdl2
 
 CXX = clang++
-CXXFLAGS = -g -std=c++1z -Wall -Werror
+CXXFLAGS = -g -std=c++1z -Wall
 
 # Create a hidden build directory for object and dependency files.
 BUILDDIR = .build
