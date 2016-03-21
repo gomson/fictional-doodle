@@ -140,7 +140,7 @@ int main(int argc, char *argv[])
     Scene scene{};
     InitScene(&scene);
 
-    bool guiFocusEnabled = false;
+    bool guiFocusEnabled = true;
     auto updateGuiFocus = [&] 
     {
         if (guiFocusEnabled)

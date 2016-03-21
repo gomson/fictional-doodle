@@ -397,7 +397,7 @@ void InitScene(Scene* scene)
     scene->AllShadersOK = false;
 
     // initial camera position
-    scene->CameraPosition = glm::vec3(100, 100, 100);
+    scene->CameraPosition = glm::vec3(85.9077225f, 200.844162f, 140.049072f);
     scene->CameraQuaternion = glm::vec4(-0.351835f, 0.231701f, 0.090335f, 0.902411f);
     scene->EnableCamera = true;
 }
