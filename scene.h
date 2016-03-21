@@ -49,7 +49,7 @@ struct Scene
     std::vector<glm::mat4> BoneSkinningTransforms;
 
     // Bone parent index, or -1 if root
-#pragma warning("BoneParent not yet implemented")
+#pragma message("BoneParent not yet implemented")
     std::vector<int> BoneParent;
 
     // How the bone is animated

@@ -1,13 +1,3 @@
-// For Windows-specific code
-#ifdef _WIN32
-#define UNICODE 1
-#define NOMINMAX 1
-#define WIN32_LEAN_AND_MEAN 1
-#include <Windows.h>
-#include <ShellScalingAPI.h>
-#include <comdef.h>
-#endif
-
 #include <SDL.h>
 #include <GL/glcorearb.h>
 
@@ -17,6 +7,7 @@
 #include "opengl.h"
 #include "renderer.h"
 #include "scene.h"
+#include "mysdl_dpi.h"
 
 #include <cstdio>
 #include <functional>
@@ -24,27 +15,7 @@
 extern "C"
 int main(int argc, char *argv[])
 {
-    // DPI awareness must be set before any other Window API calls. SDL doesn't do it for some reason?
-#ifdef _WIN32
-{
-    HMODULE ShcoreLib = LoadLibraryW(L"Shcore.dll");
-    if (ShcoreLib != NULL)
-    {
-        typedef HRESULT(WINAPI * PFNSETPROCESSDPIAWARENESSPROC)(PROCESS_DPI_AWARENESS);
-        PFNSETPROCESSDPIAWARENESSPROC pfnSetProcessDpiAwareness = (PFNSETPROCESSDPIAWARENESSPROC)GetProcAddress(ShcoreLib, "SetProcessDpiAwareness");
-        if (pfnSetProcessDpiAwareness != NULL)
-        {
-            HRESULT hr = pfnSetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
-            if (FAILED(hr))
-            {
-                _com_error err(hr);
-                fwprintf(stderr, L"SetProcessDpiAwareness failed: %s\n", err.ErrorMessage());
-            }
-        }
-        FreeLibrary(ShcoreLib);
-    }
-}
-#endif
+    MySDL_SetDPIAwareness_MustBeFirstWSICallInProgram();
 
     if (SDL_Init(SDL_INIT_EVERYTHING))
     {
@@ -75,19 +46,8 @@ int main(int argc, char *argv[])
     {
         int windowDpiUnscaledWidth = 1280, windowDpiUnscaledHeight = 720;
 
-        float defaultDpi;
-#ifdef __APPLE__
-        defaultDpi = 72.0f;
-#else
-        defaultDpi = 96.0f;
-#endif
-
-        float hdpi, vdpi;
-        if (SDL_GetDisplayDPI(0, NULL, &hdpi, &vdpi))
-        {
-            hdpi = defaultDpi;
-            vdpi = defaultDpi;
-        }
+        float hdpi, vdpi, defaultDpi;
+        MySDL_GetDisplayDPI(0, &hdpi, &vdpi, &defaultDpi);
 
         windowDpiScaledWidth = int(windowDpiUnscaledWidth * hdpi / defaultDpi);
         windowDpiScaledHeight = int(windowDpiUnscaledHeight * vdpi / defaultDpi);
@@ -95,6 +55,7 @@ int main(int argc, char *argv[])
 
     Uint32 windowFlags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
 #ifdef _WIN32
+    // highdpi doesn't work on Mac yet because we have to set the NSHighResolutionCapable Info.plist property
     windowFlags |= SDL_WINDOW_ALLOW_HIGHDPI;
 #endif
 

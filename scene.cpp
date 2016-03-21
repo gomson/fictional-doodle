@@ -2,6 +2,7 @@
 
 #include "dynamics.h"
 #include "runtimecpp.h"
+#include "mysdl_dpi.h"
 
 // assimp includes
 #include <cimport.h>
@@ -683,8 +684,9 @@ void ShowSystemInfoGUI(Scene* scene)
 
 void ShowToolboxGUI(Scene* scene, SDL_Window* window)
 {
-    int w, h;
-    SDL_GetWindowSize(window, &w, &h);
+    ImGuiIO& io = ImGui::GetIO();
+    int w = int(io.DisplaySize.x / io.DisplayFramebufferScale.x);
+    int h = int(io.DisplaySize.y / io.DisplayFramebufferScale.y);
 
     int toolboxW = 300, toolboxH = 400;
 

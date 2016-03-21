@@ -6,6 +6,7 @@
 
 #include "imgui/imgui.h"
 #include "imgui_impl_sdl_gl3.h"
+#include "mysdl_dpi.h"
 
 // SDL, GL
 #include <SDL.h>
@@ -354,21 +355,10 @@ void ImGui_ImplSdlGL3_NewFrame(bool guiFocusEnabled)
 
     // Compute display scale
     {
-        float defaultDpi;
-#ifdef __APPLE__
-        defaultDpi = 72.0f;
-#else
-        defaultDpi = 96.0f;
-#endif
-
         int displayIndex = SDL_GetWindowDisplayIndex(g_Window);
 
-        float hdpi, vdpi;
-        if (SDL_GetDisplayDPI(displayIndex, NULL, &hdpi, &vdpi))
-        {
-            hdpi = defaultDpi;
-            vdpi = defaultDpi;
-        }
+        float hdpi, vdpi, defaultDpi;
+        MySDL_GetDisplayDPI(displayIndex, &hdpi, &vdpi, &defaultDpi);
 
         int w, h;
         SDL_GetWindowSize(g_Window, &w, &h);
