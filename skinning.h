@@ -1,5 +1,8 @@
+#pragma once
+
 #include <glm/glm.hpp>
 #include <glm/gtc/type_precision.hpp>
+
 #include "opengl.h"
 
 struct VertexWeights
