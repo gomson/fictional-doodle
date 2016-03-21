@@ -27,6 +27,13 @@ enum BoneControlMode
     BONECONTROL_DYNAMICS
 };
 
+struct SQT
+{
+    // No S, lol. md5 doesn't use scale.
+    glm::vec3 T;
+    glm::quat Q;
+};
+
 struct Scene
 {
     // Bone weights per vertex.
@@ -41,11 +48,31 @@ struct Scene
     // Transforms a vertex in bone space.
     std::vector<glm::mat4> BoneSkinningTransforms;
 
+    // TODO: Bone parent index, or -1 if root
+
     // How the bone is animated
     std::vector<BoneControlMode> BoneControls;
 
-    // Animation sequences
+    // The human readable name of each animation sequence
     std::vector<std::string> AnimSequenceNames;
+    // For each animation sequence, the base frame for each bone
+    std::vector<std::vector<SQT>> AnimSequenceBoneBaseFrames;
+    // For each animation sequence, which animation channels are present in frame data for each bone
+    std::vector<std::vector<uint8_t>> AnimSequenceBoneChannelBits;
+    // For each animation sequence, the offset in floats in the frame data for this bone
+    std::vector<std::vector<int>> AnimSequenceBoneFrameDataOffset;
+    // For each animation sequence, data for each frame according to the channel bits
+    // If a channel bit is not set for a channel, then that data is not present in the frame.
+    // In that case, the baseFrame setting is used instead.
+    std::vector<std::vector<std::vector<float>>> AnimSequenceFrameData;
+
+    static const int ANIM_CHANNEL_TX_BIT = 1;
+    static const int ANIM_CHANNEL_TY_BIT = 2;
+    static const int ANIM_CHANNEL_TZ_BIT = 4;
+    static const int ANIM_CHANNEL_QX_BIT = 8;
+    static const int ANIM_CHANNEL_QY_BIT = 16;
+    static const int ANIM_CHANNEL_QZ_BIT = 32;
+    
     // The currently playing animation sequence
     int CurrAnimSequence;
 

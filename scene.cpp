@@ -362,14 +362,13 @@ void LoadScene(Scene* scene)
 
     // Storage for dynamics
     scene->BoneDynamicsBackBufferIndex = 0;
-    for (int i = 0; i < scene->NUM_BONE_DYNAMICS_BUFFERS; i++)
+    for (int i = 0; i < Scene::NUM_BONE_DYNAMICS_BUFFERS; i++)
     {
         scene->BoneDynamicsPositions[i].resize(numBones);
         scene->BoneDynamicsVelocities[i].resize(numBones);
     }
 
     // Load animations
-
     for (int animToLoadIdx = 0; animToLoadIdx < (int)animnames.size(); animToLoadIdx++)
     {
         std::string fullpath = scenepath + animnames[animToLoadIdx];
@@ -383,7 +382,144 @@ void LoadScene(Scene* scene)
         for (int animIdx = 0; animIdx < (int)animScene->mNumAnimations; animIdx++)
         {
             aiAnimation* animation = animScene->mAnimations[animIdx];
-            scene->AnimSequenceNames.push_back(animnames[animToLoadIdx]);
+            
+            scene->AnimSequenceNames.push_back(animation->mName.length == 0 ? animnames[animToLoadIdx].c_str() : animation->mName.C_Str());
+
+            scene->AnimSequenceBoneBaseFrames.emplace_back(animation->mNumChannels);
+            scene->AnimSequenceBoneChannelBits.emplace_back(animation->mNumChannels);
+            scene->AnimSequenceBoneFrameDataOffset.emplace_back(animation->mNumChannels);
+
+            std::vector<SQT>& baseFrame = scene->AnimSequenceBoneBaseFrames.back();
+            std::vector<uint8_t>& channelBits = scene->AnimSequenceBoneChannelBits.back();
+            std::vector<int>& frameDataOffsets = scene->AnimSequenceBoneFrameDataOffset.back();
+
+            int numFrames = 0;
+            int numFloatsPerFrame = 0;
+
+            for (int bone = 0; bone < (int)animation->mNumChannels; bone++)
+            {
+                numFrames = std::max(numFrames, (int)animation->mChannels[bone]->mNumScalingKeys);
+                numFrames = std::max(numFrames, (int)animation->mChannels[bone]->mNumPositionKeys);
+                numFrames = std::max(numFrames, (int)animation->mChannels[bone]->mNumRotationKeys);
+
+                aiVector3D basePos = animation->mChannels[bone]->mPositionKeys[0].mValue;
+                baseFrame[bone].T = glm::vec3(basePos.x, basePos.y, basePos.z);
+
+                aiQuaternion baseQuat = animation->mChannels[bone]->mRotationKeys[0].mValue;
+                baseFrame[bone].Q = glm::quat(baseQuat.w, baseQuat.x, baseQuat.y, baseQuat.z);
+
+                // undo assimp's expansion...
+                glm::bvec3 allSameT(false);
+                if (animation->mChannels[bone]->mNumPositionKeys == 1)
+                {
+                    allSameT = glm::bvec3(true);
+                }
+                else
+                {
+                    glm::bvec3 allSame = glm::bvec3(true);
+                    for (int i = 1; i < (int)animation->mChannels[bone]->mNumPositionKeys; i++)
+                    {
+                        aiVector3D v1 = animation->mChannels[bone]->mPositionKeys[i].mValue;
+                        aiVector3D v0 = animation->mChannels[bone]->mPositionKeys[i - 1].mValue;
+                        if (v0.x != v1.x) allSame.x = false;
+                        if (v0.y != v1.y) allSame.y = false;
+                        if (v0.z != v1.z) allSame.z = false;
+                        if (!any(allSame))
+                        {
+                            break;
+                        }
+                    }
+                    allSameT = allSame;
+                }
+
+                glm::bvec3 allSameQ(false);
+                if (animation->mChannels[bone]->mNumRotationKeys == 1)
+                {
+                    allSameQ = glm::bvec3(true);
+                }
+                else
+                {
+                    glm::bvec3 allSame = glm::bvec3(true);
+                    for (int i = 1; i < (int)animation->mChannels[bone]->mNumRotationKeys; i++)
+                    {
+                        aiQuaternion v1 = animation->mChannels[bone]->mRotationKeys[i].mValue;
+                        aiQuaternion v0 = animation->mChannels[bone]->mRotationKeys[i - 1].mValue;
+                        if (v0.x != v1.x) allSame.x = false;
+                        if (v0.y != v1.y) allSame.y = false;
+                        if (v0.z != v1.z) allSame.z = false;
+                        // don't need to check for w, since it's derived from xyz
+                        if (!any(allSame))
+                        {
+                            break;
+                        }
+                    }
+                    allSameQ = allSame;
+                }
+
+                channelBits[bone] |= allSameT.x ? 0 : Scene::ANIM_CHANNEL_TX_BIT;
+                channelBits[bone] |= allSameT.y ? 0 : Scene::ANIM_CHANNEL_TY_BIT;
+                channelBits[bone] |= allSameT.z ? 0 : Scene::ANIM_CHANNEL_TZ_BIT;
+                channelBits[bone] |= allSameQ.x ? 0 : Scene::ANIM_CHANNEL_QX_BIT;
+                channelBits[bone] |= allSameQ.y ? 0 : Scene::ANIM_CHANNEL_QY_BIT;
+                channelBits[bone] |= allSameQ.z ? 0 : Scene::ANIM_CHANNEL_QZ_BIT;
+
+                if (!channelBits[bone])
+                {
+                    frameDataOffsets[bone] = 0;
+                }
+                else
+                {
+                    frameDataOffsets[bone] = numFloatsPerFrame;
+                }
+
+                for (uint8_t bits = channelBits[bone]; bits != 0; bits = bits & (bits - 1))
+                {
+                    numFloatsPerFrame++;
+                }
+            }
+            
+            // build frame data
+            scene->AnimSequenceFrameData.emplace_back(std::vector<std::vector<float>>(numFrames, std::vector<float>(numFloatsPerFrame)));
+            std::vector<std::vector<float>>& frameDatas = scene->AnimSequenceFrameData.back();
+            for (int bone = 0; bone < (int)animation->mNumChannels; bone++)
+            {
+                for (int frameIdx = 0; frameIdx < numFrames; frameIdx++)
+                {
+                    int off = frameDataOffsets[bone];
+                    uint8_t bits = channelBits[bone];
+
+                    if (bits & Scene::ANIM_CHANNEL_TX_BIT)
+                    {
+                        frameDatas[frameIdx][off] = animation->mChannels[bone]->mPositionKeys[frameIdx].mValue.x;
+                        off++;
+                    }
+                    if (bits & Scene::ANIM_CHANNEL_TY_BIT)
+                    {
+                        frameDatas[frameIdx][off] = animation->mChannels[bone]->mPositionKeys[frameIdx].mValue.y;
+                        off++;
+                    }
+                    if (bits & Scene::ANIM_CHANNEL_TZ_BIT)
+                    {
+                        frameDatas[frameIdx][off] = animation->mChannels[bone]->mPositionKeys[frameIdx].mValue.z;
+                        off++;
+                    }
+                    if (bits & Scene::ANIM_CHANNEL_QX_BIT)
+                    {
+                        frameDatas[frameIdx][off] = animation->mChannels[bone]->mRotationKeys[frameIdx].mValue.x;
+                        off++;
+                    }
+                    if (bits & Scene::ANIM_CHANNEL_QY_BIT)
+                    {
+                        frameDatas[frameIdx][off] = animation->mChannels[bone]->mRotationKeys[frameIdx].mValue.y;
+                        off++;
+                    }
+                    if (bits & Scene::ANIM_CHANNEL_QZ_BIT)
+                    {
+                        frameDatas[frameIdx][off] = animation->mChannels[bone]->mRotationKeys[frameIdx].mValue.z;
+                        off++;
+                    }
+                }
+            }
         }
 
         aiReleaseImport(animScene);
@@ -469,8 +605,8 @@ void UpdateSceneDynamics(Scene* scene, uint32_t dt_ms)
     }
 
     // read from frontbuffer
-    const std::vector<glm::vec3>& oldPositions = scene->BoneDynamicsPositions[(scene->BoneDynamicsBackBufferIndex + 1) % scene->NUM_BONE_DYNAMICS_BUFFERS];
-    const std::vector<glm::vec3>& oldVelocities = scene->BoneDynamicsVelocities[(scene->BoneDynamicsBackBufferIndex + 1) % scene->NUM_BONE_DYNAMICS_BUFFERS];
+    const std::vector<glm::vec3>& oldPositions = scene->BoneDynamicsPositions[(scene->BoneDynamicsBackBufferIndex + 1) % Scene::NUM_BONE_DYNAMICS_BUFFERS];
+    const std::vector<glm::vec3>& oldVelocities = scene->BoneDynamicsVelocities[(scene->BoneDynamicsBackBufferIndex + 1) % Scene::NUM_BONE_DYNAMICS_BUFFERS];
     
     // write to backbuffer
     std::vector<glm::vec3>& newPositions = scene->BoneDynamicsPositions[scene->BoneDynamicsBackBufferIndex];
@@ -505,7 +641,7 @@ void UpdateSceneDynamics(Scene* scene, uint32_t dt_ms)
         (float*)data(newVelocities));
 
     // swap buffers
-    scene->BoneDynamicsBackBufferIndex = (scene->BoneDynamicsBackBufferIndex + 1) % scene->NUM_BONE_DYNAMICS_BUFFERS;
+    scene->BoneDynamicsBackBufferIndex = (scene->BoneDynamicsBackBufferIndex + 1) % Scene::NUM_BONE_DYNAMICS_BUFFERS;
 
     // Update select bones based on dynamics
     for (int b = 0; b < (int)scene->BoneSkinningTransforms.size(); b++)
