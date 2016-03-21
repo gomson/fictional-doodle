@@ -23,6 +23,7 @@ SOURCES = \
 	opengl.cpp \
 	renderer.cpp \
 	runtimecpp.cpp \
+	shaderreloader.cpp \
 	scene.cpp
 
 # Object files

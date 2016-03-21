@@ -8,6 +8,7 @@
 #if defined(__APPLE__)
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <stdio.h>
 #endif
 
 static uint64_t GetShaderFileTimestamp(const char* filename)
@@ -40,7 +41,15 @@ static uint64_t GetShaderFileTimestamp(const char* filename)
     }
     delete[] wfilename;
 #elif defined(__APPLE__)
-    static_assert(false, "I can't test this implementation. Please set \"uint64_t timestamp\" to a 64 bit timestamp. -nic");
+    struct stat buf;
+
+    if (stat(filename, &buf) == -1)
+    {
+        perror(filename);
+        return 0;
+    }
+
+    timestamp = buf.st_mtimespec.tv_sec;
 #else
     static_assert(false, "no GetShaderFileTimestamp for this platform");
 #endif

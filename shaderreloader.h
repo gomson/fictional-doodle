@@ -4,6 +4,7 @@
 
 #include <unordered_map>
 #include <cstring>
+#include <cstdlib>
 
 struct ReloadableShader
 {
