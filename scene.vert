@@ -11,6 +11,7 @@ layout(location = 6) in  vec4 Weights;
 uniform mat4 View;
 uniform mat4 ModelView;
 uniform mat4 ModelViewProjection;
+uniform samplerBuffer BoneTransforms;
 
 const vec4 kLightPosition = vec4(200.0, 1000.0, 200.0, 1.0);
 
@@ -29,5 +30,20 @@ void main()
     fNormal = mat3(ModelView) * Normal;
     fTexCoord0 = TexCoord0;
 
-    gl_Position = ModelViewProjection * Position;
+    mat4 skinningTransform = mat4(0.0);
+
+    for (int i = 0; i < 4; i++)
+    {
+        mat4 boneTransform = mat4
+        (
+            texelFetch(BoneTransforms, int(BoneIDs[i]) * 4 + 0),
+            texelFetch(BoneTransforms, int(BoneIDs[i]) * 4 + 1),
+            texelFetch(BoneTransforms, int(BoneIDs[i]) * 4 + 2),
+            texelFetch(BoneTransforms, int(BoneIDs[i]) * 4 + 3)
+        );
+
+        skinningTransform += Weights[i] * boneTransform;
+    }
+
+    gl_Position = ModelViewProjection * skinningTransform * Position;
 }

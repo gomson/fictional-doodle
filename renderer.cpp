@@ -92,6 +92,11 @@ void PaintRenderer(
         glUseProgram(scene->SceneSP.Handle);
 
         glUniform1i(scene->SceneSP_Diffuse0Loc, 0);
+        glUniform1i(scene->SceneSP_BoneTransformsLoc, 1);
+
+        // Bind skinning transformation
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_BUFFER, scene->BoneTex);
 
         for (int drawIdx = 0; drawIdx < (int)scene->NodeDrawCmds.size(); drawIdx++)
         {

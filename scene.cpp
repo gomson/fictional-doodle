@@ -18,6 +18,7 @@
 
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/matrix_inverse.hpp>
 
 #include <SDL.h>
 
@@ -209,23 +210,23 @@ void LoadScene(Scene* scene)
             // Create bone name to ID mapping if none exists.
             if (scene->BoneIDs.find(boneName) == scene->BoneIDs.end())
             {
-                glm::mat4 boneTransform = glm::transpose(glm::make_mat4(&bone->mOffsetMatrix.a1));
-                scene->BoneIDs[boneName] = (GLuint)scene->BoneTransforms.size();
-                scene->BoneTransforms.push_back(boneTransform);
+                // Store the bone's inverse bind pose matrix.
+                glm::mat4 transform = glm::transpose(glm::make_mat4(&bone->mOffsetMatrix.a1));
+                scene->BoneIDs[boneName] = (GLuint)scene->BoneInverseBindPoseTransforms.size();
+                scene->BoneInverseBindPoseTransforms.push_back(transform);
             }
 
             GLuint boneID = scene->BoneIDs[boneName];
 
             for (int weightIdx = 0; weightIdx < (int)bone->mNumWeights; weightIdx++)
             {
-                aiVertexWeight& weight = bone->mWeights[weightIdx];
-                int vertexIdx = meshDraws[sceneMeshIdx].baseVertex + weight.mVertexId;
+                int vertexIdx = meshDraws[sceneMeshIdx].baseVertex + bone->mWeights[weightIdx].mVertexId;
 
-                for (int i = 0; i < NUM_BONES_PER_VERTEX; i++)
+                for (int i = 0; i < scene->VertexBones[vertexIdx].Weights.length(); i++)
                 {
                     if (scene->VertexBones[vertexIdx].Weights[i] == 0.0)
                     {
-                        scene->VertexBones[vertexIdx].Weights[i] = weight.mWeight;
+                        scene->VertexBones[vertexIdx].Weights[i] = bone->mWeights[weightIdx].mWeight;
                         scene->VertexBones[vertexIdx].BoneIDs[i] = boneID;
                         break;
                     }
@@ -251,6 +252,17 @@ void LoadScene(Scene* scene)
     glBufferData(GL_ARRAY_BUFFER, scene->VertexBones.size() * sizeof(scene->VertexBones[0]), scene->VertexBones.data(), GL_STATIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
+    // Create texture buffer for skinning transformation
+    glGenBuffers(1, &scene->BoneTBO);
+    glBindBuffer(GL_TEXTURE_BUFFER, scene->BoneTBO);
+    glBindBuffer(GL_TEXTURE_BUFFER, 0);
+
+    // Create texture and attach buffer object to texture
+    glGenTextures(1, &scene->BoneTex);
+    glBindTexture(GL_TEXTURE_BUFFER, scene->BoneTex);
+    glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32F, scene->BoneTBO);
+    glBindTexture(GL_TEXTURE_BUFFER, 0);
+
     // Setup VAO
     glGenVertexArrays(1, &scene->VAO);
     glBindVertexArray(scene->VAO);
@@ -266,8 +278,8 @@ void LoadScene(Scene* scene)
 
     // Vertex bone weights
     glBindBuffer(GL_ARRAY_BUFFER, scene->BoneVBO);
-    glVertexAttribPointer(5, 4, GL_UNSIGNED_INT, GL_FALSE, sizeof(SceneVertexBoneData), (GLvoid*)offsetof(SceneVertexBoneData, BoneIDs));
-    glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(SceneVertexBoneData), (GLvoid*)offsetof(SceneVertexBoneData, Weights));
+    glVertexAttribIPointer(5, 4, GL_UNSIGNED_BYTE, sizeof(VertexWeights), (GLvoid*)offsetof(VertexWeights, BoneIDs));
+    glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(VertexWeights), (GLvoid*)offsetof(VertexWeights, Weights));
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     glEnableVertexAttribArray(0); // position
@@ -280,11 +292,25 @@ void LoadScene(Scene* scene)
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, scene->EBO);
     glBindVertexArray(0);
 
-    // depth first traversal of scene to build draws
+    // Create storage for skinning transformations
+    scene->BoneSkinningTransforms.resize(scene->BoneInverseBindPoseTransforms.size());
+
+    // Compute inverse model transformation used to compute skinning transformation
+    glm::mat4 inverseModelTransform = glm::inverseTranspose(glm::make_mat4(&aiscene->mRootNode->mTransformation.a1));
+
+    // depth first traversal of scene to build draws and skinning transformations
     std::function<void(const aiNode*, glm::mat4)> addNode;
-    addNode = [&addNode, &meshDraws, &aiscene, &scene](const aiNode* node, glm::mat4 transform)
+    addNode = [&addNode, &meshDraws, &aiscene, &scene, &inverseModelTransform](const aiNode* node, glm::mat4 transform)
     {
         transform = transform * glm::transpose(glm::make_mat4(&node->mTransformation.a1));
+        std::string boneName(node->mName.data);
+
+        // if the node is a bone, compute and store its skinning transformation
+        if (scene->BoneIDs.find(boneName) != scene->BoneIDs.end())
+        {
+            GLubyte boneID = scene->BoneIDs[boneName];
+            scene->BoneSkinningTransforms[boneID] = inverseModelTransform * transform * scene->BoneInverseBindPoseTransforms[boneID];
+        }
 
         // add draws for all meshes assigned to this node
         for (int nodeMeshIdx = 0; nodeMeshIdx < (int)node->mNumMeshes; nodeMeshIdx++)
@@ -305,6 +331,11 @@ void LoadScene(Scene* scene)
     addNode(aiscene->mRootNode, glm::mat4());
 
     aiReleaseImport(aiscene);
+
+    // Upload initial skinning transformations
+    glBindBuffer(GL_TEXTURE_BUFFER, scene->BoneTBO);
+    glBufferData(GL_TEXTURE_BUFFER, scene->BoneSkinningTransforms.size() * sizeof(scene->BoneSkinningTransforms[0]), scene->BoneSkinningTransforms.data(), GL_DYNAMIC_DRAW);
+    glBindBuffer(GL_TEXTURE_BUFFER, 0);
 }
 
 void InitScene(Scene* scene)
@@ -350,7 +381,8 @@ static void ReloadShaders(Scene* scene)
         if (getU(&scene->SceneSP_ViewLoc, "View") ||
             getU(&scene->SceneSP_MVLoc, "ModelView") ||
             getU(&scene->SceneSP_MVPLoc, "ModelViewProjection") ||
-            getU(&scene->SceneSP_Diffuse0Loc, "Diffuse0"))
+            getU(&scene->SceneSP_Diffuse0Loc, "Diffuse0") ||
+            getU(&scene->SceneSP_BoneTransformsLoc, "BoneTransforms"))
         {
             return;
         }
