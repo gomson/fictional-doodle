@@ -428,8 +428,8 @@ void UpdateScene(Scene* scene, uint32_t dt_ms)
             !scene->EnableCamera ? 0 : keyboardState[SDL_SCANCODE_A],
             !scene->EnableCamera ? 0 : keyboardState[SDL_SCANCODE_S],
             !scene->EnableCamera ? 0 : keyboardState[SDL_SCANCODE_D],
-            !scene->EnableCamera ? 0 : keyboardState[SDL_SCANCODE_E],
-            !scene->EnableCamera ? 0 : keyboardState[SDL_SCANCODE_Q]);
+            !scene->EnableCamera ? 0 : keyboardState[SDL_SCANCODE_SPACE],
+            !scene->EnableCamera ? 0 : keyboardState[SDL_SCANCODE_LCTRL] || keyboardState[SDL_SCANCODE_LSHIFT]);
     }
 
     static PFNSIMULATEDYNAMICSPROC pfnSimulateDynamics = NULL;
