@@ -230,11 +230,11 @@ void LoadScene(Scene* scene)
             {
                 // Store the bone's inverse bind pose matrix.
                 glm::mat4 transform = glm::transpose(glm::make_mat4(&bone->mOffsetMatrix.a1));
-                scene->BoneIDs[boneName] = (GLuint)scene->BoneInverseBindPoseTransforms.size();
+                scene->BoneIDs[boneName] = (int)scene->BoneInverseBindPoseTransforms.size();
                 scene->BoneInverseBindPoseTransforms.push_back(transform);
             }
 
-            GLuint boneID = scene->BoneIDs[boneName];
+            int boneID = scene->BoneIDs[boneName];
 
             for (int weightIdx = 0; weightIdx < (int)bone->mNumWeights; weightIdx++)
             {
@@ -312,6 +312,7 @@ void LoadScene(Scene* scene)
 
     // Create storage for skinning transformations
     scene->BoneSkinningTransforms.resize(scene->BoneInverseBindPoseTransforms.size());
+    scene->BoneParent.resize(scene->BoneInverseBindPoseTransforms.size(), -1);
 
     // Compute inverse model transformation used to compute skinning transformation
     glm::mat4 inverseModelTransform = glm::inverseTranspose(glm::make_mat4(&aiscene->mRootNode->mTransformation.a1));
@@ -321,12 +322,12 @@ void LoadScene(Scene* scene)
     addNode = [&addNode, &meshDraws, &aiscene, &scene, &inverseModelTransform](const aiNode* node, glm::mat4 transform)
     {
         transform = transform * glm::transpose(glm::make_mat4(&node->mTransformation.a1));
-        std::string boneName(node->mName.data);
+        std::string boneName(node->mName.C_Str());
 
         // if the node is a bone, compute and store its skinning transformation
         if (scene->BoneIDs.find(boneName) != scene->BoneIDs.end())
         {
-            GLubyte boneID = scene->BoneIDs[boneName];
+            int boneID = scene->BoneIDs[boneName];
             scene->BoneSkinningTransforms[boneID] = inverseModelTransform * transform * scene->BoneInverseBindPoseTransforms[boneID];
         }
 

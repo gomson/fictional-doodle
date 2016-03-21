@@ -40,7 +40,7 @@ struct Scene
     std::vector<VertexWeights> VertexBones;
 
     // Bone indices by name.
-    std::unordered_map<std::string, GLubyte> BoneIDs;
+    std::unordered_map<std::string, int> BoneIDs;
 
     // Transforms a vertex from model space to bone space.
     std::vector<glm::mat4> BoneInverseBindPoseTransforms;
@@ -48,7 +48,9 @@ struct Scene
     // Transforms a vertex in bone space.
     std::vector<glm::mat4> BoneSkinningTransforms;
 
-    // TODO: Bone parent index, or -1 if root
+    // Bone parent index, or -1 if root
+#pragma warning("BoneParent not yet implemented")
+    std::vector<int> BoneParent;
 
     // How the bone is animated
     std::vector<BoneControlMode> BoneControls;
