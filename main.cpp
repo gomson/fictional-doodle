@@ -115,6 +115,9 @@ int main(int argc, char *argv[])
             // Warping mouse seems necessary to acquire mouse focus for OS X track pad.
             SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1");
             SDL_SetRelativeMouseMode(SDL_TRUE);
+
+            // Prevent initial mouse warp state change from reorienting the camera.
+            SDL_GetRelativeMouseState(NULL, NULL);
             scene.EnableCamera = true;
         }
     };
