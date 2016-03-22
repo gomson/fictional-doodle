@@ -12,6 +12,19 @@
 #include <vector>
 #include <string>
 
+void LoadMD5Mesh(
+    Scene* scene,
+    const char* folder, const char* meshfile);
+
+void LoadMD5Anim(
+    Scene* scene,
+    int skeletonID,
+    const char* folder, const char* animfile)
+{
+
+}
+
+// TODO: Remove and replace
 void LoadScene(Scene* scene)
 {
 #if 1

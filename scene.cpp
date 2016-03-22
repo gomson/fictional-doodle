@@ -25,7 +25,31 @@
 
 void InitScene(Scene* scene)
 {
-    LoadScene(scene);
+    std::string hellknight_path = "assets/hellknight/";
+    std::string hellknight_modelName = "hellknight.md5mesh";
+    std::vector<std::string> hellknight_animNames{
+        "attack3.md5anim",
+        "chest.md5anim",
+        "headpain.md5anim",
+        "idle2.md5anim",
+        "leftslash.md5anim",
+        "pain_luparm.md5anim",
+        "pain_ruparm.md5anim",
+        "pain1.md5anim",
+        "range_attack2.md5anim",
+        "roar1.md5anim",
+        "stand.md5anim",
+        "turret_attack.md5anim",
+        "walk7.md5anim",
+        "walk7_left.md5anim"
+    };
+
+    LoadMD5Mesh(scene, hellknight_path.c_str(), hellknight_modelName.c_str());
+    int hellknightSkeletonID = 0; // TODO: query this
+    for (const std::string& animName : hellknight_animNames)
+    {
+        LoadMD5Anim(scene, hellknightSkeletonID, hellknight_path.c_str(), animName.c_str());
+    }
 
     scene->AllShadersOK = false;
 
