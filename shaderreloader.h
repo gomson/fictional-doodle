@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <cstring>
 #include <cstdlib>
+#include <vector>
 
 struct ReloadableShader
 {
@@ -68,12 +69,12 @@ struct ReloadableProgram
         ReloadableShader* gs = NULL,
         ReloadableShader* tcs = NULL,
         ReloadableShader* tes = NULL)
-        : Handle(0), VS(vs), FS(fs), GS(gs), TCS(tcs), TES(tes), CS(NULL)
+        : Handle(0), VS(vs), FS(fs), GS(gs), TCS(tcs), TES(tes), CS(NULL), Varyings()
     { }
 
     explicit ReloadableProgram(
-        ReloadableShader* onestage)
-        : Handle(0), VS(NULL), FS(NULL), GS(NULL), TCS(NULL), TES(NULL), CS(NULL)
+        ReloadableShader* onestage, const std::vector<const char*>& varyings)
+        : Handle(0), VS(NULL), FS(NULL), GS(NULL), TCS(NULL), TES(NULL), CS(NULL), Varyings(varyings)
     {
         switch (onestage->Type)
         {
@@ -96,6 +97,9 @@ struct ReloadableProgram
     ReloadableShader* TCS;
     ReloadableShader* TES;
     ReloadableShader* CS;
+
+    // Transform feedback outputs to capture.
+    std::vector<const char*> Varyings;
 };
 
 bool ReloadProgram(ReloadableProgram* program);

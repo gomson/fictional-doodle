@@ -2,7 +2,6 @@
 
 #include <string>
 #include <fstream>
-#include <vector>
 #include <cassert>
 
 #if defined(__APPLE__)
@@ -146,6 +145,11 @@ bool ReloadProgram(ReloadableProgram* program)
             }
 
             glAttachShader(newProgram, shaders[i]->Handle);
+        }
+
+        if (size(program->Varyings))
+        {
+            glTransformFeedbackVaryings(newProgram, size(program->Varyings), data(program->Varyings), GL_INTERLEAVED_ATTRIBS);
         }
 
         glLinkProgram(newProgram);
