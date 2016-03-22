@@ -149,57 +149,55 @@ void LoadScene(Scene* scene)
     // figure out how much memory is needed for the scene and check assumptions about data
     int totalNumVertices = 0;
     int totalNumIndices = 0;
-    std::vector<GLDrawElementsIndirectCommand> meshDraws(aiscene->mNumMeshes);
-    for (int sceneMeshIdx = 0; sceneMeshIdx < (int)aiscene->mNumMeshes; sceneMeshIdx++)
+    scene->SkinnedMeshDrawCommands.resize(aiscene->mNumMeshes);
+    for (int skinnedMeshIdx = 0; skinnedMeshIdx < (int)aiscene->mNumMeshes; skinnedMeshIdx++)
     {
-        aiMesh* mesh = aiscene->mMeshes[sceneMeshIdx];
+        aiMesh* mesh = aiscene->mMeshes[skinnedMeshIdx];
 
         if (mesh->mPrimitiveTypes != aiPrimitiveType_TRIANGLE)
         {
-            fprintf(stderr, "Mesh %d was not made out of triangles\n", sceneMeshIdx);
+            fprintf(stderr, "Mesh %d was not made out of triangles\n", skinnedMeshIdx);
             exit(1);
         }
 
         if (!mesh->mTextureCoords[0])
         {
-            fprintf(stderr, "Mesh %d didn't have TexCoord0\n", sceneMeshIdx);
+            fprintf(stderr, "Mesh %d didn't have TexCoord0\n", skinnedMeshIdx);
             exit(1);
         }
 
         if (!mesh->mNormals)
         {
-            fprintf(stderr, "Mesh %d didn't have normals\n", sceneMeshIdx);
+            fprintf(stderr, "Mesh %d didn't have normals\n", skinnedMeshIdx);
             exit(1);
         }
 
         if (!mesh->mTangents)
         {
-            fprintf(stderr, "Mesh %d didn't have tangents\n", sceneMeshIdx);
+            fprintf(stderr, "Mesh %d didn't have tangents\n", skinnedMeshIdx);
             exit(1);
         }
 
         if (!mesh->mBitangents)
         {
-            fprintf(stderr, "Mesh %d didn't have bitangents\n", sceneMeshIdx);
+            fprintf(stderr, "Mesh %d didn't have bitangents\n", skinnedMeshIdx);
             exit(1);
         }
 
-        meshDraws[sceneMeshIdx].count = mesh->mNumFaces * 3;
-        meshDraws[sceneMeshIdx].primCount = 1;
-        meshDraws[sceneMeshIdx].firstIndex = totalNumIndices;
-        meshDraws[sceneMeshIdx].baseVertex = totalNumVertices;
-        meshDraws[sceneMeshIdx].baseInstance = 0; // cannot use since we don't have GL 4.2 on OS X
+        GLDrawElementsIndirectCommand& draw = scene->SkinnedMeshDrawCommands[skinnedMeshIdx];
+        draw.count = mesh->mNumFaces * 3;
+        draw.primCount = 1;
+        draw.firstIndex = totalNumIndices;
+        draw.baseVertex = totalNumVertices;
+        draw.baseInstance = 0; // cannot use since we don't have GL 4.2 on OS X
 
         totalNumVertices += mesh->mNumVertices;
         totalNumIndices += mesh->mNumFaces * 3;
     }
 
-    // allocate memory for scene's meshes
-    std::vector<SceneVertex> meshVertices(totalNumVertices);
-    std::vector<glm::uvec3> meshIndices(totalNumIndices);
-
-    // allocate memory for vertex bones
-    scene->VertexBones.resize(totalNumVertices);
+    // allocate memory for scene's skinning meshes
+    std::vector<SkinningVertex> skinningVertices(totalNumVertices);
+    std::vector<glm::uvec3> skinningIndices(totalNumIndices);
 
     // read mesh geometry data
     for (int sceneMeshIdx = 0, currVertexIdx = 0, currIndexIdx = 0; sceneMeshIdx < (int)aiscene->mNumMeshes; sceneMeshIdx++)
@@ -208,20 +206,20 @@ void LoadScene(Scene* scene)
 
         for (int vertexIdx = 0; vertexIdx < (int)mesh->mNumVertices; vertexIdx++)
         {
-            SceneVertex vertex;
+            SkinningVertex vertex;
             vertex.Position = glm::make_vec3(&mesh->mVertices[vertexIdx][0]);
             vertex.TexCoord0 = glm::make_vec2(&mesh->mTextureCoords[0][vertexIdx][0]);
             vertex.Normal = glm::make_vec3(&mesh->mNormals[vertexIdx][0]);
             vertex.Tangent = glm::make_vec3(&mesh->mTangents[vertexIdx][0]);
             vertex.Bitangent = glm::make_vec3(&mesh->mBitangents[vertexIdx][0]);
 
-            meshVertices[currVertexIdx] = vertex;
+            skinningVertices[currVertexIdx] = vertex;
             currVertexIdx++;
         }
 
         for (int faceIdx = 0; faceIdx < (int)mesh->mNumFaces; faceIdx++)
         {
-            meshIndices[currIndexIdx] = glm::make_vec3(&mesh->mFaces[faceIdx].mIndices[0]);
+            skinningIndices[currIndexIdx] = glm::make_vec3(&mesh->mFaces[faceIdx].mIndices[0]);
             currIndexIdx++;
         }
 
@@ -243,37 +241,34 @@ void LoadScene(Scene* scene)
 
             for (int weightIdx = 0; weightIdx < (int)bone->mNumWeights; weightIdx++)
             {
-                int vertexIdx = meshDraws[sceneMeshIdx].baseVertex + bone->mWeights[weightIdx].mVertexId;
+                int vertexIdx = scene->SkinnedMeshDrawCommands[sceneMeshIdx].baseVertex + bone->mWeights[weightIdx].mVertexId;
 
-                for (int i = 0; i < scene->VertexBones[vertexIdx].Weights.length(); i++)
+                for (int i = 0; i < skinningVertices[vertexIdx].Weights.length(); i++)
                 {
-                    if (scene->VertexBones[vertexIdx].Weights[i] == 0.0)
+                    if (skinningVertices[vertexIdx].Weights[i] == 0.0)
                     {
-                        scene->VertexBones[vertexIdx].Weights[i] = bone->mWeights[weightIdx].mWeight;
-                        scene->VertexBones[vertexIdx].BoneIDs[i] = boneID;
+                        skinningVertices[vertexIdx].Weights[i] = bone->mWeights[weightIdx].mWeight;
+                        skinningVertices[vertexIdx].BoneIDs[i] = boneID;
                         break;
                     }
                 }
             }
         }
+
+        // Number of vertices for this bind pose mesh
+        scene->BindBoseMeshNumVertices.push_back(mesh->mNumVertices);
     }
 
-    // Upload geometry data
-    glGenBuffers(1, &scene->StaticGeometryVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, scene->StaticGeometryVBO);
-    glBufferData(GL_ARRAY_BUFFER, meshVertices.size() * sizeof(meshVertices[0]), meshVertices.data(), GL_STATIC_DRAW);
+    // Upload bind pose geometry
+    glGenBuffers(1, &scene->BindPoseMeshVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, scene->BindPoseMeshVBO);
+    glBufferData(GL_ARRAY_BUFFER, skinningVertices.size() * sizeof(skinningVertices[0]), skinningVertices.data(), GL_STATIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-    glGenBuffers(1, &scene->StaticGeometryEBO);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, scene->StaticGeometryEBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, meshIndices.size() * sizeof(meshIndices[0]), meshIndices.data(), GL_STATIC_DRAW);
+    glGenBuffers(1, &scene->BindPoseMeshEBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, scene->BindPoseMeshEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, skinningIndices.size() * sizeof(skinningIndices[0]), skinningIndices.data(), GL_STATIC_DRAW);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
-    // Upload animation data
-    glGenBuffers(1, &scene->BoneVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, scene->BoneVBO);
-    glBufferData(GL_ARRAY_BUFFER, scene->VertexBones.size() * sizeof(scene->VertexBones[0]), scene->VertexBones.data(), GL_STATIC_DRAW);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     // Create texture buffer for skinning transformation
     glGenBuffers(1, &scene->SkinningMatrixPaletteTBO);
@@ -286,60 +281,75 @@ void LoadScene(Scene* scene)
     glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32F, scene->SkinningMatrixPaletteTBO);
     glBindTexture(GL_TEXTURE_BUFFER, 0);
 
-    // Setup VAO for ordinary static meshes
+    // Buffer for output of skinning transformation
+    glGenBuffers(1, &scene->SkinningTFBO);
+    glBindBuffer(GL_ARRAY_BUFFER, scene->SkinningTFBO);
+    glBufferData(GL_ARRAY_BUFFER, skinningVertices.size() * sizeof(SkinnedVertex), NULL, GL_DYNAMIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    // VAO for skinning
     {
-        glGenVertexArrays(1, &scene->StaticMeshVAO);
-        glBindVertexArray(scene->StaticMeshVAO);
+        glGenVertexArrays(1, &scene->SkinningVAO);
+        glBindVertexArray(scene->SkinningVAO);
+
+        // Note: texcoords not necessary for skinning (yet?)
 
         // Vertex geometry
-        glBindBuffer(GL_ARRAY_BUFFER, scene->StaticGeometryVBO);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(SceneVertex), (GLvoid*)offsetof(SceneVertex, Position));
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(SceneVertex), (GLvoid*)offsetof(SceneVertex, TexCoord0));
-        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(SceneVertex), (GLvoid*)offsetof(SceneVertex, Normal));
-        glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(SceneVertex), (GLvoid*)offsetof(SceneVertex, Tangent));
-        glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(SceneVertex), (GLvoid*)offsetof(SceneVertex, Bitangent));
+        glBindBuffer(GL_ARRAY_BUFFER, scene->BindPoseMeshVBO);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(SkinningVertex), (GLvoid*)offsetof(SkinningVertex, Position));
+        // glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(SkinningVertex), (GLvoid*)offsetof(SkinningVertex, TexCoord0));
+        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(SkinningVertex), (GLvoid*)offsetof(SkinningVertex, Normal));
+        glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(SkinningVertex), (GLvoid*)offsetof(SkinningVertex, Tangent));
+        glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(SkinningVertex), (GLvoid*)offsetof(SkinningVertex, Bitangent));
+        glVertexAttribIPointer(5, 4, GL_UNSIGNED_BYTE, sizeof(SkinningVertex), (GLvoid*)offsetof(SkinningVertex, BoneIDs));
+        glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(SkinningVertex), (GLvoid*)offsetof(SkinningVertex, Weights));
         glBindBuffer(GL_ARRAY_BUFFER, 0);
 
         glEnableVertexAttribArray(0); // position
-        glEnableVertexAttribArray(1); // texcoord0
-        glEnableVertexAttribArray(2); // normal
-        glEnableVertexAttribArray(3); // tangent
-        glEnableVertexAttribArray(4); // bitangent
-
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, scene->StaticGeometryEBO);
-        glBindVertexArray(0);
-    }
-
-    // Setup VAO for skinned meshes
-    {
-        glGenVertexArrays(1, &scene->SkinnedMeshVAO);
-        glBindVertexArray(scene->SkinnedMeshVAO);
-
-        // Vertex geometry
-        glBindBuffer(GL_ARRAY_BUFFER, scene->StaticGeometryVBO);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(SceneVertex), (GLvoid*)offsetof(SceneVertex, Position));
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(SceneVertex), (GLvoid*)offsetof(SceneVertex, TexCoord0));
-        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(SceneVertex), (GLvoid*)offsetof(SceneVertex, Normal));
-        glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(SceneVertex), (GLvoid*)offsetof(SceneVertex, Tangent));
-        glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(SceneVertex), (GLvoid*)offsetof(SceneVertex, Bitangent));
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-        // Vertex bone weights
-        glBindBuffer(GL_ARRAY_BUFFER, scene->BoneVBO);
-        glVertexAttribIPointer(5, 4, GL_UNSIGNED_BYTE, sizeof(VertexWeights), (GLvoid*)offsetof(VertexWeights, BoneIDs));
-        glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(VertexWeights), (GLvoid*)offsetof(VertexWeights, Weights));
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-        glEnableVertexAttribArray(0); // position
-        glEnableVertexAttribArray(1); // texcoord0
+        // glEnableVertexAttribArray(1); // texcoord0
         glEnableVertexAttribArray(2); // normal
         glEnableVertexAttribArray(3); // tangent
         glEnableVertexAttribArray(4); // bitangent
         glEnableVertexAttribArray(5); // bone IDs
         glEnableVertexAttribArray(6); // bone weights
 
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, scene->StaticGeometryEBO);
         glBindVertexArray(0);
+    }
+
+    // VAO for rendering the final skinned meshes
+    {
+        glGenVertexArrays(1, &scene->SkinnedMeshVAO);
+        glBindVertexArray(scene->SkinnedMeshVAO);
+
+        // Texcoords don't change from skinning
+        glBindBuffer(GL_ARRAY_BUFFER, scene->BindPoseMeshVBO);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(SkinningVertex), (GLvoid*)offsetof(SkinningVertex, TexCoord0));
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+        glBindBuffer(GL_ARRAY_BUFFER, scene->SkinningTFBO);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(SkinnedVertex), (GLvoid*)offsetof(SkinnedVertex, Position));
+        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(SkinnedVertex), (GLvoid*)offsetof(SkinnedVertex, Normal));
+        glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(SkinnedVertex), (GLvoid*)offsetof(SkinnedVertex, Tangent));
+        glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(SkinnedVertex), (GLvoid*)offsetof(SkinnedVertex, Bitangent));
+        glBindBuffer(GL_ARRAY_BUFFER, scene->SkinningTFBO);
+
+        glEnableVertexAttribArray(0); // position
+        glEnableVertexAttribArray(1); // texcoord0
+        glEnableVertexAttribArray(2); // normal
+        glEnableVertexAttribArray(3); // tangent
+        glEnableVertexAttribArray(4); // bitangent
+
+        // indices don't change from skinning
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, scene->BindPoseMeshEBO);
+        glBindVertexArray(0);
+    }
+
+    // Transform feedback for the skinning
+    {
+        glGenTransformFeedbacks(1, & scene->SkinningTFO);
+        glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, scene->SkinningTFO);
+        glBindBuffer(GL_TRANSFORM_FEEDBACK_BUFFER, scene->SkinningTFBO);
+        glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, 0);
     }
 
     // Create storage for skinning transformations
@@ -351,12 +361,11 @@ void LoadScene(Scene* scene)
 
     // depth first traversal of scene to build draws and skinning transformations
     std::function<void(const aiNode*, glm::mat4)> addNode;
-    addNode = [&addNode, &meshDraws, &aiscene, &scene, &inverseModelTransform](const aiNode* node, glm::mat4 transform)
+    addNode = [&addNode, &aiscene, &scene, &inverseModelTransform](const aiNode* node, glm::mat4 transform)
     {
         transform = transform * glm::transpose(glm::make_mat4(&node->mTransformation.a1));
         std::string boneName(node->mName.C_Str());
 
-        printf("%s\n", boneName.c_str());
         // if the node is a bone, compute and store its skinning transformation
         if (scene->BoneIDs.find(boneName) != scene->BoneIDs.end())
         {
@@ -367,10 +376,13 @@ void LoadScene(Scene* scene)
         // add draws for all meshes assigned to this node
         for (int nodeMeshIdx = 0; nodeMeshIdx < (int)node->mNumMeshes; nodeMeshIdx++)
         {
-            GLDrawElementsIndirectCommand draw = meshDraws[node->mMeshes[nodeMeshIdx]];
+            GLDrawElementsIndirectCommand draw = scene->SkinnedMeshDrawCommands[node->mMeshes[nodeMeshIdx]];
             scene->NodeDrawCmds.push_back(draw);
             scene->NodeModelWorldTransforms.push_back(transform);
             scene->NodeMaterialIDs.push_back(aiscene->mMeshes[node->mMeshes[nodeMeshIdx]]->mMaterialIndex);
+            scene->NodeTypes.push_back(SCENENODETYPE_SKINNEDMESH);
+            // the offset of the first bone that will be written from loading this mesh
+            scene->SkinnedMeshBaseBones.push_back((int)scene->BoneInverseBindPoseTransforms.size());
         }
 
         // traverse all children
@@ -598,13 +610,21 @@ static void ReloadShaders(Scene* scene)
     scene->AllShadersOK = false;
 
     // Reload shaders & uniforms
+    if (reload(&scene->SkinningSP))
+    {
+        if (getU(&scene->SkinningSP_ModelWorldLoc, "ModelWorld") ||
+            getU(&scene->SkinningSP_BoneTransformsLoc, "BoneTransforms") ||
+            getU(&scene->SkinningSP_BoneOffsetLoc, "BoneOffset"))
+        {
+            return;
+        }
+    }
+
     if (reload(&scene->SceneSP))
     {
-        if (getU(&scene->SceneSP_ViewLoc, "View") ||
-            getU(&scene->SceneSP_MVLoc, "ModelView") ||
-            getU(&scene->SceneSP_MVPLoc, "ModelViewProjection") ||
-            getU(&scene->SceneSP_Diffuse0Loc, "Diffuse0") ||
-            getU(&scene->SceneSP_BoneTransformsLoc, "BoneTransforms"))
+        if (getU(&scene->SceneSP_WorldViewLoc, "WorldView") ||
+            getU(&scene->SceneSP_WorldViewProjectionLoc, "WorldViewProjection") ||
+            getU(&scene->SceneSP_Diffuse0Loc, "Diffuse0"))
         {
             return;
         }
@@ -746,6 +766,42 @@ void ShowToolboxGUI(Scene* scene, SDL_Window* window)
     ImGui::End();
 }
 
+void UpdateSceneSkinnedGeometry(Scene* scene, uint32_t dt_ms)
+{
+    glUseProgram(scene->SkinningSP.Handle);
+    glBindVertexArray(scene->SkinningVAO);
+
+    glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, scene->SkinningTFO);
+    glBeginTransformFeedback(GL_POINTS); // capture points so triangles aren't unfolded
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_BUFFER, scene->SkinningMatrixPaletteTexture);
+    glUniform1i(scene->SkinningSP_BoneTransformsLoc, 0);
+
+    // skin every mesh in the scene one by one
+    for (int skinnedMeshIdx = 0; skinnedMeshIdx < (int)scene->SkinnedMeshDrawCommands.size(); skinnedMeshIdx++)
+    {
+        int nodeID = scene->SkinnedMeshNodeIDs[skinnedMeshIdx];
+        
+        glm::mat4 modelworld = scene->NodeModelWorldTransforms[nodeID];
+        glUniformMatrix4fv(scene->SkinningSP_ModelWorldLoc, 1, GL_FALSE, glm::value_ptr(modelworld));
+
+        int baseBone = scene->SkinnedMeshBaseBones[skinnedMeshIdx];
+        glUniform1i(scene->SkinningSP_BoneOffsetLoc, baseBone);
+
+        GLDrawElementsIndirectCommand draw = scene->SkinnedMeshDrawCommands[skinnedMeshIdx];
+        int bindPoseID = scene->SkinnedMeshBindPoseIDs[skinnedMeshIdx];
+        int numVertices = scene->BindBoseMeshNumVertices[bindPoseID];
+        glDrawArrays(GL_POINTS, draw.baseVertex, numVertices);
+    }
+
+    glEndTransformFeedback();
+    glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, 0);
+
+    glBindVertexArray(0);
+    glUseProgram(0);
+}
+
 void UpdateScene(Scene* scene, SDL_Window* window, uint32_t dt_ms)
 {
     ReloadShaders(scene);
@@ -782,6 +838,8 @@ void UpdateScene(Scene* scene, SDL_Window* window, uint32_t dt_ms)
             !scene->EnableCamera ? 0 : keyboardState[SDL_SCANCODE_SPACE],
             !scene->EnableCamera ? 0 : keyboardState[SDL_SCANCODE_LCTRL] || keyboardState[SDL_SCANCODE_LSHIFT]);
     }
+
+    UpdateSceneSkinnedGeometry(scene, dt_ms);
 
     UpdateSceneDynamics(scene, dt_ms);
 }

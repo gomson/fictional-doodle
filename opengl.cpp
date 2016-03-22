@@ -190,6 +190,7 @@ void InitGL()
     GetProcGL(glTexParameteri, "glTexParameteri");
     GetProcGL(glGenerateMipmap, "glGenerateMipmap");
     GetProcGL(glDrawElements, "glDrawElements");
+    GetProcGL(glDrawArrays, "glDrawArrays");
     GetProcGL(glDrawElementsInstancedBaseVertex, "glDrawElementsInstancedBaseVertex");
     GetProcGL(glGenFramebuffers, "glGenFramebuffers");
     GetProcGL(glDeleteFramebuffers, "glDeleteFramebuffers");
@@ -199,6 +200,10 @@ void InitGL()
     GetProcGL(glCheckFramebufferStatus, "glCheckFramebufferStatus");
     GetProcGL(glDrawBuffers, "glDrawBuffers");
     GetProcGL(glReadBuffer, "glReadBuffer");
+    GetProcGL(glGenTransformFeedbacks, "glGenTransformFeedbacks");
+    GetProcGL(glBindTransformFeedback, "glBindTransformFeedback");
+    GetProcGL(glBeginTransformFeedback, "glBeginTransformFeedback");
+    GetProcGL(glEndTransformFeedback, "glEndTransformFeedback");
 
     GLint majorVersion, minorVersion;
     glGetIntegerv(GL_MAJOR_VERSION, &majorVersion);

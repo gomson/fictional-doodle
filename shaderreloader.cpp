@@ -124,7 +124,7 @@ bool ReloadProgram(ReloadableProgram* program)
                 glGetShaderiv(shaders[i]->Handle, GL_INFO_LOG_LENGTH, &logLength);
                 std::vector<GLchar> log(logLength + 1);
                 glGetShaderInfoLog(shaders[i]->Handle, (GLsizei)log.size(), NULL, log.data());
-                fprintf(stderr, "Error compiling %s shader: %s\n", shaderStageNames[i], log.data());
+                fprintf(stderr, "Error compiling %s shader %s: %s\n", shaderStageNames[i], shaders[i]->Filename, log.data());
 
                 glDeleteShader(shaders[i]->Handle);
                 shaders[i]->Handle = 0;

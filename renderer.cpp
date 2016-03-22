@@ -88,15 +88,10 @@ void PaintRenderer(
         glEnable(GL_FRAMEBUFFER_SRGB);
         glEnable(GL_DEPTH_TEST);
 
-        glBindVertexArray(scene->SkinnedMeshVAO);
         glUseProgram(scene->SceneSP.Handle);
-
         glUniform1i(scene->SceneSP_Diffuse0Loc, 0);
-        glUniform1i(scene->SceneSP_BoneTransformsLoc, 1);
-
-        // Bind skinning transformation
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_BUFFER, scene->SkinningMatrixPaletteTexture);
+        glUniformMatrix4fv(scene->SceneSP_WorldViewLoc, 1, GL_FALSE, glm::value_ptr(worldView));
+        glUniformMatrix4fv(scene->SceneSP_WorldViewProjectionLoc, 1, GL_FALSE, glm::value_ptr(worldViewProjection));
 
         for (int drawIdx = 0; drawIdx < (int)scene->NodeDrawCmds.size(); drawIdx++)
         {
@@ -104,11 +99,16 @@ void PaintRenderer(
             assert(cmd.baseInstance == 0); // no base instance because OS X
             assert(cmd.primCount == 1); // assuming no instancing cuz lack of baseInstance makes it boring
 
-            glm::mat4 mv = worldView * scene->NodeModelWorldTransforms[drawIdx];
-            glm::mat4 mvp = worldViewProjection * scene->NodeModelWorldTransforms[drawIdx];
-            glUniformMatrix4fv(scene->SceneSP_ViewLoc, 1, GL_FALSE, glm::value_ptr(worldView));
-            glUniformMatrix4fv(scene->SceneSP_MVLoc, 1, GL_FALSE, glm::value_ptr(mv));
-            glUniformMatrix4fv(scene->SceneSP_MVPLoc, 1, GL_FALSE, glm::value_ptr(mvp));
+            SceneNodeType type = scene->NodeTypes[drawIdx];
+
+            if (type == SCENENODETYPE_SKINNEDMESH)
+            {
+                glBindVertexArray(scene->SkinnedMeshVAO);
+            }
+            else
+            {
+                assert(false && "Unknown scene node type");
+            }
 
             int materialID = scene->NodeMaterialIDs[drawIdx];
             int diffuseTexture0Index = scene->MaterialDiffuse0TextureIndex[materialID];

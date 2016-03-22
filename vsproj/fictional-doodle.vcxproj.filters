@@ -22,6 +22,7 @@
   <ItemGroup>
     <None Include="..\scene.frag" />
     <None Include="..\scene.vert" />
+    <None Include="..\skinning.vert" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="imgui">
@@ -51,7 +52,6 @@
     <ClInclude Include="..\dynamics.h" />
     <ClInclude Include="..\runtimecpp.h" />
     <ClInclude Include="..\shaderreloader.h" />
-    <ClInclude Include="..\skinning.h" />
     <ClInclude Include="..\mysdl_dpi.h" />
   </ItemGroup>
 </Project>

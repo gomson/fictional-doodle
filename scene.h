@@ -2,9 +2,9 @@
 
 #include "opengl.h"
 #include "shaderreloader.h"
-#include "skinning.h"
 
 #include <glm/glm.hpp>
+#include <glm/gtc/type_precision.hpp>
 
 #include <string>
 #include <vector>
@@ -12,10 +12,20 @@
 
 struct SDL_Window;
 
-struct SceneVertex
+struct SkinningVertex
 {
     glm::vec3 Position;
     glm::vec2 TexCoord0;
+    glm::vec3 Normal;
+    glm::vec3 Tangent;
+    glm::vec3 Bitangent;
+    glm::u8vec4 BoneIDs;
+    glm::vec4 Weights;
+};
+
+struct SkinnedVertex
+{
+    glm::vec3 Position;
     glm::vec3 Normal;
     glm::vec3 Tangent;
     glm::vec3 Bitangent;
@@ -27,6 +37,11 @@ enum BoneControlMode
     BONECONTROL_DYNAMICS
 };
 
+enum SceneNodeType
+{
+    SCENENODETYPE_SKINNEDMESH
+};
+
 struct SQT
 {
     // No S, lol. md5 doesn't use scale.
@@ -36,22 +51,15 @@ struct SQT
 
 struct Scene
 {
-    // Bone weights per vertex.
-    std::vector<VertexWeights> VertexBones;
-
     // Bone indices by name.
     std::unordered_map<std::string, int> BoneIDs;
-
     // Transforms a vertex from model space to bone space.
     std::vector<glm::mat4> BoneInverseBindPoseTransforms;
-
     // Transforms a vertex in bone space.
     std::vector<glm::mat4> BoneSkinningTransforms;
-
     // Bone parent index, or -1 if root
 #pragma message("BoneParent not yet implemented")
     std::vector<int> BoneParent;
-
     // How the bone is animated
     std::vector<BoneControlMode> BoneControls;
 
@@ -84,24 +92,25 @@ struct Scene
     std::vector<glm::vec3> BoneDynamicsPositions[NUM_BONE_DYNAMICS_BUFFERS];
     std::vector<glm::vec3> BoneDynamicsVelocities[NUM_BONE_DYNAMICS_BUFFERS];
 
-    // Animation stuff:
-    // buffer containing boneIDs and weights
-    GLuint BoneVBO;
-    // the matrices used to transform the bones
-    GLuint SkinningMatrixPaletteTBO;
-    GLuint SkinningMatrixPaletteTexture;
-
-    // Geometry stuff
-    GLuint StaticGeometryVBO;
-    GLuint StaticGeometryEBO;
-
-    // Vertex formats
-    GLuint StaticMeshVAO;
-    GLuint SkinnedMeshVAO;
+    // Per-mesh skinning data. Shared by many instances of animated meshes.
+    GLuint SkinningVAO; // Vertex arrays for input to skinning transform feedback
+    GLuint BindPoseMeshVBO; // vertices of meshes in bind pose
+    GLuint BindPoseMeshEBO; // indices of mesh in bind pose
+    std::vector<int> BindBoseMeshNumVertices; // Number of vertices in each bind pose mesh
+    
+    // Per-object skinning data. These arrays store the data for every skinned mesh instance in the scene.
+    GLuint SkinningMatrixPaletteTBO; // The matrices used to transform the bones
+    GLuint SkinningMatrixPaletteTexture; // Texture descriptor for the palette
+    GLuint SkinningTFO; // Transform feedback for skinning
+    GLuint SkinningTFBO; // Output of skinning transform feedback
+    GLuint SkinnedMeshVAO; // Vertex array for rendering skinned meshes.
+    std::vector<int> SkinnedMeshBindPoseIDs; // The index of the bind pose of this skinned mesh
+    std::vector<GLDrawElementsIndirectCommand> SkinnedMeshDrawCommands; // Draw commands for skinned meshes
+    std::vector<int> SkinnedMeshBaseBones; // The index of the first bone in this mesh
+    std::vector<int> SkinnedMeshNodeIDs; // The scene node ID corresponding to the skinned object
 
     // All unique diffuse textures in the scene
     std::vector<GLuint> DiffuseTextures;
-
     // For each material, gives the index in the DiffuseTextures array for diffuse texture 0. -1 if there is no diffuse texture 0 for this material.
     std::vector<int> MaterialDiffuse0TextureIndex;
 
@@ -111,16 +120,23 @@ struct Scene
     std::vector<glm::mat4> NodeModelWorldTransforms;
     // For each node in the scene, the material ID for it.
     std::vector<int> NodeMaterialIDs;
+    // For each node in the scene, what type of node it is
+    std::vector<SceneNodeType> NodeTypes;
 
-    // Shader stuff
+    // Skinning shader
+    ReloadableShader SkinningVS{ "skinning.vert" };
+    ReloadableProgram SkinningSP{ &SkinningVS };
+    GLint SkinningSP_ModelWorldLoc;
+    GLint SkinningSP_BoneTransformsLoc;
+    GLint SkinningSP_BoneOffsetLoc;
+
+    // Scene shader
     ReloadableShader SceneVS{ "scene.vert" };
     ReloadableShader SceneFS{ "scene.frag" };
     ReloadableProgram SceneSP{ &SceneVS, &SceneFS };
-    GLint SceneSP_ViewLoc;
-    GLint SceneSP_MVLoc;
-    GLint SceneSP_MVPLoc;
+    GLint SceneSP_WorldViewLoc;
+    GLint SceneSP_WorldViewProjectionLoc;
     GLint SceneSP_Diffuse0Loc;
-    GLint SceneSP_BoneTransformsLoc;
 
     bool AllShadersOK;
 
