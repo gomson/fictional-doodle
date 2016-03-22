@@ -154,6 +154,7 @@ void InitGL()
     GetProcGL(glGenBuffers, "glGenBuffers");
     GetProcGL(glDeleteBuffers, "glDeleteBuffers");
     GetProcGL(glBindBuffer, "glBindBuffer");
+    GetProcGL(glBindBufferBase, "glBindBufferBase");
     GetProcGL(glBufferData, "glBufferData");
     GetProcGL(glGenVertexArrays, "glGenVertexArrays");
     GetProcGL(glDeleteVertexArrays, "glDeleteVertexArrays");
@@ -200,6 +201,7 @@ void InitGL()
     GetProcGL(glCheckFramebufferStatus, "glCheckFramebufferStatus");
     GetProcGL(glDrawBuffers, "glDrawBuffers");
     GetProcGL(glReadBuffer, "glReadBuffer");
+    GetProcGL(glTransformFeedbackVaryings, "glTransformFeedbackVaryings");
     GetProcGL(glGenTransformFeedbacks, "glGenTransformFeedbacks");
     GetProcGL(glBindTransformFeedback, "glBindTransformFeedback");
     GetProcGL(glBeginTransformFeedback, "glBeginTransformFeedback");

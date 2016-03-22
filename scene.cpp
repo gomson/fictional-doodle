@@ -348,7 +348,8 @@ void LoadScene(Scene* scene)
     {
         glGenTransformFeedbacks(1, & scene->SkinningTFO);
         glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, scene->SkinningTFO);
-        glBindBuffer(GL_TRANSFORM_FEEDBACK_BUFFER, scene->SkinningTFBO);
+        // Transform feedback buffers are indexed and must be bound with glBindBufferBase or glBindBufferRange.
+        glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, scene->SkinningTFBO);
         glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, 0);
     }
 
@@ -772,6 +773,7 @@ void UpdateSceneSkinnedGeometry(Scene* scene, uint32_t dt_ms)
     glBindVertexArray(scene->SkinningVAO);
 
     glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, scene->SkinningTFO);
+    glEnable(GL_RASTERIZER_DISCARD);
     glBeginTransformFeedback(GL_POINTS); // capture points so triangles aren't unfolded
 
     glActiveTexture(GL_TEXTURE0);
@@ -796,6 +798,7 @@ void UpdateSceneSkinnedGeometry(Scene* scene, uint32_t dt_ms)
     }
 
     glEndTransformFeedback();
+    glDisable(GL_RASTERIZER_DISCARD);
     glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, 0);
 
     glBindVertexArray(0);
