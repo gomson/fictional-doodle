@@ -19,7 +19,6 @@ out vec3 oBitangent;
 
 void main()
 {
-    // TODO: Use transform feedback to skin separately.
     mat4 skinningTransform = mat4(0.0);
 
     for (int i = 0; i < 4; i++)
