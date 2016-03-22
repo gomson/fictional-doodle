@@ -147,9 +147,13 @@ bool ReloadProgram(ReloadableProgram* program)
             glAttachShader(newProgram, shaders[i]->Handle);
         }
 
-        if (size(program->Varyings))
+        if (size(program->TransformFeedbackVaryings))
         {
-            glTransformFeedbackVaryings(newProgram, (GLsizei)size(program->Varyings), data(program->Varyings), GL_INTERLEAVED_ATTRIBS);
+            glTransformFeedbackVaryings(
+                newProgram,
+                (GLsizei)size(program->TransformFeedbackVaryings),
+                data(program->TransformFeedbackVaryings),
+                program->TransformFeedbackBufferMode);
         }
 
         glLinkProgram(newProgram);

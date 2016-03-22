@@ -91,9 +91,10 @@ struct ReloadableProgram
     }
 
     // "fluent interface" style function
-    ReloadableProgram& WithVaryings(const std::vector<const char*>& varyings)
+    ReloadableProgram& WithVaryings(const std::vector<const char*>& varyings, GLenum bufferMode)
     {
-        Varyings.insert(Varyings.end(), varyings.begin(), varyings.end());
+        TransformFeedbackVaryings.insert(TransformFeedbackVaryings.end(), varyings.begin(), varyings.end());
+        TransformFeedbackBufferMode = bufferMode;
         return *this;
     }
 
@@ -106,7 +107,8 @@ struct ReloadableProgram
     ReloadableShader* CS;
 
     // Transform feedback outputs to capture.
-    std::vector<const char*> Varyings;
+    std::vector<const char*> TransformFeedbackVaryings;
+    GLenum TransformFeedbackBufferMode;
 };
 
 bool ReloadProgram(ReloadableProgram* program);

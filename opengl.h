@@ -136,3 +136,11 @@ struct GLDrawElementsIndirectCommand
     GLuint baseVertex;
     GLuint baseInstance;
 };
+
+struct DrawArraysIndirectCommand
+{
+    GLuint count;
+    GLuint primCount;
+    GLuint first;
+    GLuint baseInstance;
+};
