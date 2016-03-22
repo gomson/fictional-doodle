@@ -125,7 +125,7 @@ struct Scene
 
     // Skinning shader
     ReloadableShader SkinningVS{ "skinning.vert" };
-    ReloadableProgram SkinningSP{ &SkinningVS, { "oPosition", "oNormal", "oTangent", "oBitangent" } };
+    ReloadableProgram SkinningSP = ReloadableProgram(&SkinningVS).WithVaryings({"oPosition", "oNormal", "oTangent", "oBitangent" });
     GLint SkinningSP_ModelWorldLoc;
     GLint SkinningSP_BoneTransformsLoc;
     GLint SkinningSP_BoneOffsetLoc;

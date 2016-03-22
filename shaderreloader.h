@@ -69,12 +69,12 @@ struct ReloadableProgram
         ReloadableShader* gs = NULL,
         ReloadableShader* tcs = NULL,
         ReloadableShader* tes = NULL)
-        : Handle(0), VS(vs), FS(fs), GS(gs), TCS(tcs), TES(tes), CS(NULL), Varyings()
+        : Handle(0), VS(vs), FS(fs), GS(gs), TCS(tcs), TES(tes), CS(NULL)
     { }
 
     explicit ReloadableProgram(
-        ReloadableShader* onestage, const std::vector<const char*>& varyings)
-        : Handle(0), VS(NULL), FS(NULL), GS(NULL), TCS(NULL), TES(NULL), CS(NULL), Varyings(varyings)
+        ReloadableShader* onestage)
+        : Handle(0), VS(NULL), FS(NULL), GS(NULL), TCS(NULL), TES(NULL), CS(NULL)
     {
         switch (onestage->Type)
         {
@@ -88,6 +88,13 @@ struct ReloadableProgram
             fprintf(stderr, "Unknown shader type\n");
             exit(1);
         }
+    }
+
+    // "fluent interface" style function
+    ReloadableProgram& WithVaryings(const std::vector<const char*>& varyings)
+    {
+        Varyings.insert(Varyings.end(), varyings.begin(), varyings.end());
+        return *this;
     }
 
     GLuint Handle;

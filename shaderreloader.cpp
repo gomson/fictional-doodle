@@ -149,7 +149,7 @@ bool ReloadProgram(ReloadableProgram* program)
 
         if (size(program->Varyings))
         {
-            glTransformFeedbackVaryings(newProgram, size(program->Varyings), data(program->Varyings), GL_INTERLEAVED_ATTRIBS);
+            glTransformFeedbackVaryings(newProgram, (GLsizei)size(program->Varyings), data(program->Varyings), GL_INTERLEAVED_ATTRIBS);
         }
 
         glLinkProgram(newProgram);
