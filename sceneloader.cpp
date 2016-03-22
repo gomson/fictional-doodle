@@ -1,5 +1,7 @@
 #include "sceneloader.h"
 
+#include "scene.h"
+
 // assimp includes
 #include <cimport.h>
 // assimp also has a scene.h. weird.
@@ -14,7 +16,229 @@
 
 void LoadMD5Mesh(
     Scene* scene,
-    const char* folder, const char* meshfile);
+    const char* folder, const char* meshfile)
+{
+    std::string meshpath = std::string(folder) + meshfile;
+    const aiScene* aiscene = aiImportFile(meshpath.c_str(), aiProcessPreset_TargetRealtime_MaxQuality);
+    if (!aiscene)
+    {
+        fprintf(stderr, "aiImportFile: %s\n", aiGetErrorString());
+        exit(1);
+    }
+
+    // Only the texture types we care about
+    aiTextureType textureTypes[] = {
+        aiTextureType_DIFFUSE,
+        aiTextureType_SPECULAR,
+        aiTextureType_NORMALS
+    };
+    static const int numTextureTypes = sizeof(textureTypes) / sizeof(*textureTypes);
+
+    // find all textures that need to be loaded
+    std::vector<std::vector<std::string>> texturesToLoad(numTextureTypes);
+    for (int materialIdx = 0; materialIdx < (int)aiscene->mNumMaterials; materialIdx++)
+    {
+        aiMaterial* material = aiscene->mMaterials[materialIdx];
+
+        for (int textureTypeIdx = 0; textureTypeIdx < (int)std::size(textureTypes); textureTypeIdx++)
+        {
+            int textureCount = (int)aiGetMaterialTextureCount(material, textureTypes[textureTypeIdx]);
+
+            for (int textureIdxInStack = 0; textureIdxInStack < (int)textureCount; textureIdxInStack++)
+            {
+                aiString path;
+                aiReturn result = aiGetMaterialTexture(material, textureTypes[textureTypeIdx], textureIdxInStack, &path, NULL, NULL, NULL, NULL, NULL, NULL);
+                if (result != AI_SUCCESS)
+                {
+                    fprintf(stderr, "aiGetMaterialTexture failed: %s\n", aiGetErrorString());
+                    exit(1);
+                }
+
+                texturesToLoad[textureTypeIdx].push_back(std::string(folder) + path.C_Str());
+            }
+        }
+    }
+
+    std::vector<std::unordered_map<std::string, int>*> textureNameToIDs
+    {
+        &scene->DiffuseTextureNameToID,
+        &scene->SpecularTextureNameToID,
+        &scene->NormalTextureNameToID,
+    };
+    assert(textureNameToIDs.size() == numTextureTypes);
+
+    // keep only the unique textures
+    for (int textureTypeIdx = 0; textureTypeIdx < numTextureTypes; textureTypeIdx++)
+    {
+        std::sort(begin(texturesToLoad[textureTypeIdx]), end(texturesToLoad[textureTypeIdx]), 
+            [](const aiString& a, const aiString& b) { 
+            return strcmp(a.data, b.data) < 0; 
+        });
+
+        // remove textures that appear more than once in this list
+        texturesToLoad[textureTypeIdx].erase(
+            std::unique(begin(texturesToLoad[textureTypeIdx]), end(texturesToLoad[textureTypeIdx]),
+                [](const aiString& a, const aiString& b) { 
+            return strcmp(a.data, b.data) == 0; 
+        }), end(texturesToLoad[textureTypeIdx]));
+
+        // remove textures that were loaded by previous meshes
+        texturesToLoad[textureTypeIdx].erase(
+            std::remove_if(begin(texturesToLoad[textureTypeIdx]), end(texturesToLoad[textureTypeIdx]),
+                [&textureNameToIDs, textureTypeIdx](const aiString& s) {
+            return textureNameToIDs[textureTypeIdx]->find(s.C_Str()) != textureNameToIDs[textureTypeIdx]->end();
+        }), end(texturesToLoad[textureTypeIdx]));
+    }
+
+    // load all the unique textures
+    for (int textureTypeIdx = 0; textureTypeIdx < numTextureTypes; textureTypeIdx++)
+    {
+        for (int textureToLoadIdx = 0; textureToLoadIdx < (int)texturesToLoad.size(); textureToLoadIdx++)
+        {
+            const std::string& fullpath = texturesToLoad[textureTypeIdx][textureToLoadIdx];
+
+            int req_comp = -1;
+            if (textureTypes[textureTypeIdx] == aiTextureType_DIFFUSE)
+            {
+                req_comp = 4;
+            }
+            else if (textureTypes[textureTypeIdx] == aiTextureType_SPECULAR)
+            {
+                req_comp = 0;
+            }
+            else if (textureTypes[textureTypeIdx] == aiTextureType_NORMALS)
+            {
+                req_comp = 4;
+            }
+            else
+            {
+                fprintf(stderr, "%s: Unhandled texture type %d\n", fullpath.c_str(), textureTypes[textureTypeIdx]);
+                exit(1);
+            }
+
+            int width, height, comp;
+            stbi_set_flip_vertically_on_load(1); // because GL
+            stbi_uc* img = stbi_load(fullpath.c_str(), &width, &height, &comp, req_comp);
+            if (!img)
+            {
+                fprintf(stderr, "stbi_load (%s): %s\n", fullpath.c_str(), stbi_failure_reason());
+                exit(1);
+            }
+
+            GLenum srcDataFormat[4] = {
+                GL_RED, GL_RG, GL_RGB, GL_RGBA
+            };
+
+            GLuint texture;
+            glGenTextures(1, &texture);
+            glBindTexture(GL_TEXTURE_2D, texture);
+            
+            if (textureTypes[textureTypeIdx] == aiTextureType_DIFFUSE)
+            {
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8_ALPHA8, width, height, 0, srcDataFormat[comp - 1], GL_UNSIGNED_BYTE, img);
+            }
+            else if (textureTypes[textureTypeIdx] == aiTextureType_SPECULAR)
+            {
+                glexImage2D(GL_TEXTURE_2D, 0, GL_R8, width, height, 0, srcDataFormat[comp - 1], GL_UNSIGNED_BYTE, img);
+            }
+            else if (textureTypes[textureTypeIdx] == aiTextureType_NORMALS)
+            {
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_R11F_G11F_B10F, width, height, 0, srcDataFormat[comp - 1], GL_UNSIGNED_BYTE, img);
+            }
+            else
+            {
+                fprintf(stderr, "%s: Unhandled texture type %d\n", fullpath.c_str(), textureTypes[textureTypeIdx]);
+                exit(1);
+            }
+
+            glGenerateMipmap(GL_TEXTURE_2D);
+            glBindTexture(GL_TEXTURE_2D, 0);
+
+            int id = -1;
+
+            if (textureTypes[textureTypeIdx] == aiTextureType_DIFFUSE)
+            {
+                DiffuseTexture d;
+                d.TO = texture;
+                scene->DiffuseTextures.push_back(d);
+                id = (int)scene->DiffuseTextures.size() - 1;
+            }
+            else if (textureTypes[textureTypeIdx] == aiTextureType_SPECULAR)
+            {
+                SpecularTexture s;
+                s.TO = texture;
+                scene->SpecularTextures.push_back(s);
+                id = (int)scene->SpecularTextures.size() - 1;
+            }
+            else if (textureTypes[textureTypeIdx] == aiTextureType_NORMALS)
+            {
+                NormalTexture n;
+                n.TO = texture;
+                scene->NormalTextures.push_back(n);
+                id = (int)scene->NormalTextures.size() - 1;
+            }
+            else
+            {
+                fprintf(stderr, "%s: Unhandled texture type %d\n", fullpath.c_str(), textureTypes[textureTypeIdx]);
+                exit(1);
+            }
+
+            textureNameToIDs[textureTypeIdx]->emplace(fullpath, id);
+
+            stbi_set_flip_vertically_on_load(0);
+            stbi_image_free(img);
+        }
+    }
+
+    // hook up list of materials
+    for (int materialIdx = 0; materialIdx < (int)aiscene->mNumMaterials; materialIdx++)
+    {
+        aiMaterial* material = aiscene->mMaterials[materialIdx];
+
+        Material newMat;
+
+        for (int textureTypeIdx = 0; textureTypeIdx < (int)std::size(textureTypes); textureTypeIdx++)
+        {
+            int textureCount = (int)aiGetMaterialTextureCount(material, textureTypes[textureTypeIdx]);
+
+            for (int textureIdxInStack = 0; textureIdxInStack < (int)textureCount; textureIdxInStack++)
+            {
+                aiString path;
+                aiReturn result = aiGetMaterialTexture(material, textureTypes[textureTypeIdx], textureIdxInStack, &path, NULL, NULL, NULL, NULL, NULL, NULL);
+                if (result != AI_SUCCESS)
+                {
+                    fprintf(stderr, "aiGetMaterialTexture failed: %s\n", aiGetErrorString());
+                    exit(1);
+                }
+
+                std::string fullpath = std::string(folder) + path.C_Str();
+                int textureID = textureNameToIDs[textureTypeIdx]->find(fullpath)->second;
+
+                if (textureTypes[textureTypeIdx] == aiTextureType_DIFFUSE)
+                {
+                    newMat.DiffuseTextureIDs.push_back(textureID);
+                }
+                else if (textureTypes[textureTypeIdx] == aiTextureType_SPECULAR)
+                {
+                    newMat.SpecularTextureIDs.push_back(textureID);
+                }
+                else if (textureTypes[textureTypeIdx] == aiTextureType_NORMALS)
+                {
+                    newMat.NormalTextureIDs.push_back(textureID);
+                }
+                else
+                {
+                    fprintf(stderr, "%s: Unhandled texture type %d\n", fullpath.c_str(), textureTypes[textureTypeIdx]);
+                    exit(1);
+                }
+            }
+        }
+
+        scene->Materials.push_back(newMat);
+    }
+
+    aiReleaseImport(aiscene);
+}
 
 void LoadMD5Anim(
     Scene* scene,
@@ -58,86 +282,6 @@ void LoadScene(Scene* scene)
     {
         fprintf(stderr, "aiImportFile: %s\n", aiGetErrorString());
         exit(1);
-    }
-
-    // find all textures that need to be loaded
-    std::vector<aiString> diffuseTexturesToLoad;
-    for (int materialIdx = 0; materialIdx < (int)aiscene->mNumMaterials; materialIdx++)
-    {
-        aiMaterial* material = aiscene->mMaterials[materialIdx];
-        unsigned int texturecount = aiGetMaterialTextureCount(material, aiTextureType_DIFFUSE);
-        if (texturecount > 1)
-        {
-            fprintf(stderr, "Expecting at most 1 diffuse texture per material, but found %u.\n", texturecount);
-            exit(1);
-        }
-
-        for (int textureIdxInStack = 0; textureIdxInStack < (int)texturecount; textureIdxInStack++)
-        {
-            aiString path;
-            aiReturn result = aiGetMaterialTexture(material, aiTextureType_DIFFUSE, textureIdxInStack, &path, NULL, NULL, NULL, NULL, NULL, NULL);
-            if (result != AI_SUCCESS)
-            {
-                fprintf(stderr, "aiGetMaterialTexture failed: %s\n", aiGetErrorString());
-                exit(1);
-            }
-
-            diffuseTexturesToLoad.push_back(path);
-        }
-    }
-
-    // keep only the unique textures
-    std::sort(begin(diffuseTexturesToLoad), end(diffuseTexturesToLoad), [](const aiString& a, const aiString& b) { return strcmp(a.data, b.data) < 0; });
-    diffuseTexturesToLoad.erase(std::unique(begin(diffuseTexturesToLoad), end(diffuseTexturesToLoad), [](const aiString& a, const aiString& b) { return strcmp(a.data, b.data) == 0; }), end(diffuseTexturesToLoad));
-
-    // load all the unique textures
-    scene->DiffuseTextures.resize(diffuseTexturesToLoad.size());
-    for (int textureIdx = 0; textureIdx < (int)diffuseTexturesToLoad.size(); textureIdx++)
-    {
-        int width, height, comp;
-        stbi_set_flip_vertically_on_load(1); // because GL
-        std::string fullpath = scenepath + diffuseTexturesToLoad[textureIdx].data;
-        stbi_uc* img = stbi_load(fullpath.c_str(), &width, &height, &comp, 4);
-        if (!img)
-        {
-            fprintf(stderr, "stbi_load (%s): %s\n", fullpath.c_str(), stbi_failure_reason());
-            exit(1);
-        }
-
-        GLuint texture;
-        glGenTextures(1, &texture);
-        glBindTexture(GL_TEXTURE_2D, texture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8_ALPHA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, img);
-        glGenerateMipmap(GL_TEXTURE_2D);
-        glBindTexture(GL_TEXTURE_2D, 0);
-
-        scene->DiffuseTextures[textureIdx] = texture;
-
-        stbi_image_free(img);
-    }
-
-    // hook up list of materials
-    for (int materialIdx = 0; materialIdx < (int)aiscene->mNumMaterials; materialIdx++)
-    {
-        aiMaterial* material = aiscene->mMaterials[materialIdx];
-
-        unsigned int texturecount = aiGetMaterialTextureCount(material, aiTextureType_DIFFUSE);
-        if (texturecount == 0)
-        {
-            scene->MaterialDiffuse0TextureIndex.push_back(-1);
-            continue;
-        }
-
-        aiString path;
-        aiReturn result = aiGetMaterialTexture(material, aiTextureType_DIFFUSE, 0, &path, NULL, NULL, NULL, NULL, NULL, NULL);
-        if (result != AI_SUCCESS)
-        {
-            fprintf(stderr, "aiGetMaterialTexture failed: %s\n", aiGetErrorString());
-            exit(1);
-        }
-
-        auto textureIt = std::lower_bound(begin(diffuseTexturesToLoad), end(diffuseTexturesToLoad), path, [](const aiString& a, const aiString& b) { return strcmp(a.data, b.data) < 0; });
-        scene->MaterialDiffuse0TextureIndex.push_back((int)std::distance(begin(diffuseTexturesToLoad), textureIt));
     }
 
     // figure out how much memory is needed for the scene and check assumptions about data

@@ -147,11 +147,25 @@ struct DiffuseTexture
     GLuint TO; // Texture object
 };
 
+// SpecularTexture Table
+struct SpecularTexture
+{
+    GLuint TO; // Texture object
+};
+
+// NormalTexture Table
+struct NormalTexture
+{
+    GLuint TO; // Texture object
+};
+
 // Material Table
 // Each material is associated to a DiffuseTexture (or -1)
 struct Material
 {
-    int DiffuseTexture0ID; // Diffuse texture to use for texcoord 0. -1 if there is not present for this material.
+    std::vector<int> DiffuseTextureIDs; // Diffuse textures (if present)
+    std::vector<int> SpecularTextureIDs; // Specular textures (if present)
+    std::vector<int> NormalTextureIDs; // Normal textures (if present)
 };
 
 // SceneNode Table
@@ -170,7 +184,14 @@ struct Scene
     std::vector<AnimSequence> AnimSequences;
     std::vector<SkinnedMesh> SkinnedMeshes;
     std::vector<Ragdoll> Ragdolls;
+    
     std::vector<DiffuseTexture> DiffuseTextures;
+    std::vector<SpecularTexture> SpecularTextures;
+    std::vector<NormalTexture> NormalTextures;
+    std::unordered_map<std::string, int> DiffuseTextureNameToID;
+    std::unordered_map<std::string, int> SpecularTextureNameToID;
+    std::unordered_map<std::string, int> NormalTextureNameToID;
+
     std::vector<Material> Materials;
     std::vector<SceneNode> SceneNodes;
   
