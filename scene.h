@@ -69,78 +69,111 @@ enum AnimChannel
     // There is no quaternion W, since the quaternions are normalized so it can be deduced from the x/y/z.
 };
 
+// Skeleton Table
+// All unique static skeleton definitions.
+struct Skeleton
+{
+    std::vector<std::string> BoneNames; // Name of each bone
+    std::vector<glm::mat4> BoneInverseBindPoseTransforms; // Transforms a vertex from model space to bone space
+    std::vector<int> BoneParents; // Bone parent index, or -1 if root
+};
+
+// BindPoseMesh Table
+// All unique static bind pose meshes.
+// Each bind pose mesh is compatible with one skeleton.
+struct BindPoseMesh
+{
+    GLuint SkinningVAO; // Vertex arrays for input to skinning transform feedback
+    GLuint PositionVBO; // vertices of meshes in bind pose
+    GLuint TexCoordVBO; // texture coordinates of mesh
+    GLuint DifferentialVBO; // differential geometry of bind pose mesh (n,t,b)
+    GLuint BoneVBO; // bone IDs and bone weights of mesh
+    GLuint EBO; // indices of mesh in bind pose 
+    int NumIndices; // Number of indices in the bind pose
+    int NumVertices; // Number of vertices in the bind pose
+    int SkeletonID; // Skeleton used to skin this mesh
+};
+
+// AnimSequence Table
+// All unique static animation sequences.
+// Each animation sequence is compatible with one skeleton.
+struct AnimSequence
+{
+    std::string Name; // The human readable name of each animation sequence
+    std::vector<SQT> BoneBaseFrame; // The base frame for each bone, which defines the initial transform.
+    std::vector<uint8_t> BoneChannelBits; // Which animation channels are present in frame data for each bone
+    std::vector<int> BoneFrameDataOffsets; // The offset in floats in the frame data for this bone
+    std::vector<std::vector<float>> FrameDatas; // Data for each frame allocated according to the channel bits.
+    int SkeletonID; // The skeleton that this animation sequence animates
+    int FramesPerSecond; // Frames per second for each animation sequence
+};
+
+// SkinnedMesh Table
+// All instances of skinned meshes in the scene.
+// Each skinned mesh instance is associated to one bind pose, which is associated to one skeleton.
+// Each skinned mesh instance is asssociated to a scene node.
+// Each skinned mesh instance is associated to an animation sequence, which is associated to one skeleton.
+// The skeleton of the bind pose and the skeleton of the animation sequence must be the same one.
+struct SkinnedMesh
+{
+    GLuint BoneTransformTBO; // The matrices used to transform the bones
+    GLuint BoneTransformTO; // Texture descriptor for the palette
+    GLuint SkinningTFO; // Transform feedback for skinning
+    GLuint SkinnedVAO; // Vertex array for rendering skinned meshes.
+    GLuint PositionTFBO; // Positions created from transform feedback
+    GLuint DifferentialTFBO; // Differential geometry from transform feedback
+    int BindPoseMeshID; // The ID of the bind pose of this skinned mesh
+    int SceneNodeID; // The scene node ID corresponding to the skinned object
+    int CurrAnimSequenceID; // The currently playing animation sequence for each skinned mesh
+    int CurrTimeMillisecond; // The current time in the current animation sequence in milliseconds
+    std::vector<glm::mat4> CPUBoneTransforms; // Transforms a vertex in bone space.
+    std::vector<BoneControlMode> BoneControls; // How each bone is animated
+};
+
+// Ragdoll Table
+// All instances of ragdoll simulations in the scene.
+// Each ragdoll simulation is associatd to one skinned mesh.
+struct Ragdoll
+{
+    int BindPoseMeshID; // The skinned mesh that is being animated physically
+    int OldBufferIndex; // Which of the 2 buffers contains old data
+    std::vector<glm::vec3> BonePositions[2]; // Old and new positions of the bone
+    std::vector<glm::vec3> BoneVelocities[2]; // Old and new velocities of the bone
+};
+
+// DiffuseTexture Table
+struct DiffuseTexture
+{
+    GLuint TO; // Texture object
+};
+
+// Material Table
+// Each material is associated to a DiffuseTexture (or -1)
+struct Material
+{
+    int DiffuseTexture0ID; // Diffuse texture to use for texcoord 0. -1 if there is not present for this material.
+};
+
+// SceneNode Table
+// Each node is associated to one material.
+struct SceneNode
+{
+    glm::mat4 ModelWorldTransforms; // The modelworld matrix to place the node in the world.
+    int MaterialIDs; // The material to use to render the node.
+    SceneNodeType Types; // What type of node this is.
+};
+
 struct Scene
 {
-    // Skeleton Table
-    // All unique static skeleton definitions.
-    std::vector<std::vector<std::string>> Skeleton_BoneNames; // Name of each bone
-    std::vector<std::vector<glm::mat4>> Skeleton_BoneInverseBindPoseTransforms; // Transforms a vertex from model space to bone space
-    std::vector<std::vector<int>> Skeleton_BoneParents; // Bone parent index, or -1 if root
-
-    // BindPoseMesh Table
-    // All unique static bind pose meshes.
-    // Each bind pose mesh is compatible with one skeleton.
-    std::vector<GLuint> BindPoseMesh_SkinningVAOs; // Vertex arrays for input to skinning transform feedback
-    std::vector<GLuint> BindPoseMesh_PositionVBOs; // vertices of meshes in bind pose
-    std::vector<GLuint> BindPoseMesh_TexCoordVBOs; // texture coordinates of mesh
-    std::vector<GLuint> BindPoseMesh_DifferentialVBOs; // differential geometry of bind pose mesh (n,t,b)
-    std::vector<GLuint> BindPoseMesh_BoneVBOs; // bone IDs and bone weights of mesh
-    std::vector<GLuint> BindPoseMesh_EBOs; // indices of mesh in bind pose 
-    std::vector<int> BindPoseMesh_NumIndices; // Number of indices in the bind pose
-    std::vector<int> BindBoseMesh_NumVertices; // Number of vertices in the bind pose
-    std::vector<int> BindPoseMesh_SkeletonIDs; // Skeleton used to skin this mesh
-
-    // AnimSequence Table
-    // All unique static animation sequences.
-    // Each animation sequence is compatible with one skeleton.
-    std::vector<std::string> AnimSequence_Names; // The human readable name of each animation sequence
-    std::vector<std::vector<SQT>> AnimSequence_BoneBaseFrames; // The base frame for each bone, which defines the initial transform.
-    std::vector<std::vector<uint8_t>> AnimSequence_BoneChannelBits; // Which animation channels are present in frame data for each bone
-    std::vector<std::vector<int>> AnimSequence_BoneFrameDataOffsets; // The offset in floats in the frame data for this bone
-    std::vector<std::vector<std::vector<float>>> AnimSequence_FrameDatas; // Data for each frame allocated according to the channel bits.
-    std::vector<int> AnimSequence_SkeletonIDs; // The skeleton that this animation sequence animates
-    std::vector<int> AnimSequence_FramesPerSeconds; // Frames per second for each animation sequence
-
-    // SkinnedMesh Table
-    // All instances of skinned meshes in the scene.
-    // Each skinned mesh instance is associated to one bind pose, which is associated to one skeleton.
-    // Each skinned mesh instance is asssociated to a scene node.
-    // Each skinned mesh instance is associated to an animation sequence, which is associated to one skeleton.
-    // The skeleton of the bind pose and the skeleton of the animation sequence must be the same one.
-    std::vector<GLuint> SkinnedMesh_BoneTransformTBOs; // The matrices used to transform the bones
-    std::vector<GLuint> SkinnedMesh_BoneTransformTOs; // Texture descriptor for the palette
-    std::vector<std::vector<glm::mat4>> SkinnedMesh_CPUBoneTransforms; // Transforms a vertex in bone space.
-    std::vector<GLuint> SkinnedMesh_SkinningTFOs; // Transform feedback for skinning
-    std::vector<GLuint> SkinnedMesh_SkinnedVAOs; // Vertex array for rendering skinned meshes.
-    std::vector<GLuint> SkinnedMesh_PositionTFBOs; // Positions created from transform feedback
-    std::vector<GLuint> SkinnedMesh_DifferentialTFBOs; // Differential geometry from transform feedback
-    std::vector<int> SkinnedMesh_BindPoseIDs; // The ID of the bind pose of this skinned mesh
-    std::vector<int> SkinnedMesh_NodeIDs; // The scene node ID corresponding to the skinned object
-    std::vector<int> SkinnedMesh_CurrAnimSequenceIDs; // The currently playing animation sequence for each skinned mesh
-    std::vector<int> SkinnedMesh_CurrTimeMilliseconds; // The current time in the current animation sequence in milliseconds
-    std::vector<std::vector<BoneControlMode>> SkinnedMesh_BoneControls; // How each bone is animated
-    
-    // BoneDynamics Table
-    // All instances of ragdoll simulations in the scene.
-    // Each ragdoll simulation is associatd to one skinned mesh.
-    std::vector<int> Ragdoll_SkinnedMeshIDs; // The skinned mesh that is being animated physically
-    std::vector<std::vector<glm::vec3>> Ragdoll_BonePositions[2]; // Old and new positions of the bone
-    std::vector<std::vector<glm::vec3>> Ragdoll_BoneVelocities[2]; // Old and new velocities of the bone
-    std::vector<int> Ragdoll_OldBufferIndexs; // Which of the 2 buffers contains old data
-
-    // DiffuseTexture Table
-    std::vector<GLuint> DiffuseTexture_TOs; // All diffuse textures in the scene
-    
-    // Material Table
-    // Each material is associated to a DiffuseTexture (or -1)
-    std::vector<int> Material_DiffuseTexture0IDs; // Diffuse texture to use for texcoord 0. -1 if there is not present for this material.
-
-    // Node Table
-    // Each node is associated to one material.
-    std::vector<glm::mat4> Node_ModelWorldTransforms; // The modelworld matrix to place the node in the world.
-    std::vector<int> Node_MaterialIDs; // The material to use to render the node.
-    std::vector<SceneNodeType> Node_Types; // For each node in the scene, what type of node it is.
-
+    std::vector<Skeleton> Skeletons;
+    std::vector<BindPoseMesh> BindPoseMeshes;
+    std::vector<AnimSequence> AnimSequences;
+    std::vector<SkinnedMesh> SkinnedMeshes;
+    std::vector<Ragdoll> Ragdolls;
+    std::vector<DiffuseTexture> DiffuseTextures;
+    std::vector<Material> Materials;
+    std::vector<SceneNode> SceneNodes;
+  
     // Skinning shader. Used to skin vertices on GPU, and outputs vertices in world space.
     // These vertices are stored using transform feedback and fed into the rendering later.
     ReloadableShader SkinningVS{ "skinning.vert" };
