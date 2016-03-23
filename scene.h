@@ -76,6 +76,7 @@ struct Skeleton
     std::vector<std::string> BoneNames; // Name of each bone
     std::vector<glm::mat4> BoneInverseBindPoseTransforms; // Transforms a vertex from model space to bone space
     std::vector<int> BoneParents; // Bone parent index, or -1 if root
+    int NumBones;
 };
 
 // BindPoseMesh Table

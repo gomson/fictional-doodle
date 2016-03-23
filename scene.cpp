@@ -23,6 +23,82 @@
 #include <sys/sysctl.h>
 #endif
 
+static int AddSkinnedMesh(
+    Scene* scene,
+    int bindPoseMeshID,
+    int initialAnimSequenceID)
+{
+    SkinnedMesh skinnedMesh;
+
+    BindPoseMesh& bindPoseMesh = scene->BindPoseMeshes[bindPoseMeshID];
+    int skeletonID = bindPoseMesh.SkeletonID;
+    Skeleton& skeleton = scene->Skeletons[skeletonID];
+
+    skinnedMesh.BindPoseMeshID = bindPoseMeshID;
+    skinnedMesh.CurrAnimSequenceID = initialAnimSequenceID;
+    skinnedMesh.CurrTimeMillisecond = 0;
+    skinnedMesh.CPUBoneTransforms.resize(skeleton.NumBones);
+    skinnedMesh.BoneControls.resize(skeleton.NumBones);
+
+    glGenBuffers(1, &skinnedMesh.BoneTransformTBO);
+    glBindBuffer(GL_TEXTURE_BUFFER, skinnedMesh.BoneTransformTBO);
+    static_assert(false, "sizeof(glm::vec4) * 3 should be sizeof(SkinningMatrix) or something");
+    glBufferData(GL_TEXTURE_BUFFER, sizeof(glm::vec4) * 3 * skeleton.NumBones, NULL, GL_DYNAMIC_DRAW);
+    glBindBuffer(GL_TEXTURE_BUFFER, 0);
+
+    glGenTextures(1, &skinnedMesh.BoneTransformTO);
+    glBindTexture(GL_TEXTURE_BUFFER, skinnedMesh.BoneTransformTO);
+    glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32F, skinnedMesh.BoneTransformTBO);
+    glBindTexture(GL_TEXTURE_BUFFER, 0);
+
+    glGenBuffers(1, &skinnedMesh.PositionTFBO);
+    glBindBuffer(GL_TRANSFORM_FEEDBACK_BUFFER, skinnedMesh.PositionTFBO);
+    glBufferData(GL_TRANSFORM_FEEDBACK_BUFFER, bindPoseMesh.NumVertices * sizeof(PositionVertex), NULL, GL_DYNAMIC_DRAW);
+    glBindBuffer(GL_TRANSFORM_FEEDBACK_BUFFER, 0);
+
+    glGenBuffers(1, &skinnedMesh.DifferentialTFBO);
+    glBindBuffer(GL_TRANSFORM_FEEDBACK_BUFFER, skinnedMesh.DifferentialTFBO);
+    glBufferData(GL_TRANSFORM_FEEDBACK_BUFFER, bindPoseMesh.NumVertices * sizeof(DifferentialVertex), NULL, GL_DYNAMIC_DRAW);
+    glBindBuffer(GL_TRANSFORM_FEEDBACK_BUFFER, 0);
+
+    glGenTransformFeedbacks(1, &skinnedMesh.SkinningTFO);
+    glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, skinnedMesh.SkinningTFO);
+    glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, skinnedMesh.PositionTFBO);
+    glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 1, skinnedMesh.DifferentialTFBO);
+    glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, 0);
+
+    glGenVertexArrays(1, &skinnedMesh.SkinnedVAO);
+    glBindVertexArray(skinnedMesh.SkinnedVAO);
+    
+    glBindBuffer(GL_ARRAY_BUFFER, skinnedMesh.PositionTFBO);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(PositionVertex), (GLvoid*)offsetof(PositionVertex, Position));
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    glEnableVertexAttribArray(0);
+
+    glBindBuffer(GL_ARRAY_BUFFER, bindPoseMesh.TexCoordVBO);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(TexCoordVertex), (GLvoid*)offsetof(TexCoordVertex, TexCoord0));
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    glEnableVertexAttribArray(1);
+
+    glBindBuffer(GL_ARRAY_BUFFER, skinnedMesh.DifferentialTFBO);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(DifferentialVertex), (GLvoid*)offsetof(DifferentialVertex, Normal));
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(DifferentialVertex), (GLvoid*)offsetof(DifferentialVertex, Tangent));
+    glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(DifferentialVertex), (GLvoid*)offsetof(DifferentialVertex, Bitangent));
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    glEnableVertexAttribArray(2);
+    glEnableVertexAttribArray(3);
+    glEnableVertexAttribArray(4);
+
+    glBindVertexArray(0);
+
+    scene->SkinnedMeshes.push_back(std::move(skinnedMesh));
+
+    return (int)scene->SkinnedMeshes.size() - 1;
+}
+
 void InitScene(Scene* scene)
 {
     std::string hellknight_path = "assets/hellknight/";

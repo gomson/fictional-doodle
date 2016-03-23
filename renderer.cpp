@@ -151,6 +151,11 @@ void PaintRenderer(
                 const BindPoseMesh& bindPoseMesh = scene->BindPoseMeshes[bindPoseMeshID];
                 glDrawElements(GL_TRIANGLES, bindPoseMesh.NumIndices, GL_UNSIGNED_INT, NULL);
             }
+            else
+            {
+                fprintf(stderr, "Unknown scene node type %d\n", sceneNode.Type);
+                exit(1);
+            }
         }
 
         glActiveTexture(GL_TEXTURE0);
