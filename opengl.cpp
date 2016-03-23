@@ -189,6 +189,7 @@ void InitGL()
     GetProcGL(glTexImage2D, "glTexImage2D");
     GetProcGL(glTexImage2DMultisample, "glTexImage2DMultisample");
     GetProcGL(glTexParameteri, "glTexParameteri");
+    GetProcGL(glTexParameteriv, "glTexParameteriv");
     GetProcGL(glGenerateMipmap, "glGenerateMipmap");
     GetProcGL(glDrawElements, "glDrawElements");
     GetProcGL(glDrawArrays, "glDrawArrays");
