@@ -14,18 +14,11 @@
 #include <vector>
 #include <string>
 
-void LoadMD5Mesh(
+static void LoadMaterials(
     Scene* scene,
-    const char* folder, const char* meshfile)
+    const char* folder,
+    aiMaterial** materials, int numMaterials)
 {
-    std::string meshpath = std::string(folder) + meshfile;
-    const aiScene* aiscene = aiImportFile(meshpath.c_str(), aiProcessPreset_TargetRealtime_MaxQuality);
-    if (!aiscene)
-    {
-        fprintf(stderr, "aiImportFile: %s\n", aiGetErrorString());
-        exit(1);
-    }
-
     // Only the texture types we care about
     aiTextureType textureTypes[] = {
         aiTextureType_DIFFUSE,
@@ -36,9 +29,9 @@ void LoadMD5Mesh(
 
     // find all textures that need to be loaded
     std::vector<std::vector<std::string>> texturesToLoad(numTextureTypes);
-    for (int materialIdx = 0; materialIdx < (int)aiscene->mNumMaterials; materialIdx++)
+    for (int materialIdx = 0; materialIdx < numMaterials; materialIdx++)
     {
-        aiMaterial* material = aiscene->mMaterials[materialIdx];
+        aiMaterial* material = materials[materialIdx];
 
         for (int textureTypeIdx = 0; textureTypeIdx < (int)std::size(textureTypes); textureTypeIdx++)
         {
@@ -70,23 +63,17 @@ void LoadMD5Mesh(
     // keep only the unique textures
     for (int textureTypeIdx = 0; textureTypeIdx < numTextureTypes; textureTypeIdx++)
     {
-        std::sort(begin(texturesToLoad[textureTypeIdx]), end(texturesToLoad[textureTypeIdx]), 
-            [](const aiString& a, const aiString& b) { 
-            return strcmp(a.data, b.data) < 0; 
-        });
-
         // remove textures that appear more than once in this list
+        std::sort(begin(texturesToLoad[textureTypeIdx]), end(texturesToLoad[textureTypeIdx]));
         texturesToLoad[textureTypeIdx].erase(
-            std::unique(begin(texturesToLoad[textureTypeIdx]), end(texturesToLoad[textureTypeIdx]),
-                [](const aiString& a, const aiString& b) { 
-            return strcmp(a.data, b.data) == 0; 
-        }), end(texturesToLoad[textureTypeIdx]));
+            std::unique(begin(texturesToLoad[textureTypeIdx]), end(texturesToLoad[textureTypeIdx])), 
+            end(texturesToLoad[textureTypeIdx]));
 
         // remove textures that were loaded by previous meshes
         texturesToLoad[textureTypeIdx].erase(
             std::remove_if(begin(texturesToLoad[textureTypeIdx]), end(texturesToLoad[textureTypeIdx]),
-                [&textureNameToIDs, textureTypeIdx](const aiString& s) {
-            return textureNameToIDs[textureTypeIdx]->find(s.C_Str()) != textureNameToIDs[textureTypeIdx]->end();
+                [&textureNameToIDs, textureTypeIdx](const std::string& s) {
+            return textureNameToIDs[textureTypeIdx]->find(s) != textureNameToIDs[textureTypeIdx]->end();
         }), end(texturesToLoad[textureTypeIdx]));
     }
 
@@ -132,7 +119,7 @@ void LoadMD5Mesh(
             GLuint texture;
             glGenTextures(1, &texture);
             glBindTexture(GL_TEXTURE_2D, texture);
-            
+
             if (textureTypes[textureTypeIdx] == aiTextureType_DIFFUSE)
             {
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8_ALPHA8, width, height, 0, srcDataFormat[comp - 1], GL_UNSIGNED_BYTE, img);
@@ -193,9 +180,9 @@ void LoadMD5Mesh(
     }
 
     // hook up list of materials
-    for (int materialIdx = 0; materialIdx < (int)aiscene->mNumMaterials; materialIdx++)
+    for (int materialIdx = 0; materialIdx < numMaterials; materialIdx++)
     {
-        aiMaterial* material = aiscene->mMaterials[materialIdx];
+        aiMaterial* material = materials[materialIdx];
 
         Material newMat;
 
@@ -238,6 +225,21 @@ void LoadMD5Mesh(
 
         scene->Materials.push_back(newMat);
     }
+}
+
+void LoadMD5Mesh(
+    Scene* scene,
+    const char* folder, const char* meshfile)
+{
+    std::string meshpath = std::string(folder) + meshfile;
+    const aiScene* aiscene = aiImportFile(meshpath.c_str(), aiProcessPreset_TargetRealtime_MaxQuality);
+    if (!aiscene)
+    {
+        fprintf(stderr, "aiImportFile: %s\n", aiGetErrorString());
+        exit(1);
+    }
+
+    LoadMaterials(scene, folder, aiscene->mMaterials, (int)aiscene->mNumMaterials);
 
     aiReleaseImport(aiscene);
 }
