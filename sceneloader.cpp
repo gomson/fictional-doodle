@@ -247,7 +247,142 @@ void LoadMD5Anim(
     int skeletonID,
     const char* folder, const char* animfile)
 {
+    std::string path = std::string(folder) + animfile;
+    const aiScene* animScene = aiImportFile(path.c_str(), aiProcessPreset_TargetRealtime_MaxQuality);
 
+    // Check if file exists and was successfully parsed
+    if (!animScene)
+    {
+        fprintf(stderr, "aiImportFile: %s\n", aiGetErrorString());
+        return;
+    }
+
+    // Check if file contains an animation
+    if (!animScene->mNumAnimations)
+    {
+        fprintf(stderr, "No animations: %s\n", path.c_str());
+        return;
+    }
+
+    // TODO: Check if animation is valid for the skeleton
+
+    // One animation per file
+    const aiAnimation* animation = animScene->mAnimations[0];
+
+    AnimSequence animSequence;
+    animSequence.Name = animfile;
+    animSequence.SkeletonID = skeletonID;
+    animSequence.FramesPerSecond = animation->mTicksPerSecond;
+
+    // Allocate storage for each bone
+    animSequence.BoneBaseFrame.resize(animation->mNumChannels);
+    animSequence.BoneChannelBits.resize(animation->mNumChannels);
+    animSequence.BoneFrameDataOffsets.resize(animation->mNumChannels);
+
+    int numFrames = (int)animation->mDuration;
+    int numFrameComponents = 0;
+
+    // For each bone
+    for (int bone = 0; bone < (int)animation->mNumChannels; bone++)
+    {
+        aiNodeAnim* boneAnim = animation->mChannels[bone];
+
+        // Base frame bone position
+        aiVector3D baseT = boneAnim->mPositionKeys[0].mValue;
+        animSequence.BoneBaseFrame[bone].T = glm::vec3(baseT.x, baseT.y, baseT.z);
+
+        // Base frame bone orientation
+        aiQuaternion baseQ = boneAnim->mRotationKeys[0].mValue;
+        animSequence.BoneBaseFrame[bone].Q = glm::quat(baseQ.w, baseQ.x, baseQ.y, baseQ.z);
+
+        // Find which position components of this bone are animated
+        glm::bvec3 animatedT(false);
+        for (int i = 1; i < (int)boneAnim->mNumPositionKeys; i++)
+        {
+            aiVector3D v0 = boneAnim->mPositionKeys[i - 1].mValue;
+            aiVector3D v1 = boneAnim->mPositionKeys[i].mValue;
+
+            if (v0.x != v1.x) { animatedT.x = true; }
+            if (v0.y != v1.y) { animatedT.y = true; }
+            if (v0.z != v1.z) { animatedT.z = true; }
+        }
+
+        // Find which orientation components of this bone are animated
+        glm::bvec3 animatedQ(false);
+        for (int i = 1; i < (int)boneAnim->mNumRotationKeys; i++)
+        {
+            aiQuaternion q0 = boneAnim->mRotationKeys[i - 1].mValue;
+            aiQuaternion q1 = boneAnim->mRotationKeys[i].mValue;
+
+            if (q0.x != q1.x) { animatedQ.x = true; }
+            if (q0.y != q1.y) { animatedQ.y = true; }
+            if (q0.z != q1.z) { animatedQ.z = true; }
+        }
+
+        // Encode which position and orientation components are animated
+        animSequence.BoneChannelBits[bone] |= animatedT.x ? ANIMCHANNEL_TX_BIT : 0;
+        animSequence.BoneChannelBits[bone] |= animatedT.y ? ANIMCHANNEL_TY_BIT : 0;
+        animSequence.BoneChannelBits[bone] |= animatedT.z ? ANIMCHANNEL_TZ_BIT : 0;
+        animSequence.BoneChannelBits[bone] |= animatedQ.x ? ANIMCHANNEL_QX_BIT : 0;
+        animSequence.BoneChannelBits[bone] |= animatedQ.y ? ANIMCHANNEL_QY_BIT : 0;
+        animSequence.BoneChannelBits[bone] |= animatedQ.z ? ANIMCHANNEL_QZ_BIT : 0;
+
+        animSequence.BoneFrameDataOffsets[bone] = numFrameComponents;
+
+        // Update offset for the next bone
+        for (uint8_t bits = animSequence.BoneChannelBits[bone]; bits != 0; bits &= (bits - 1))
+        {
+            numFrameComponents++;
+        }
+
+    }
+
+    // Create storage for frame data
+    animSequence.BoneFrameData.resize(numFrames * numFrameComponents);
+
+    // Generate encoded frame data
+    for (int bone = 0; bone < (int)animation->mNumChannels; bone++)
+    {
+        for (int frame = 0; frame < numFrames; frame++)
+        {
+            int off = animSequence.BoneFrameDataOffsets[bone];
+            uint8_t bits = animSequence.BoneChannelBits[bone];
+
+            if (bits & ANIMCHANNEL_TX_BIT)
+            {
+                int index = frame * numFrameComponents + off++;
+                animSequence.BoneFrameData[index] = animation->mChannels[bone]->mPositionKeys[frame].mValue.x;
+            }
+            if (bits & ANIMCHANNEL_TY_BIT)
+            {
+                int index = frame * numFrameComponents + off++;
+                animSequence.BoneFrameData[index] = animation->mChannels[bone]->mPositionKeys[frame].mValue.y;
+            }
+            if (bits & ANIMCHANNEL_TZ_BIT)
+            {
+                int index = frame * numFrameComponents + off++;
+                animSequence.BoneFrameData[index] = animation->mChannels[bone]->mPositionKeys[frame].mValue.z;
+            }
+            if (bits & ANIMCHANNEL_QX_BIT)
+            {
+                int index = frame * numFrameComponents + off++;
+                animSequence.BoneFrameData[index] = animation->mChannels[bone]->mRotationKeys[frame].mValue.x;
+            }
+            if (bits & ANIMCHANNEL_QY_BIT)
+            {
+                int index = frame * numFrameComponents + off++;
+                animSequence.BoneFrameData[index] = animation->mChannels[bone]->mRotationKeys[frame].mValue.y;
+            }
+            if (bits & ANIMCHANNEL_QZ_BIT)
+            {
+                int index = frame * numFrameComponents + off++;
+                animSequence.BoneFrameData[index] = animation->mChannels[bone]->mRotationKeys[frame].mValue.z;
+            }
+        }
+    }
+
+    scene->AnimSequences.push_back(animSequence);
+    aiReleaseImport(animScene);
 }
 
 // TODO: Remove and replace
@@ -256,26 +391,9 @@ void LoadScene(Scene* scene)
 #if 1
     std::string scenepath = "assets/hellknight/";
     std::string modelname = "hellknight.md5mesh";
-    std::vector<std::string> animnames{
-        "attack3.md5anim",
-        "chest.md5anim",
-        "headpain.md5anim",
-        "idle2.md5anim",
-        "leftslash.md5anim",
-        "pain_luparm.md5anim",
-        "pain_ruparm.md5anim",
-        "pain1.md5anim",
-        "range_attack2.md5anim",
-        "roar1.md5anim",
-        "stand.md5anim",
-        "turret_attack.md5anim",
-        "walk7.md5anim",
-        "walk7_left.md5anim"
-    };
 #else
     std::string scenepath = "assets/teapot/";
     std::string modelname = "teapot.obj";
-    std::vector<std::string> animnames;
 #endif
 
     std::string modelpath = scenepath + modelname;
@@ -553,162 +671,5 @@ void LoadScene(Scene* scene)
     {
         scene->BoneDynamicsPositions[i].resize(numBones);
         scene->BoneDynamicsVelocities[i].resize(numBones);
-    }
-
-    // Load animations
-    for (int animToLoadIdx = 0; animToLoadIdx < (int)animnames.size(); animToLoadIdx++)
-    {
-        std::string fullpath = scenepath + animnames[animToLoadIdx];
-        const aiScene* animScene = aiImportFile(fullpath.c_str(), aiProcessPreset_TargetRealtime_MaxQuality);
-        if (!animScene)
-        {
-            fprintf(stderr, "Failed to load animation %s: %s\n", fullpath.c_str(), aiGetErrorString());
-            exit(1);
-        }
-
-        for (int animIdx = 0; animIdx < (int)animScene->mNumAnimations; animIdx++)
-        {
-            aiAnimation* animation = animScene->mAnimations[animIdx];
-
-            scene->AnimSequenceNames.push_back(animation->mName.length == 0 ? animnames[animToLoadIdx].c_str() : animation->mName.C_Str());
-
-            scene->AnimSequenceBoneBaseFrames.emplace_back(animation->mNumChannels);
-            scene->AnimSequenceBoneChannelBits.emplace_back(animation->mNumChannels);
-            scene->AnimSequenceBoneFrameDataOffset.emplace_back(animation->mNumChannels);
-
-            std::vector<SQT>& baseFrame = scene->AnimSequenceBoneBaseFrames.back();
-            std::vector<uint8_t>& channelBits = scene->AnimSequenceBoneChannelBits.back();
-            std::vector<int>& frameDataOffsets = scene->AnimSequenceBoneFrameDataOffset.back();
-
-            int numFrames = 0;
-            int numFloatsPerFrame = 0;
-
-            for (int bone = 0; bone < (int)animation->mNumChannels; bone++)
-            {
-                numFrames = std::max(numFrames, (int)animation->mChannels[bone]->mNumScalingKeys);
-                numFrames = std::max(numFrames, (int)animation->mChannels[bone]->mNumPositionKeys);
-                numFrames = std::max(numFrames, (int)animation->mChannels[bone]->mNumRotationKeys);
-
-                aiVector3D basePos = animation->mChannels[bone]->mPositionKeys[0].mValue;
-                baseFrame[bone].T = glm::vec3(basePos.x, basePos.y, basePos.z);
-
-                aiQuaternion baseQuat = animation->mChannels[bone]->mRotationKeys[0].mValue;
-                baseFrame[bone].Q = glm::quat(baseQuat.w, baseQuat.x, baseQuat.y, baseQuat.z);
-
-                // undo assimp's expansion...
-                glm::bvec3 allSameT(false);
-                if (animation->mChannels[bone]->mNumPositionKeys == 1)
-                {
-                    allSameT = glm::bvec3(true);
-                }
-                else
-                {
-                    glm::bvec3 allSame = glm::bvec3(true);
-                    for (int i = 1; i < (int)animation->mChannels[bone]->mNumPositionKeys; i++)
-                    {
-                        aiVector3D v1 = animation->mChannels[bone]->mPositionKeys[i].mValue;
-                        aiVector3D v0 = animation->mChannels[bone]->mPositionKeys[i - 1].mValue;
-                        if (v0.x != v1.x) allSame.x = false;
-                        if (v0.y != v1.y) allSame.y = false;
-                        if (v0.z != v1.z) allSame.z = false;
-                        if (!any(allSame))
-                        {
-                            break;
-                        }
-                    }
-                    allSameT = allSame;
-                }
-
-                glm::bvec3 allSameQ(false);
-                if (animation->mChannels[bone]->mNumRotationKeys == 1)
-                {
-                    allSameQ = glm::bvec3(true);
-                }
-                else
-                {
-                    glm::bvec3 allSame = glm::bvec3(true);
-                    for (int i = 1; i < (int)animation->mChannels[bone]->mNumRotationKeys; i++)
-                    {
-                        aiQuaternion v1 = animation->mChannels[bone]->mRotationKeys[i].mValue;
-                        aiQuaternion v0 = animation->mChannels[bone]->mRotationKeys[i - 1].mValue;
-                        if (v0.x != v1.x) allSame.x = false;
-                        if (v0.y != v1.y) allSame.y = false;
-                        if (v0.z != v1.z) allSame.z = false;
-                        // don't need to check for w, since it's derived from xyz
-                        if (!any(allSame))
-                        {
-                            break;
-                        }
-                    }
-                    allSameQ = allSame;
-                }
-
-                channelBits[bone] |= allSameT.x ? 0 : Scene::ANIM_CHANNEL_TX_BIT;
-                channelBits[bone] |= allSameT.y ? 0 : Scene::ANIM_CHANNEL_TY_BIT;
-                channelBits[bone] |= allSameT.z ? 0 : Scene::ANIM_CHANNEL_TZ_BIT;
-                channelBits[bone] |= allSameQ.x ? 0 : Scene::ANIM_CHANNEL_QX_BIT;
-                channelBits[bone] |= allSameQ.y ? 0 : Scene::ANIM_CHANNEL_QY_BIT;
-                channelBits[bone] |= allSameQ.z ? 0 : Scene::ANIM_CHANNEL_QZ_BIT;
-
-                if (!channelBits[bone])
-                {
-                    frameDataOffsets[bone] = 0;
-                }
-                else
-                {
-                    frameDataOffsets[bone] = numFloatsPerFrame;
-                }
-
-                for (uint8_t bits = channelBits[bone]; bits != 0; bits = bits & (bits - 1))
-                {
-                    numFloatsPerFrame++;
-                }
-            }
-
-            // build frame data
-            scene->AnimSequenceFrameData.emplace_back(std::vector<std::vector<float>>(numFrames, std::vector<float>(numFloatsPerFrame)));
-            std::vector<std::vector<float>>& frameDatas = scene->AnimSequenceFrameData.back();
-            for (int bone = 0; bone < (int)animation->mNumChannels; bone++)
-            {
-                for (int frameIdx = 0; frameIdx < numFrames; frameIdx++)
-                {
-                    int off = frameDataOffsets[bone];
-                    uint8_t bits = channelBits[bone];
-
-                    if (bits & Scene::ANIM_CHANNEL_TX_BIT)
-                    {
-                        frameDatas[frameIdx][off] = animation->mChannels[bone]->mPositionKeys[frameIdx].mValue.x;
-                        off++;
-                    }
-                    if (bits & Scene::ANIM_CHANNEL_TY_BIT)
-                    {
-                        frameDatas[frameIdx][off] = animation->mChannels[bone]->mPositionKeys[frameIdx].mValue.y;
-                        off++;
-                    }
-                    if (bits & Scene::ANIM_CHANNEL_TZ_BIT)
-                    {
-                        frameDatas[frameIdx][off] = animation->mChannels[bone]->mPositionKeys[frameIdx].mValue.z;
-                        off++;
-                    }
-                    if (bits & Scene::ANIM_CHANNEL_QX_BIT)
-                    {
-                        frameDatas[frameIdx][off] = animation->mChannels[bone]->mRotationKeys[frameIdx].mValue.x;
-                        off++;
-                    }
-                    if (bits & Scene::ANIM_CHANNEL_QY_BIT)
-                    {
-                        frameDatas[frameIdx][off] = animation->mChannels[bone]->mRotationKeys[frameIdx].mValue.y;
-                        off++;
-                    }
-                    if (bits & Scene::ANIM_CHANNEL_QZ_BIT)
-                    {
-                        frameDatas[frameIdx][off] = animation->mChannels[bone]->mRotationKeys[frameIdx].mValue.z;
-                        off++;
-                    }
-                }
-            }
-        }
-
-        aiReleaseImport(animScene);
     }
 }

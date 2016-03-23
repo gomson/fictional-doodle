@@ -103,7 +103,7 @@ struct AnimSequence
     std::vector<SQT> BoneBaseFrame; // The base frame for each bone, which defines the initial transform.
     std::vector<uint8_t> BoneChannelBits; // Which animation channels are present in frame data for each bone
     std::vector<int> BoneFrameDataOffsets; // The offset in floats in the frame data for this bone
-    std::vector<std::vector<float>> FrameDatas; // Data for each frame allocated according to the channel bits.
+    std::vector<float> BoneFrameData; // All frame data for each bone allocated according to the channel bits.
     int SkeletonID; // The skeleton that this animation sequence animates
     int FramesPerSecond; // Frames per second for each animation sequence
 };
