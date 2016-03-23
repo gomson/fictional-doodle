@@ -300,36 +300,46 @@ void LoadMD5Anim(
         animSequence.BoneBaseFrame[bone].Q = glm::quat(baseQ.w, baseQ.x, baseQ.y, baseQ.z);
 
         // Find which position components of this bone are animated
-        glm::bvec3 animatedT(false);
+        glm::bvec3 isAnimatedT(false);
         for (int i = 1; i < (int)boneAnim->mNumPositionKeys; i++)
         {
             aiVector3D v0 = boneAnim->mPositionKeys[i - 1].mValue;
             aiVector3D v1 = boneAnim->mPositionKeys[i].mValue;
 
-            if (v0.x != v1.x) { animatedT.x = true; }
-            if (v0.y != v1.y) { animatedT.y = true; }
-            if (v0.z != v1.z) { animatedT.z = true; }
+            if (v0.x != v1.x) { isAnimatedT.x = true; }
+            if (v0.y != v1.y) { isAnimatedT.y = true; }
+            if (v0.z != v1.z) { isAnimatedT.z = true; }
+
+            if (any(isAnimatedT))
+            {
+                break;
+            }
         }
 
         // Find which orientation components of this bone are animated
-        glm::bvec3 animatedQ(false);
+        glm::bvec3 isAnimatedQ(false);
         for (int i = 1; i < (int)boneAnim->mNumRotationKeys; i++)
         {
             aiQuaternion q0 = boneAnim->mRotationKeys[i - 1].mValue;
             aiQuaternion q1 = boneAnim->mRotationKeys[i].mValue;
 
-            if (q0.x != q1.x) { animatedQ.x = true; }
-            if (q0.y != q1.y) { animatedQ.y = true; }
-            if (q0.z != q1.z) { animatedQ.z = true; }
+            if (q0.x != q1.x) { isAnimatedQ.x = true; }
+            if (q0.y != q1.y) { isAnimatedQ.y = true; }
+            if (q0.z != q1.z) { isAnimatedQ.z = true; }
+
+            if (any(isAnimatedQ))
+            {
+                break;
+            }
         }
 
         // Encode which position and orientation components are animated
-        animSequence.BoneChannelBits[bone] |= animatedT.x ? ANIMCHANNEL_TX_BIT : 0;
-        animSequence.BoneChannelBits[bone] |= animatedT.y ? ANIMCHANNEL_TY_BIT : 0;
-        animSequence.BoneChannelBits[bone] |= animatedT.z ? ANIMCHANNEL_TZ_BIT : 0;
-        animSequence.BoneChannelBits[bone] |= animatedQ.x ? ANIMCHANNEL_QX_BIT : 0;
-        animSequence.BoneChannelBits[bone] |= animatedQ.y ? ANIMCHANNEL_QY_BIT : 0;
-        animSequence.BoneChannelBits[bone] |= animatedQ.z ? ANIMCHANNEL_QZ_BIT : 0;
+        animSequence.BoneChannelBits[bone] |= isAnimatedT.x ? ANIMCHANNEL_TX_BIT : 0;
+        animSequence.BoneChannelBits[bone] |= isAnimatedT.y ? ANIMCHANNEL_TY_BIT : 0;
+        animSequence.BoneChannelBits[bone] |= isAnimatedT.z ? ANIMCHANNEL_TZ_BIT : 0;
+        animSequence.BoneChannelBits[bone] |= isAnimatedQ.x ? ANIMCHANNEL_QX_BIT : 0;
+        animSequence.BoneChannelBits[bone] |= isAnimatedQ.y ? ANIMCHANNEL_QY_BIT : 0;
+        animSequence.BoneChannelBits[bone] |= isAnimatedQ.z ? ANIMCHANNEL_QZ_BIT : 0;
 
         animSequence.BoneFrameDataOffsets[bone] = numFrameComponents;
 
@@ -342,6 +352,7 @@ void LoadMD5Anim(
 
     // Create storage for frame data
     animSequence.BoneFrameData.resize(numFrames * numFrameComponents);
+    animSequence.NumFrameComponents = numFrameComponents;
 
     // Generate encoded frame data
     for (int bone = 0; bone < (int)animation->mNumChannels; bone++)
