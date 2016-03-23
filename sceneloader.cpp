@@ -139,11 +139,13 @@ void LoadMD5Mesh(
             }
             else if (textureTypes[textureTypeIdx] == aiTextureType_SPECULAR)
             {
-                glexImage2D(GL_TEXTURE_2D, 0, GL_R8, width, height, 0, srcDataFormat[comp - 1], GL_UNSIGNED_BYTE, img);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, width, height, 0, srcDataFormat[comp - 1], GL_UNSIGNED_BYTE, img);
+                GLint swizzleMask[] = { GL_RED, GL_RED, GL_RED, GL_ONE };
+                glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA, swizzleMask);
             }
             else if (textureTypes[textureTypeIdx] == aiTextureType_NORMALS)
             {
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_R11F_G11F_B10F, width, height, 0, srcDataFormat[comp - 1], GL_UNSIGNED_BYTE, img);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8_SNORM, width, height, 0, srcDataFormat[comp - 1], GL_UNSIGNED_BYTE, img);
             }
             else
             {
