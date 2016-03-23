@@ -87,9 +87,7 @@ static void ReloadShaders(Scene* scene)
     // Reload shaders & uniforms
     if (reload(&scene->SkinningSP))
     {
-        if (getU(&scene->SkinningSP_ModelWorldLoc, "ModelWorld") ||
-            getU(&scene->SkinningSP_BoneTransformsLoc, "BoneTransforms") ||
-            getU(&scene->SkinningSP_BoneOffsetLoc, "BoneOffset"))
+        if (getU(&scene->SkinningSP_BoneTransformsLoc, "BoneTransforms"))
         {
             return;
         }
@@ -97,9 +95,12 @@ static void ReloadShaders(Scene* scene)
 
     if (reload(&scene->SceneSP))
     {
-        if (getU(&scene->SceneSP_WorldViewLoc, "WorldView") ||
-            getU(&scene->SceneSP_WorldViewProjectionLoc, "WorldViewProjection") ||
-            getU(&scene->SceneSP_Diffuse0Loc, "Diffuse0"))
+        if (getU(&scene->SceneSP_ModelViewLoc, "ModelView") ||
+            getU(&scene->SceneSP_ModelViewProjectionLoc, "ModelViewProjection") ||
+            getU(&scene->SceneSP_WorldViewLoc, "WorldView") ||
+            getU(&scene->SceneSP_DiffuseTextureLoc, "DiffuseTexture") ||
+            getU(&scene->SceneSP_SpecularTextureLoc, "SpecularTexture") ||
+            getU(&scene->SceneSP_NormalTextureLoc, "NormalTexture"))
         {
             return;
         }
@@ -268,12 +269,6 @@ void UpdateSceneSkinnedGeometry(Scene* scene, uint32_t dt_ms)
         for (int skinnedMeshIdx = 0; skinnedMeshIdx < (int)scene->SkinnedMeshDrawCommands.size(); skinnedMeshIdx++)
         {
             int nodeID = scene->SkinnedMeshNodeIDs[skinnedMeshIdx];
-
-            glm::mat4 modelworld = scene->NodeModelWorldTransforms[nodeID];
-            glUniformMatrix4fv(scene->SkinningSP_ModelWorldLoc, 1, GL_FALSE, glm::value_ptr(modelworld));
-
-            int baseBone = scene->SkinnedMeshBaseBones[skinnedMeshIdx];
-            glUniform1i(scene->SkinningSP_BoneOffsetLoc, baseBone);
 
             GLDrawElementsIndirectCommand draw = scene->SkinnedMeshDrawCommands[skinnedMeshIdx];
             int bindPoseID = scene->SkinnedMeshBindPoseIDs[skinnedMeshIdx];

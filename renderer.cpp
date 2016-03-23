@@ -89,41 +89,76 @@ void PaintRenderer(
         glEnable(GL_DEPTH_TEST);
 
         glUseProgram(scene->SceneSP.Handle);
-        glUniform1i(scene->SceneSP_Diffuse0Loc, 0);
         glUniformMatrix4fv(scene->SceneSP_WorldViewLoc, 1, GL_FALSE, glm::value_ptr(worldView));
-        glUniformMatrix4fv(scene->SceneSP_WorldViewProjectionLoc, 1, GL_FALSE, glm::value_ptr(worldViewProjection));
-
-        for (int drawIdx = 0; drawIdx < (int)scene->NodeDrawCmds.size(); drawIdx++)
+        glUniform1i(scene->SceneSP_DiffuseTextureLoc, 0);
+        glUniform1i(scene->SceneSP_SpecularTextureLoc, 1);
+        glUniform1i(scene->SceneSP_NormalTextureLoc, 2);
+        
+        for (int nodeIdx = 0; nodeIdx < (int)scene->SceneNodes.size(); nodeIdx++)
         {
-            GLDrawElementsIndirectCommand cmd = scene->NodeDrawCmds[drawIdx];
-            assert(cmd.baseInstance == 0); // no base instance because OS X
-            assert(cmd.primCount == 1); // assuming no instancing cuz lack of baseInstance makes it boring
+            const SceneNode& sceneNode = scene->SceneNodes[nodeIdx];
 
-            SceneNodeType type = scene->NodeTypes[drawIdx];
-
-            if (type == SCENENODETYPE_SKINNEDMESH)
-            {
-                glBindVertexArray(scene->SkinnedMeshVAO);
-            }
-            else
-            {
-                assert(false && "Unknown scene node type");
-            }
-
-            int materialID = scene->NodeMaterialIDs[drawIdx];
-            int diffuseTexture0Index = scene->MaterialDiffuse0TextureIndex[materialID];
+            int materialID = sceneNode.MaterialID;
+            const Material& material = scene->Materials[materialID];
+            
+            // Set diffuse texture
             glActiveTexture(GL_TEXTURE0);
-            if (diffuseTexture0Index == -1)
+            if (material.DiffuseTextureIDs.size() < 1 || material.DiffuseTextureIDs[0] == -1)
             {
                 glBindTexture(GL_TEXTURE_2D, 0);
             }
             else
             {
-                glBindTexture(GL_TEXTURE_2D, scene->DiffuseTextures[diffuseTexture0Index]);
+                glBindTexture(GL_TEXTURE_2D, scene->DiffuseTextures[material.DiffuseTextureIDs[0]].TO);
+            }
+            
+            // Set specular texture
+            glActiveTexture(GL_TEXTURE1);
+            if (material.SpecularTextureIDs.size() < 1 || material.SpecularTextureIDs[0] == -1)
+            {
+                glBindTexture(GL_TEXTURE_2D, 0);
+            }
+            else
+            {
+                glBindTexture(GL_TEXTURE_2D, scene->SpecularTextures[material.SpecularTextureIDs[0]].TO);
             }
 
-            glDrawElementsInstancedBaseVertex(GL_TRIANGLES, cmd.count, GL_UNSIGNED_INT, (GLvoid*)(cmd.firstIndex * sizeof(GLuint)), cmd.primCount, cmd.baseVertex);
+            // Set normal map texture
+            glActiveTexture(GL_TEXTURE2);
+            if (material.NormalTextureIDs.size() < 1 || material.NormalTextureIDs[0] == -1)
+            {
+                glBindTexture(GL_TEXTURE_2D, 0);
+            }
+            else
+            {
+                glBindTexture(GL_TEXTURE_2D, scene->NormalTextures[material.NormalTextureIDs[0]].TO);
+            }
+
+            // Draw node
+            if (sceneNode.Type == SCENENODETYPE_SKINNEDMESH)
+            {
+                const SkinnedMeshSceneNode& skinnedMeshSceneNode = sceneNode.AsSkinnedMesh;
+                const SkinnedMesh& skinnedMesh = scene->SkinnedMeshes[skinnedMeshSceneNode.SkinnedMeshID];
+                glBindVertexArray(skinnedMesh.SkinnedVAO);
+
+                glm::mat4 modelView = worldView * sceneNode.ModelWorldTransform;
+                glm::mat4 modelViewProjection = worldViewProjection * sceneNode.ModelWorldTransform;
+
+                glUniformMatrix4fv(scene->SceneSP_ModelViewLoc, 1, GL_FALSE, glm::value_ptr(modelView));
+                glUniformMatrix4fv(scene->SceneSP_ModelViewProjectionLoc, 1, GL_FALSE, glm::value_ptr(modelViewProjection));
+                
+                int bindPoseMeshID = skinnedMesh.BindPoseMeshID;
+                const BindPoseMesh& bindPoseMesh = scene->BindPoseMeshes[bindPoseMeshID];
+                glDrawElements(GL_TRIANGLES, bindPoseMesh.NumIndices, GL_UNSIGNED_INT, NULL);
+            }
         }
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, 0);
 
         glBindVertexArray(0);
         glUseProgram(0);

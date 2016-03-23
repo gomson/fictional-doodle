@@ -123,7 +123,6 @@ struct SkinnedMesh
     GLuint PositionTFBO; // Positions created from transform feedback
     GLuint DifferentialTFBO; // Differential geometry from transform feedback
     int BindPoseMeshID; // The ID of the bind pose of this skinned mesh
-    int SceneNodeID; // The scene node ID corresponding to the skinned object
     int CurrAnimSequenceID; // The currently playing animation sequence for each skinned mesh
     int CurrTimeMillisecond; // The current time in the current animation sequence in milliseconds
     std::vector<glm::mat4> CPUBoneTransforms; // Transforms a vertex in bone space.
@@ -168,13 +167,23 @@ struct Material
     std::vector<int> NormalTextureIDs; // Normal textures (if present)
 };
 
+struct SkinnedMeshSceneNode
+{
+    int SkinnedMeshID;
+};
+
 // SceneNode Table
 // Each node is associated to one material.
 struct SceneNode
 {
-    glm::mat4 ModelWorldTransforms; // The modelworld matrix to place the node in the world.
-    int MaterialIDs; // The material to use to render the node.
-    SceneNodeType Types; // What type of node this is.
+    glm::mat4 ModelWorldTransform; // The modelworld matrix to place the node in the world.
+    int MaterialID; // The material to use to render the node.
+    SceneNodeType Type; // What type of node this is.
+
+    union
+    {
+        SkinnedMeshSceneNode AsSkinnedMesh;
+    };
 };
 
 struct Scene
@@ -200,17 +209,18 @@ struct Scene
     ReloadableShader SkinningVS{ "skinning.vert" };
     ReloadableProgram SkinningSP = ReloadableProgram(&SkinningVS)
         .WithVaryings({"oPosition", "gl_NextBuffer", "oNormal", "oTangent", "oBitangent" }, GL_INTERLEAVED_ATTRIBS);
-    GLint SkinningSP_ModelWorldLoc;
     GLint SkinningSP_BoneTransformsLoc;
-    GLint SkinningSP_BoneOffsetLoc;
 
     // Scene shader. Used to render objects in the scene which have their geometry defined in world space.
     ReloadableShader SceneVS{ "scene.vert" };
     ReloadableShader SceneFS{ "scene.frag" };
     ReloadableProgram SceneSP{ &SceneVS, &SceneFS };
+    GLint SceneSP_ModelViewLoc;
+    GLint SceneSP_ModelViewProjectionLoc;
     GLint SceneSP_WorldViewLoc;
-    GLint SceneSP_WorldViewProjectionLoc;
-    GLint SceneSP_Diffuse0Loc;
+    GLint SceneSP_DiffuseTextureLoc;
+    GLint SceneSP_SpecularTextureLoc;
+    GLint SceneSP_NormalTextureLoc;
 
     // true if all shaders in the scene are compiling/linking successfully.
     // Scene updates will stop if not all shaders are working, since it will likely crash.
