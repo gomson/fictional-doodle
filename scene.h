@@ -136,7 +136,7 @@ struct SkinnedMesh
 // Each ragdoll simulation is associatd to one skinned mesh.
 struct Ragdoll
 {
-    int BindPoseMeshID; // The skinned mesh that is being animated physically
+    int SkinnedMeshID; // The skinned mesh that is being animated physically
     int OldBufferIndex; // Which of the 2 buffers contains old data
     std::vector<glm::vec3> BonePositions[2]; // Old and new positions of the bone
     std::vector<glm::vec3> BoneVelocities[2]; // Old and new velocities of the bone

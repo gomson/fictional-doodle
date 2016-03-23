@@ -99,6 +99,35 @@ static int AddSkinnedMesh(
     return (int)scene->SkinnedMeshes.size() - 1;
 }
 
+static int AddRagdoll(
+    Scene* scene,
+    int skinnedMeshID)
+{
+    Ragdoll ragdoll;
+    ragdoll.SkinnedMeshID = skinnedMeshID;
+    ragdoll.OldBufferIndex = -1;
+
+    SkinnedMesh& skinnedMesh = scene->SkinnedMeshes[skinnedMeshID];
+    int bindPoseMeshID = skinnedMesh.BindPoseMeshID;
+    BindPoseMesh& bindPoseMesh = scene->BindPoseMeshes[bindPoseMeshID];
+    int skeletonID = bindPoseMesh.SkeletonID;
+    Skeleton& skeleton = scene->Skeletons[skeletonID];
+
+    for (std::vector<glm::vec3>& bonePositions : ragdoll.BonePositions)
+    {
+        bonePositions.resize(skeleton.NumBones);
+    }
+
+    for (std::vector<glm::vec3>& boneVelocities : ragdoll.BoneVelocities)
+    {
+        boneVelocities.resize(skeleton.NumBones);
+    }
+
+    scene->Ragdolls.push_back(std::move(ragdoll));
+
+    return (int)scene->Ragdolls.size() - 1;
+}
+
 void InitScene(Scene* scene)
 {
     std::string hellknight_path = "assets/hellknight/";
@@ -121,11 +150,17 @@ void InitScene(Scene* scene)
     };
 
     LoadMD5Mesh(scene, hellknight_path.c_str(), hellknight_modelName.c_str());
-    int hellknightSkeletonID = 0; // TODO: query this
+    int hellknightSkeletonID = -1; // TODO: query this
     for (const std::string& animName : hellknight_animNames)
     {
         LoadMD5Anim(scene, hellknightSkeletonID, hellknight_path.c_str(), animName.c_str());
     }
+
+    int hellknightBindPoseMeshID = -1; // TODO: query this
+    int hellknightInitialAnimSequenceID = -1; // TODO: query this
+    int hellknightSkinnedMeshID = AddSkinnedMesh(scene, hellknightBindPoseMeshID, hellknightInitialAnimSequenceID);
+
+    int hellknightRagdollID = AddRagdoll(scene, hellknightSkinnedMeshID);
 
     scene->AllShadersOK = false;
 
