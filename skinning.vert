@@ -30,7 +30,7 @@ void main()
         skinningTransform += Weights[i] * boneTransform;
     }
 
-    oPosition = skinningTransform * Position;
+    oPosition = vec3(skinningTransform * Position);
 
     // assuming no non-uniform scale
     oNormal = mat3(skinningTransform) * Normal;
