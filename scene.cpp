@@ -48,6 +48,7 @@ static int AddAnimatedSkeleton(
 
     animatedSkeleton.CurrAnimSequenceID = initialAnimSequenceID;
     animatedSkeleton.CurrTimeMillisecond = 0;
+    animatedSkeleton.InterpolateFrames = false;
     animatedSkeleton.CPUBoneTransforms.resize(skeleton.NumBones);
     animatedSkeleton.BoneControls.resize(skeleton.NumBones, BONECONTROL_ANIMATION);
 
