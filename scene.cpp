@@ -274,7 +274,8 @@ static void ReloadShaders(Scene* scene)
 
     if (reload(&scene->SceneSP))
     {
-        if (getUOpt(&scene->SceneSP_ModelWorldLoc, "ModelWorld") || 
+        if (getUOpt(&scene->SceneSP_ModelWorldLoc, "ModelWorld") ||
+            getUOpt(&scene->SceneSP_WorldModelLoc, "WorldModel") ||
             getUOpt(&scene->SceneSP_ModelViewLoc, "ModelView") ||
             getUOpt(&scene->SceneSP_ModelViewProjectionLoc, "ModelViewProjection") ||
             getUOpt(&scene->SceneSP_WorldViewLoc, "WorldView") ||

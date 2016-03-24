@@ -139,7 +139,7 @@ bool ReloadProgram(ReloadableProgram* program)
 
         for (int i = 0; i < sizeof(shaders) / sizeof(*shaders); i++)
         {
-            if (!shaders[i])
+            if (!shaders[i] || !shaders[i]->Handle)
             {
                 continue;
             }

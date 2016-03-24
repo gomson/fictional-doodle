@@ -246,6 +246,7 @@ struct Scene
     ReloadableShader SceneFS{ "scene.frag" };
     ReloadableProgram SceneSP{ &SceneVS, &SceneFS };
     GLint SceneSP_ModelWorldLoc;
+    GLint SceneSP_WorldModelLoc;
     GLint SceneSP_ModelViewLoc;
     GLint SceneSP_ModelViewProjectionLoc;
     GLint SceneSP_WorldViewLoc;

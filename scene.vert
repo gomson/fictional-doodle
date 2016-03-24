@@ -11,6 +11,7 @@ uniform mat4 ModelWorld;
 uniform mat4 ModelViewProjection;
 //uniform mat4 WorldView;
 
+out vec3 fPosition;
 out vec2 fTexCoord;
 out vec3 fNormal;
 out vec3 fTangent;
@@ -18,6 +19,7 @@ out vec3 fBitangent;
 
 void main()
 {
+    fPosition = Position.xyz;
     fTexCoord = TexCoord;
     fNormal = Normal;
     fTangent = Tangent;
