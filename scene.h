@@ -170,7 +170,9 @@ struct NormalTexture
 };
 
 // Material Table
-// Each material is associated to a DiffuseTexture (or -1)
+// Each material is associated to DiffuseTextures (or -1 if not present)
+// Each material is associated to SpecularTextures (or -1 if not present)
+// Each material is associated to NormalTextures (or -1 if not present)
 struct Material
 {
     std::vector<int> DiffuseTextureIDs; // Diffuse textures (if present)

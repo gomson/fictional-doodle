@@ -152,21 +152,21 @@ static void LoadMD5Materials(
                 {
                     DiffuseTexture d;
                     d.TO = texture;
-                    scene->DiffuseTextures.push_back(d);
+                    scene->DiffuseTextures.push_back(std::move(d));
                     id = (int)scene->DiffuseTextures.size() - 1;
                 }
                 else if (textureTypes[textureTypeIdx] == aiTextureType_SPECULAR)
                 {
                     SpecularTexture s;
                     s.TO = texture;
-                    scene->SpecularTextures.push_back(s);
+                    scene->SpecularTextures.push_back(std::move(s));
                     id = (int)scene->SpecularTextures.size() - 1;
                 }
                 else if (textureTypes[textureTypeIdx] == aiTextureType_NORMALS)
                 {
                     NormalTexture n;
                     n.TO = texture;
-                    scene->NormalTextures.push_back(n);
+                    scene->NormalTextures.push_back(std::move(n));
                     id = (int)scene->NormalTextures.size() - 1;
                 }
                 else
@@ -232,8 +232,85 @@ static void LoadMD5Materials(
             }
         }
 
-        scene->Materials.push_back(newMat);
+        scene->Materials.push_back(std::move(newMat));
     }
+}
+
+static int LoadMD5SkeletonNode(
+    Scene* scene,
+    aiNode* ainode)
+{
+    if (strcmp(ainode->mName.C_Str(), "<MD5_Hierarchy>") != 0)
+    {
+        fprintf(stderr, "Expected <MD5_Hierarchy>, got %s\n", ainode->mName.C_Str());
+        exit(1);
+    }
+
+    // traverse skeleton and flatten it
+    std::vector<aiNode*> boneNodes;
+    std::vector<int> boneParentIDs;
+    for (std::vector<std::pair<aiNode*, int>> skeletonDFSStack{ {ainode, -1 } }; !empty(skeletonDFSStack);)
+    {
+        aiNode* node = skeletonDFSStack.back().first;
+        int parentID = skeletonDFSStack.back().second;
+        skeletonDFSStack.pop_back();
+
+        int myBoneID = (int)boneNodes.size();
+        boneNodes.push_back(node);
+        boneParentIDs.push_back(parentID);
+
+        for (int childIdx = (int)node->mNumChildren - 1; childIdx >= 0; childIdx--)
+        {
+            skeletonDFSStack.emplace_back(node->mChildren[childIdx], myBoneID);
+        }
+    }
+
+    int boneCount = (int)boneNodes.size();
+    
+    Skeleton skeleton;
+    skeleton.BoneNames.resize(boneCount);
+    skeleton.BoneInverseBindPoseTransforms.resize(boneCount);
+    skeleton.BoneParents = std::move(boneParentIDs);
+    skeleton.NumBones = boneCount;
+
+    for (int boneID = 0; boneID < boneCount; boneID++)
+    {
+        skeleton.BoneNames[boneID] = boneNodes[boneID]->mName.C_Str();
+        skeleton.BoneNameToID.emplace(skeleton.BoneNames[boneID], boneID);
+    }
+
+    scene->Skeletons.push_back(std::move(skeleton));
+
+    return (int)scene->Skeletons.size() - 1;
+}
+
+static int LoadMD5Skeleton(
+    Scene* scene,
+    const aiScene* aiscene)
+{
+    aiNode* root = aiscene->mRootNode;
+
+    if (strcmp(root->mName.C_Str(), "<MD5_Root>") != 0)
+    {
+        fprintf(stderr, "Expected <MD5_Root>, got %s\n", root->mName.C_Str());
+        exit(1);
+    }
+
+    // traverse all children
+    for (int childIdx = 0; childIdx < (int)root->mNumChildren; childIdx++)
+    {
+        aiNode* child = root->mChildren[childIdx];
+
+        if (strcmp(child->mName.C_Str(), "<MD5_Hierarchy>") == 0)
+        {
+            // Found skeleton
+            return LoadMD5SkeletonNode(scene, child);
+        }
+    }
+
+    fprintf(stderr, "Failed to find skeleton in scene\n");
+    exit(1);
+    return -1;
 }
 
 static void LoadMD5Meshes(
@@ -415,49 +492,9 @@ static void LoadMD5Meshes(
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bindPoseMesh.EBO);
 
         glBindVertexArray(0);
+
+        scene->BindPoseMeshes.push_back(std::move(bindPoseMesh));
     }
-}
-
-static int LoadMD5SkeletonNode(
-    Scene* scene,
-    aiNode* ainode)
-{
-    if (strcmp(ainode->mName.C_Str(), "<MD5_Hierarchy>") != 0)
-    {
-        fprintf(stderr, "Expected <MD5_Hierarchy>, got %s\n", ainode->mName.C_Str());
-        exit(1);
-    }
-
-    return 0;
-}
-
-static int LoadMD5Skeleton(
-    Scene* scene,
-    const aiScene* aiscene)
-{
-    aiNode* root = aiscene->mRootNode;
-
-    if (strcmp(root->mName.C_Str(), "<MD5_Root>") != 0)
-    {
-        fprintf(stderr, "Expected <MD5_Root>, got %s\n", root->mName.C_Str());
-        exit(1);
-    }
-
-    // traverse all children
-    for (int childIdx = 0; childIdx < (int)root->mNumChildren; childIdx++)
-    {
-        aiNode* child = root->mChildren[childIdx];
-
-        if (strcmp(child->mName.C_Str(), "<MD5_Hierarchy>") == 0)
-        {
-            // Found skeleton
-            return LoadMD5SkeletonNode(scene, child);
-        }
-    }
-
-    fprintf(stderr, "Failed to find skeleton in scene\n");
-    exit(1);
-    return -1;
 }
 
 void LoadMD5Mesh(
@@ -630,7 +667,7 @@ void LoadMD5Anim(
         }
     }
 
-    scene->AnimSequences.push_back(animSequence);
+    scene->AnimSequences.push_back(std::move(animSequence));
 
     int animSequenceID = (int)scene->AnimSequences.size() - 1;
 
@@ -643,72 +680,6 @@ void LoadMD5Anim(
 #if 0
 void LoadScene(Scene* scene)
 {
-    /*
-#if 1
-    std::string scenepath = "assets/hellknight/";
-    std::string modelname = "hellknight.md5mesh";
-#else
-    std::string scenepath = "assets/teapot/";
-    std::string modelname = "teapot.obj";
-#endif
-
-    std::string modelpath = scenepath + modelname;
-    const aiScene* aiscene = aiImportFile(modelpath.c_str(), aiProcessPreset_TargetRealtime_MaxQuality);
-    if (!aiscene)
-    {
-        fprintf(stderr, "aiImportFile: %s\n", aiGetErrorString());
-        exit(1);
-    }
-
-    // figure out how much memory is needed for the scene and check assumptions about data
-    int totalNumVertices = 0;
-    int totalNumIndices = 0;
-    scene->SkinnedMeshDrawCommands.resize(aiscene->mNumMeshes);
-    for (int skinnedMeshIdx = 0; skinnedMeshIdx < (int)aiscene->mNumMeshes; skinnedMeshIdx++)
-    {
-        aiMesh* mesh = aiscene->mMeshes[skinnedMeshIdx];
-
-        if (mesh->mPrimitiveTypes != aiPrimitiveType_TRIANGLE)
-        {
-            fprintf(stderr, "Mesh %d was not made out of triangles\n", skinnedMeshIdx);
-            exit(1);
-        }
-
-        if (!mesh->mTextureCoords[0])
-        {
-            fprintf(stderr, "Mesh %d didn't have TexCoord0\n", skinnedMeshIdx);
-            exit(1);
-        }
-
-        if (!mesh->mNormals)
-        {
-            fprintf(stderr, "Mesh %d didn't have normals\n", skinnedMeshIdx);
-            exit(1);
-        }
-
-        if (!mesh->mTangents)
-        {
-            fprintf(stderr, "Mesh %d didn't have tangents\n", skinnedMeshIdx);
-            exit(1);
-        }
-
-        if (!mesh->mBitangents)
-        {
-            fprintf(stderr, "Mesh %d didn't have bitangents\n", skinnedMeshIdx);
-            exit(1);
-        }
-
-        GLDrawElementsIndirectCommand& draw = scene->SkinnedMeshDrawCommands[skinnedMeshIdx];
-        draw.count = mesh->mNumFaces * 3;
-        draw.primCount = 1;
-        draw.firstIndex = totalNumIndices;
-        draw.baseVertex = totalNumVertices;
-        draw.baseInstance = 0; // cannot use since we don't have GL 4.2 on OS X
-
-        totalNumVertices += mesh->mNumVertices;
-        totalNumIndices += mesh->mNumFaces * 3;
-    }
-
     // allocate memory for scene's skinning meshes
     std::vector<SkinningVertex> skinningVertices(totalNumVertices);
     std::vector<glm::uvec3> skinningIndices(totalNumIndices);
@@ -773,100 +744,6 @@ void LoadScene(Scene* scene)
         scene->BindBoseMeshNumVertices.push_back(mesh->mNumVertices);
     }
 
-    // Upload bind pose geometry
-    glGenBuffers(1, &scene->BindPoseMeshVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, scene->BindPoseMeshVBO);
-    glBufferData(GL_ARRAY_BUFFER, skinningVertices.size() * sizeof(skinningVertices[0]), skinningVertices.data(), GL_STATIC_DRAW);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    glGenBuffers(1, &scene->BindPoseMeshEBO);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, scene->BindPoseMeshEBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, skinningIndices.size() * sizeof(skinningIndices[0]), skinningIndices.data(), GL_STATIC_DRAW);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
-    // Create texture buffer for skinning transformation
-    glGenBuffers(1, &scene->SkinningMatrixPaletteTBO);
-    glBindBuffer(GL_TEXTURE_BUFFER, scene->SkinningMatrixPaletteTBO);
-    glBindBuffer(GL_TEXTURE_BUFFER, 0);
-
-    // Create texture and attach buffer object to texture
-    glGenTextures(1, &scene->SkinningMatrixPaletteTexture);
-    glBindTexture(GL_TEXTURE_BUFFER, scene->SkinningMatrixPaletteTexture);
-    glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32F, scene->SkinningMatrixPaletteTBO);
-    glBindTexture(GL_TEXTURE_BUFFER, 0);
-
-    // Buffer for output of skinning transformation
-    glGenBuffers(1, &scene->SkinningTFBO);
-    glBindBuffer(GL_ARRAY_BUFFER, scene->SkinningTFBO);
-    glBufferData(GL_ARRAY_BUFFER, skinningVertices.size() * sizeof(SkinnedVertex), NULL, GL_DYNAMIC_DRAW);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    // VAO for skinning
-    {
-        glGenVertexArrays(1, &scene->SkinningVAO);
-        glBindVertexArray(scene->SkinningVAO);
-
-        // Note: texcoords not necessary for skinning (yet?)
-
-        // Vertex geometry
-        glBindBuffer(GL_ARRAY_BUFFER, scene->BindPoseMeshVBO);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(SkinningVertex), (GLvoid*)offsetof(SkinningVertex, Position));
-        // glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(SkinningVertex), (GLvoid*)offsetof(SkinningVertex, TexCoord0));
-        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(SkinningVertex), (GLvoid*)offsetof(SkinningVertex, Normal));
-        glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(SkinningVertex), (GLvoid*)offsetof(SkinningVertex, Tangent));
-        glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(SkinningVertex), (GLvoid*)offsetof(SkinningVertex, Bitangent));
-        glVertexAttribIPointer(5, 4, GL_UNSIGNED_BYTE, sizeof(SkinningVertex), (GLvoid*)offsetof(SkinningVertex, BoneIDs));
-        glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(SkinningVertex), (GLvoid*)offsetof(SkinningVertex, Weights));
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-        glEnableVertexAttribArray(0); // position
-                                      // glEnableVertexAttribArray(1); // texcoord0
-        glEnableVertexAttribArray(2); // normal
-        glEnableVertexAttribArray(3); // tangent
-        glEnableVertexAttribArray(4); // bitangent
-        glEnableVertexAttribArray(5); // bone IDs
-        glEnableVertexAttribArray(6); // bone weights
-
-        glBindVertexArray(0);
-    }
-
-    // VAO for rendering the final skinned meshes
-    {
-        glGenVertexArrays(1, &scene->SkinnedMeshVAO);
-        glBindVertexArray(scene->SkinnedMeshVAO);
-
-        // Texcoords don't change from skinning
-        glBindBuffer(GL_ARRAY_BUFFER, scene->BindPoseMeshVBO);
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(SkinningVertex), (GLvoid*)offsetof(SkinningVertex, TexCoord0));
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-        glBindBuffer(GL_ARRAY_BUFFER, scene->SkinningTFBO);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(SkinnedVertex), (GLvoid*)offsetof(SkinnedVertex, Position));
-        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(SkinnedVertex), (GLvoid*)offsetof(SkinnedVertex, Normal));
-        glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(SkinnedVertex), (GLvoid*)offsetof(SkinnedVertex, Tangent));
-        glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(SkinnedVertex), (GLvoid*)offsetof(SkinnedVertex, Bitangent));
-        glBindBuffer(GL_ARRAY_BUFFER, scene->SkinningTFBO);
-
-        glEnableVertexAttribArray(0); // position
-        glEnableVertexAttribArray(1); // texcoord0
-        glEnableVertexAttribArray(2); // normal
-        glEnableVertexAttribArray(3); // tangent
-        glEnableVertexAttribArray(4); // bitangent
-
-                                      // indices don't change from skinning
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, scene->BindPoseMeshEBO);
-        glBindVertexArray(0);
-    }
-
-    // Transform feedback for the skinning
-    {
-        glGenTransformFeedbacks(1, &scene->SkinningTFO);
-        glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, scene->SkinningTFO);
-        // Transform feedback buffers are indexed and must be bound with glBindBufferBase or glBindBufferRange.
-        glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, scene->SkinningTFBO);
-        glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, 0);
-    }
-
     // Create storage for skinning transformations
     scene->BoneSkinningTransforms.resize(scene->BoneInverseBindPoseTransforms.size());
     scene->BoneParent.resize(scene->BoneInverseBindPoseTransforms.size(), -1);
@@ -908,26 +785,5 @@ void LoadScene(Scene* scene)
     };
 
     addNode(aiscene->mRootNode, glm::mat4());
-
-    aiReleaseImport(aiscene);
-
-    // Upload initial skinning transformations
-    glBindBuffer(GL_TEXTURE_BUFFER, scene->SkinningMatrixPaletteTBO);
-    glBufferData(GL_TEXTURE_BUFFER, scene->BoneSkinningTransforms.size() * sizeof(scene->BoneSkinningTransforms[0]), scene->BoneSkinningTransforms.data(), GL_DYNAMIC_DRAW);
-    glBindBuffer(GL_TEXTURE_BUFFER, 0);
-
-    int numBones = (int)scene->BoneInverseBindPoseTransforms.size();
-
-    // Storage for bone controls. Initially animated by the animation engine.
-    scene->BoneControls.resize(numBones, BONECONTROL_ANIMATION);
-
-    // Storage for dynamics
-    scene->BoneDynamicsBackBufferIndex = 0;
-    for (int i = 0; i < Scene::NUM_BONE_DYNAMICS_BUFFERS; i++)
-    {
-        scene->BoneDynamicsPositions[i].resize(numBones);
-        scene->BoneDynamicsVelocities[i].resize(numBones);
-    }
-    */
 }
 #endif
