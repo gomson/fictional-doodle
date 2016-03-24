@@ -1,5 +1,6 @@
 #include "scene.h"
 
+#include "animation.h"
 #include "dynamics.h"
 #include "runtimecpp.h"
 #include "mysdl_dpi.h"
@@ -12,8 +13,10 @@
 #include "imgui/imgui.h"
 
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtc/matrix_access.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/matrix_inverse.hpp>
+#include <glm/gtx/transform.hpp>
 
 #include <SDL.h>
 
@@ -373,6 +376,39 @@ static void ShowToolboxGUI(Scene* scene, SDL_Window* window)
     ImGui::End();
 }
 
+static void UpdateAnimatedSkeletons(Scene* scene, uint32_t dt_ms)
+{
+    for (int animSkeletonIdx = 0; animSkeletonIdx < (int)scene->AnimatedSkeletons.size(); animSkeletonIdx++)
+    {
+        AnimatedSkeleton& animSkeleton = scene->AnimatedSkeletons[animSkeletonIdx];
+        animSkeleton.CurrTimeMillisecond += dt_ms;
+
+        // Get new animation frame
+        std::vector<SQT> frame;
+        GetFrameAtTime(scene, animSkeleton.CurrAnimSequenceID, animSkeleton.CurrTimeMillisecond, frame);
+
+        const AnimSequence& animSequence = scene->AnimSequences[animSkeleton.CurrAnimSequenceID];
+        const Skeleton& skeleton = scene->Skeletons[animSequence.SkeletonID];
+
+        // Calculate skinning transformations
+        for (int boneIdx = 0; boneIdx < skeleton.NumBones; boneIdx++)
+        {
+            glm::mat4 translation = glm::translate(frame[boneIdx].T);
+            glm::mat4 orientation = glm::mat4_cast(frame[boneIdx].Q);
+            glm::mat4 boneTransform = translation * orientation * skeleton.BoneInverseBindPoseTransforms[boneIdx];
+
+            animSkeleton.CPUBoneTransforms[boneIdx].Row0 = glm::row(boneTransform, 0);
+            animSkeleton.CPUBoneTransforms[boneIdx].Row1 = glm::row(boneTransform, 1);
+            animSkeleton.CPUBoneTransforms[boneIdx].Row2 = glm::row(boneTransform, 2);
+        }
+
+        // Upload skinning transformations
+        glBindBuffer(GL_TEXTURE_BUFFER, animSkeleton.BoneTransformTBO);
+        glBufferSubData(GL_TEXTURE_BUFFER, 0, sizeof(SkinningMatrix) * skeleton.NumBones, (GLvoid*)data(animSkeleton.CPUBoneTransforms));
+        glBindBuffer(GL_TEXTURE_BUFFER, 0);
+    }
+}
+
 static void UpdateSkinnedGeometry(Scene* scene, uint32_t dt_ms)
 {
     // Skin vertices using the matrix palette and store them with transform feedback
@@ -517,6 +553,7 @@ void UpdateScene(Scene* scene, SDL_Window* window, uint32_t dt_ms)
             !scene->EnableCamera ? 0 : keyboardState[SDL_SCANCODE_LCTRL] || keyboardState[SDL_SCANCODE_LSHIFT]);
     }
 
+    UpdateAnimatedSkeletons(scene, dt_ms);
     UpdateSkinnedGeometry(scene, dt_ms);
 
 #if 0

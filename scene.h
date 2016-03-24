@@ -128,7 +128,7 @@ struct AnimatedSkeleton
     GLuint BoneTransformTO; // Texture descriptor for the palette
     int CurrAnimSequenceID; // The currently playing animation sequence for each skinned mesh
     int CurrTimeMillisecond; // The current time in the current animation sequence in milliseconds
-    std::vector<glm::mat4> CPUBoneTransforms; // Transforms a vertex in bone space.
+    std::vector<SkinningMatrix> CPUBoneTransforms; // Transforms a vertex in bone space.
     std::vector<BoneControlMode> BoneControls; // How each bone is animated
 };
 
