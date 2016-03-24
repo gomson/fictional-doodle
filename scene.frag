@@ -22,7 +22,7 @@ void main()
     vec3 normal = normalize(fNormal);
     mat3 tangentModelMatrix = mat3(tangent, bitangent, normal);
 
-    vec3 normal = tangentModelMatrix * normalMap;
+    vec3 modelNormal = tangentModelMatrix * normalMap;
 
-    FragColor = normal;
+    FragColor = modelNormal;
 }
