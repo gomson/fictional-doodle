@@ -1,30 +1,28 @@
 #version 410
 
-in vec2 fTexCoord0;
+in vec2 fTexCoord;
 in vec3 fNormal;
-in vec3 fLight;
+in vec3 fTangent;
+in vec3 fBitangent;
 
-uniform sampler2D Diffuse0;
-
-const float kA = 0.05;
-const float kD = 0.8;
+uniform sampler2D DiffuseTexture;
+uniform sampler2D SpecularTexture;
+uniform sampler2D NormalTexture;
 
 out vec3 FragColor;
 
 void main()
 {
-    vec3 texColor = texture(Diffuse0, fTexCoord0).rgb;
+    vec3 diffuseMap = texture(DiffuseTexture, fTexCoord).rgb;
+    vec3 specularMap = texture(SpecularTexture, fTexCoord).rgb;
+    vec3 normalMap = texture(NormalTexture, fTexCoord).rgb;
 
-    // Normalize interpolated inputs.
-    vec3 normalDirection = normalize(fNormal);
-    vec3 lightDirection = normalize(fLight);
+    vec3 tangent = normalize(fTangent);
+    vec3 bitangent = normalize(fBitangent);
+    vec3 normal = normalize(fNormal);
+    mat3 tangentModelMatrix = mat3(tangent, bitangent, normal);
 
-    // Compute ambient component.
-    vec3 ambient = kA * texColor;
+    vec3 normal = tangentModelMatrix * normalMap;
 
-    // Compute diffuse component.
-    float lambertian = dot(normalDirection, lightDirection);
-    vec3 diffuse = kD * max(lambertian, 0) * texColor;
-
-    FragColor = ambient + diffuse;
+    FragColor = normal;
 }

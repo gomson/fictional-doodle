@@ -76,7 +76,7 @@ static int AddSkinnedMesh(
     glEnableVertexAttribArray(0);
 
     glBindBuffer(GL_ARRAY_BUFFER, bindPoseMesh.TexCoordVBO);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(TexCoordVertex), (GLvoid*)offsetof(TexCoordVertex, TexCoord0));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(TexCoordVertex), (GLvoid*)offsetof(TexCoordVertex, TexCoord));
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     glEnableVertexAttribArray(1);
@@ -193,9 +193,17 @@ static void ReloadShaders(Scene* scene)
         return newProgram;
     };
 
-    auto getU = [&sp](GLint* result, const char* name)
+    // Get uniform and do nothing if not found
+    auto getUOpt = [&sp](GLint* result, const char* name)
     {
         *result = glGetUniformLocation(sp, name);
+        return false;
+    };
+
+    // Get uniform and fail if not found
+    auto getU = [&getUOpt](GLint* result, const char* name)
+    {
+        getUOpt(result, name);
         if (*result == -1)
         {
             fprintf(stderr, "Couldn't find uniform %s\n", name);
@@ -216,12 +224,13 @@ static void ReloadShaders(Scene* scene)
 
     if (reload(&scene->SceneSP))
     {
-        if (getU(&scene->SceneSP_ModelViewLoc, "ModelView") ||
-            getU(&scene->SceneSP_ModelViewProjectionLoc, "ModelViewProjection") ||
-            getU(&scene->SceneSP_WorldViewLoc, "WorldView") ||
-            getU(&scene->SceneSP_DiffuseTextureLoc, "DiffuseTexture") ||
-            getU(&scene->SceneSP_SpecularTextureLoc, "SpecularTexture") ||
-            getU(&scene->SceneSP_NormalTextureLoc, "NormalTexture"))
+        if (getUOpt(&scene->SceneSP_ModelWorldLoc, "ModelWorld") || 
+            getUOpt(&scene->SceneSP_ModelViewLoc, "ModelView") ||
+            getUOpt(&scene->SceneSP_ModelViewProjectionLoc, "ModelViewProjection") ||
+            getUOpt(&scene->SceneSP_WorldViewLoc, "WorldView") ||
+            getUOpt(&scene->SceneSP_DiffuseTextureLoc, "DiffuseTexture") ||
+            getUOpt(&scene->SceneSP_SpecularTextureLoc, "SpecularTexture") ||
+            getUOpt(&scene->SceneSP_NormalTextureLoc, "NormalTexture"))
         {
             return;
         }

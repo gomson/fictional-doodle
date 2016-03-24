@@ -330,7 +330,7 @@ static void LoadMD5Meshes(
 
         if (!mesh->mTextureCoords[0])
         {
-            fprintf(stderr, "Mesh %s didn't have TexCoord0\n", mesh->mName.C_Str());
+            fprintf(stderr, "Mesh %s didn't have TexCoord\n", mesh->mName.C_Str());
             exit(1);
         }
 
@@ -365,7 +365,7 @@ static void LoadMD5Meshes(
         for (int vertexIdx = 0; vertexIdx < vertexCount; vertexIdx++)
         {
             positions[vertexIdx].Position = glm::make_vec3(&mesh->mVertices[vertexIdx][0]);
-            texCoords[vertexIdx].TexCoord0 = glm::make_vec2(&mesh->mTextureCoords[0][vertexIdx][0]);
+            texCoords[vertexIdx].TexCoord = glm::make_vec2(&mesh->mTextureCoords[0][vertexIdx][0]);
             differentials[vertexIdx].Normal = glm::make_vec3(&mesh->mNormals[vertexIdx][0]);
             differentials[vertexIdx].Tangent = glm::make_vec3(&mesh->mTangents[vertexIdx][0]);
             differentials[vertexIdx].Bitangent = glm::make_vec3(&mesh->mBitangents[vertexIdx][0]);
@@ -466,7 +466,7 @@ static void LoadMD5Meshes(
         glEnableVertexAttribArray(0);
 
         glBindBuffer(GL_ARRAY_BUFFER, bindPoseMesh.TexCoordVBO);
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(TexCoordVertex), (GLvoid*)offsetof(TexCoordVertex, TexCoord0));
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(TexCoordVertex), (GLvoid*)offsetof(TexCoordVertex, TexCoord));
         glBindBuffer(GL_ARRAY_BUFFER, 0);
 
         glEnableVertexAttribArray(1);

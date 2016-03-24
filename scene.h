@@ -19,7 +19,7 @@ struct PositionVertex
 
 struct TexCoordVertex
 {
-    glm::vec2 TexCoord0;
+    glm::vec2 TexCoord;
 };
 
 struct DifferentialVertex
@@ -236,6 +236,7 @@ struct Scene
     ReloadableShader SceneVS{ "scene.vert" };
     ReloadableShader SceneFS{ "scene.frag" };
     ReloadableProgram SceneSP{ &SceneVS, &SceneFS };
+    GLint SceneSP_ModelWorldLoc;
     GLint SceneSP_ModelViewLoc;
     GLint SceneSP_ModelViewProjectionLoc;
     GLint SceneSP_WorldViewLoc;
