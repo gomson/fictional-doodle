@@ -310,7 +310,7 @@ void LoadMD5Anim(
             if (v0.y != v1.y) { isAnimatedT.y = true; }
             if (v0.z != v1.z) { isAnimatedT.z = true; }
 
-            if (any(isAnimatedT))
+            if (all(isAnimatedT))
             {
                 break;
             }
@@ -327,7 +327,7 @@ void LoadMD5Anim(
             if (q0.y != q1.y) { isAnimatedQ.y = true; }
             if (q0.z != q1.z) { isAnimatedQ.z = true; }
 
-            if (any(isAnimatedQ))
+            if (all(isAnimatedQ))
             {
                 break;
             }
