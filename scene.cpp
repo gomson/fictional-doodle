@@ -170,10 +170,14 @@ void InitScene(Scene* scene)
     }
 
     // Note: No saliva, drool, and tongue.
-    int hellknightBindPoseMeshID = scene->BindPoseMeshNameToID.at("hellknight/hellknight.md5mesh[0]");
-    int hellknightInitialAnimSequenceID = scene->AnimSequenceNameToID.at("hellknight/idle2.md5anim");
-    int hellknightSkinnedMeshID = AddSkinnedMesh(scene, hellknightBindPoseMeshID, hellknightInitialAnimSequenceID);
-    int hellknightRagdollID = AddRagdoll(scene, hellknightSkinnedMeshID);
+    for (int hellknightMeshIdx = 0; hellknightMeshIdx < numHellknightBindPoseMeshes; hellknightMeshIdx++)
+    {
+        std::string bindPoseMeshName = "hellknight/hellknight.md5mesh[" + std::to_string(hellknightMeshIdx) + "]";
+        int hellknightBindPoseMeshID = scene->BindPoseMeshNameToID.at(bindPoseMeshName);
+        int hellknightInitialAnimSequenceID = scene->AnimSequenceNameToID.at("hellknight/idle2.md5anim");
+        int hellknightSkinnedMeshID = AddSkinnedMesh(scene, hellknightBindPoseMeshID, hellknightInitialAnimSequenceID);
+        int hellknightRagdollID = AddRagdoll(scene, hellknightSkinnedMeshID);
+    }
 
     scene->AllShadersOK = false;
 
