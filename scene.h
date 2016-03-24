@@ -193,6 +193,8 @@ struct Scene
     std::vector<Skeleton> Skeletons;
     std::vector<BindPoseMesh> BindPoseMeshes;
     std::vector<AnimSequence> AnimSequences;
+    std::unordered_map<std::string, int> AnimSequenceNameToID;
+
     std::vector<SkinnedMesh> SkinnedMeshes;
     std::vector<Ragdoll> Ragdolls;
     

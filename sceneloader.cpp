@@ -396,6 +396,10 @@ void LoadMD5Anim(
     }
 
     scene->AnimSequences.push_back(animSequence);
+
+    int animSequenceID = (int)scene->AnimSequences.size() - 1;
+    scene->AnimSequenceNameToID[path] = animSequenceID;
+
     aiReleaseImport(animScene);
 }
 
