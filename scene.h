@@ -101,6 +101,7 @@ struct BindPoseMesh
     int NumIndices; // Number of indices in the bind pose
     int NumVertices; // Number of vertices in the bind pose
     int SkeletonID; // Skeleton used to skin this mesh
+    int MaterialID; // The material this mesh was designed for
 };
 
 // AnimSequence Table
@@ -195,7 +196,6 @@ struct SkinnedMeshSceneNode
 struct SceneNode
 {
     glm::mat4 ModelWorldTransform; // The modelworld matrix to place the node in the world.
-    int MaterialID; // The material to use to render the node.
     SceneNodeType Type; // What type of node this is.
 
     union

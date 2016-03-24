@@ -98,47 +98,49 @@ void PaintRenderer(
         {
             const SceneNode& sceneNode = scene->SceneNodes[nodeIdx];
 
-            int materialID = sceneNode.MaterialID;
-            const Material& material = scene->Materials[materialID];
-            
-            // Set diffuse texture
-            glActiveTexture(GL_TEXTURE0);
-            if (material.DiffuseTextureIDs.size() < 1 || material.DiffuseTextureIDs[0] == -1)
-            {
-                glBindTexture(GL_TEXTURE_2D, 0);
-            }
-            else
-            {
-                glBindTexture(GL_TEXTURE_2D, scene->DiffuseTextures[material.DiffuseTextureIDs[0]].TO);
-            }
-            
-            // Set specular texture
-            glActiveTexture(GL_TEXTURE1);
-            if (material.SpecularTextureIDs.size() < 1 || material.SpecularTextureIDs[0] == -1)
-            {
-                glBindTexture(GL_TEXTURE_2D, 0);
-            }
-            else
-            {
-                glBindTexture(GL_TEXTURE_2D, scene->SpecularTextures[material.SpecularTextureIDs[0]].TO);
-            }
-
-            // Set normal map texture
-            glActiveTexture(GL_TEXTURE2);
-            if (material.NormalTextureIDs.size() < 1 || material.NormalTextureIDs[0] == -1)
-            {
-                glBindTexture(GL_TEXTURE_2D, 0);
-            }
-            else
-            {
-                glBindTexture(GL_TEXTURE_2D, scene->NormalTextures[material.NormalTextureIDs[0]].TO);
-            }
-
             // Draw node
             if (sceneNode.Type == SCENENODETYPE_SKINNEDMESH)
             {
                 const SkinnedMeshSceneNode& skinnedMeshSceneNode = sceneNode.AsSkinnedMesh;
                 const SkinnedMesh& skinnedMesh = scene->SkinnedMeshes[skinnedMeshSceneNode.SkinnedMeshID];
+                const BindPoseMesh& bindPoseMesh = scene->BindPoseMeshes[skinnedMesh.BindPoseMeshID];
+
+                int materialID = bindPoseMesh.MaterialID;
+                const Material& material = scene->Materials[materialID];
+
+                // Set diffuse texture
+                glActiveTexture(GL_TEXTURE0);
+                if (material.DiffuseTextureIDs.size() < 1 || material.DiffuseTextureIDs[0] == -1)
+                {
+                    glBindTexture(GL_TEXTURE_2D, 0);
+                }
+                else
+                {
+                    glBindTexture(GL_TEXTURE_2D, scene->DiffuseTextures[material.DiffuseTextureIDs[0]].TO);
+                }
+
+                // Set specular texture
+                glActiveTexture(GL_TEXTURE1);
+                if (material.SpecularTextureIDs.size() < 1 || material.SpecularTextureIDs[0] == -1)
+                {
+                    glBindTexture(GL_TEXTURE_2D, 0);
+                }
+                else
+                {
+                    glBindTexture(GL_TEXTURE_2D, scene->SpecularTextures[material.SpecularTextureIDs[0]].TO);
+                }
+
+                // Set normal map texture
+                glActiveTexture(GL_TEXTURE2);
+                if (material.NormalTextureIDs.size() < 1 || material.NormalTextureIDs[0] == -1)
+                {
+                    glBindTexture(GL_TEXTURE_2D, 0);
+                }
+                else
+                {
+                    glBindTexture(GL_TEXTURE_2D, scene->NormalTextures[material.NormalTextureIDs[0]].TO);
+                }
+
                 glBindVertexArray(skinnedMesh.SkinnedVAO);
 
                 glm::mat4 modelWorld = sceneNode.ModelWorldTransform;
@@ -149,8 +151,6 @@ void PaintRenderer(
                 glUniformMatrix4fv(scene->SceneSP_ModelViewLoc, 1, GL_FALSE, glm::value_ptr(modelView));
                 glUniformMatrix4fv(scene->SceneSP_ModelViewProjectionLoc, 1, GL_FALSE, glm::value_ptr(modelViewProjection));
                 
-                int bindPoseMeshID = skinnedMesh.BindPoseMeshID;
-                const BindPoseMesh& bindPoseMesh = scene->BindPoseMeshes[bindPoseMeshID];
                 glDrawElements(GL_TRIANGLES, bindPoseMesh.NumIndices, GL_UNSIGNED_INT, NULL);
             }
             else

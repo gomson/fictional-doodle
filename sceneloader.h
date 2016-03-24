@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 struct Scene;
 
 // Adds the contents of a md5mesh file to the scene.
@@ -11,7 +13,9 @@ void LoadMD5Mesh(
     Scene* scene,
     const char* assetFolder, const char* modelFolder,
     const char* meshfile,
-    int* numBindPoseMeshesAdded);
+    std::vector<int>* addedMaterialIDs,
+    int* addedSkeletonID,
+    std::vector<int>* addedBindPoseMeshIDs);
 
 // Adds the contents of a md5anim file to the scene.
 // Assumes skeletons are already in the Skeleton Table
@@ -20,4 +24,5 @@ void LoadMD5Anim(
     Scene* scene, 
     int skeletonID,
     const char* assetFolder, const char* modelFolder,
-    const char* animfile);
+    const char* animfile,
+    int* addedAnimSequenceID);

@@ -20,7 +20,8 @@
 static void LoadMD5Materials(
     Scene* scene,
     const char* assetFolder, const char* modelFolder,
-    aiMaterial** materials, int numMaterials)
+    aiMaterial** materials, int numMaterials,
+    int* materialIDMapping)
 {
     // Only the texture types we care about
     aiTextureType textureTypes[] = {
@@ -232,6 +233,11 @@ static void LoadMD5Materials(
             }
         }
 
+        if (materialIDMapping)
+        {
+            materialIDMapping[materialIdx] = (int)scene->Materials.size();
+        }
+
         scene->Materials.push_back(std::move(newMat));
     }
 }
@@ -349,7 +355,9 @@ static void LoadMD5Meshes(
     Scene* scene,
     int skeletonID,
     const char* modelFolder, const char* meshFile,
-    aiMesh** meshes, int numMeshes)
+    aiMesh** meshes, int numMeshes,
+    const int* materialIDMapping, // 1-1 mapping with assimp scene materials
+    int* bindPoseMeshIDMapping)
 {
     for (int meshIdx = 0; meshIdx < numMeshes; meshIdx++)
     {
@@ -463,6 +471,7 @@ static void LoadMD5Meshes(
         bindPoseMesh.NumVertices = vertexCount;
         bindPoseMesh.NumIndices = faceCount * 3;
         bindPoseMesh.SkeletonID = skeletonID;
+        bindPoseMesh.MaterialID = materialIDMapping[mesh->mMaterialIndex];
 
         glGenBuffers(1, &bindPoseMesh.PositionVBO);
         glBindBuffer(GL_ARRAY_BUFFER, bindPoseMesh.PositionVBO);
@@ -526,6 +535,10 @@ static void LoadMD5Meshes(
 
         glBindVertexArray(0);
 
+        if (bindPoseMeshIDMapping)
+        {
+            bindPoseMeshIDMapping[meshIdx] = (int)scene->BindPoseMeshes.size();
+        }
         scene->BindPoseMeshes.push_back(std::move(bindPoseMesh));
 
         std::string bindPoseMeshName = std::string(modelFolder) + meshFile + "[" + std::to_string(meshIdx) + "]";
@@ -538,7 +551,9 @@ void LoadMD5Mesh(
     Scene* scene,
     const char* assetFolder, const char* modelFolder,
     const char* meshFile,
-    int* numBindPoseMeshesAdded)
+    std::vector<int>* addedMaterialIDs,
+    int* addedSkeletonID,
+    std::vector<int>* addedBindPoseMeshIDs)
 {
     std::string meshpath = std::string(assetFolder) + modelFolder + meshFile;
     const aiScene* aiscene = aiImportFile(meshpath.c_str(), aiProcessPreset_TargetRealtime_MaxQuality);
@@ -548,18 +563,30 @@ void LoadMD5Mesh(
         exit(1);
     }
 
-    LoadMD5Materials(scene, assetFolder, modelFolder, aiscene->mMaterials, (int)aiscene->mNumMaterials);
+    std::vector<int> materialIDMapping(aiscene->mNumMaterials);
+    LoadMD5Materials(
+        scene,
+        assetFolder, modelFolder,
+        aiscene->mMaterials, (int)aiscene->mNumMaterials,
+        materialIDMapping.data());
     
     int skeletonID = LoadMD5Skeleton(scene, aiscene);
     scene->SkeletonNameToID.emplace(std::string(modelFolder) + meshFile, skeletonID);
+    if (addedSkeletonID) *addedSkeletonID = skeletonID;
 
+    if (addedBindPoseMeshIDs) addedBindPoseMeshIDs->resize(aiscene->mNumMeshes);
     LoadMD5Meshes(
         scene,
         skeletonID,
         modelFolder, meshFile,
-        &aiscene->mMeshes[0], (int)aiscene->mNumMeshes);
+        &aiscene->mMeshes[0], (int)aiscene->mNumMeshes,
+        materialIDMapping.data(),
+        addedBindPoseMeshIDs ? addedBindPoseMeshIDs->data() : NULL);
 
-    if (numBindPoseMeshesAdded) *numBindPoseMeshesAdded = (int)aiscene->mNumMeshes;
+    if (addedMaterialIDs)
+    {
+        *addedMaterialIDs = std::move(materialIDMapping);
+    }
 
     aiReleaseImport(aiscene);
 }
@@ -568,7 +595,8 @@ void LoadMD5Anim(
     Scene* scene,
     int skeletonID,
     const char* assetFolder, const char* modelFolder,
-    const char* animFile)
+    const char* animFile,
+    int* addedAnimSequenceID)
 {
     std::string fullpath = std::string(assetFolder) + modelFolder + animFile;
     const aiScene* animScene = aiImportFile(fullpath.c_str(), aiProcessPreset_TargetRealtime_MaxQuality);
@@ -717,120 +745,11 @@ void LoadMD5Anim(
     scene->AnimSequences.push_back(std::move(animSequence));
 
     int animSequenceID = (int)scene->AnimSequences.size() - 1;
-
+    if (addedAnimSequenceID)
+    {
+        *addedAnimSequenceID = animSequenceID;
+    }
     scene->AnimSequenceNameToID.emplace(scene->AnimSequences.back().Name, animSequenceID);
 
     aiReleaseImport(animScene);
 }
-
-// TODO: Remove and replace
-#if 0
-void LoadScene(Scene* scene)
-{
-    // allocate memory for scene's skinning meshes
-    std::vector<SkinningVertex> skinningVertices(totalNumVertices);
-    std::vector<glm::uvec3> skinningIndices(totalNumIndices);
-
-    // read mesh geometry data
-    for (int sceneMeshIdx = 0, currVertexIdx = 0, currIndexIdx = 0; sceneMeshIdx < (int)aiscene->mNumMeshes; sceneMeshIdx++)
-    {
-        aiMesh* mesh = aiscene->mMeshes[sceneMeshIdx];
-
-        for (int vertexIdx = 0; vertexIdx < (int)mesh->mNumVertices; vertexIdx++)
-        {
-            SkinningVertex vertex;
-            vertex.Position = glm::make_vec3(&mesh->mVertices[vertexIdx][0]);
-            vertex.TexCoord0 = glm::make_vec2(&mesh->mTextureCoords[0][vertexIdx][0]);
-            vertex.Normal = glm::make_vec3(&mesh->mNormals[vertexIdx][0]);
-            vertex.Tangent = glm::make_vec3(&mesh->mTangents[vertexIdx][0]);
-            vertex.Bitangent = glm::make_vec3(&mesh->mBitangents[vertexIdx][0]);
-
-            skinningVertices[currVertexIdx] = vertex;
-            currVertexIdx++;
-        }
-
-        for (int faceIdx = 0; faceIdx < (int)mesh->mNumFaces; faceIdx++)
-        {
-            skinningIndices[currIndexIdx] = glm::make_vec3(&mesh->mFaces[faceIdx].mIndices[0]);
-            currIndexIdx++;
-        }
-
-        for (int boneIdx = 0; boneIdx < (int)mesh->mNumBones; boneIdx++)
-        {
-            aiBone* bone = mesh->mBones[boneIdx];
-            std::string boneName(bone->mName.data);
-
-            // Create bone name to ID mapping if none exists.
-            if (scene->BoneIDs.find(boneName) == scene->BoneIDs.end())
-            {
-                // Store the bone's inverse bind pose matrix.
-                glm::mat4 transform = glm::transpose(glm::make_mat4(&bone->mOffsetMatrix.a1));
-                scene->BoneIDs[boneName] = (int)scene->BoneInverseBindPoseTransforms.size();
-                scene->BoneInverseBindPoseTransforms.push_back(transform);
-            }
-
-            int boneID = scene->BoneIDs[boneName];
-
-            for (int weightIdx = 0; weightIdx < (int)bone->mNumWeights; weightIdx++)
-            {
-                int vertexIdx = scene->SkinnedMeshDrawCommands[sceneMeshIdx].baseVertex + bone->mWeights[weightIdx].mVertexId;
-
-                for (int i = 0; i < skinningVertices[vertexIdx].Weights.length(); i++)
-                {
-                    if (skinningVertices[vertexIdx].Weights[i] == 0.0)
-                    {
-                        skinningVertices[vertexIdx].Weights[i] = bone->mWeights[weightIdx].mWeight;
-                        skinningVertices[vertexIdx].BoneIDs[i] = boneID;
-                        break;
-                    }
-                }
-            }
-        }
-
-        // Number of vertices for this bind pose mesh
-        scene->BindBoseMeshNumVertices.push_back(mesh->mNumVertices);
-    }
-
-    // Create storage for skinning transformations
-    scene->BoneSkinningTransforms.resize(scene->BoneInverseBindPoseTransforms.size());
-    scene->BoneParent.resize(scene->BoneInverseBindPoseTransforms.size(), -1);
-
-    // Compute inverse model transformation used to compute skinning transformation
-    glm::mat4 inverseModelTransform = glm::inverseTranspose(glm::make_mat4(&aiscene->mRootNode->mTransformation.a1));
-
-    // depth first traversal of scene to build draws and skinning transformations
-    std::function<void(const aiNode*, glm::mat4)> addNode;
-    addNode = [&addNode, &aiscene, &scene, &inverseModelTransform](const aiNode* node, glm::mat4 transform)
-    {
-        transform = transform * glm::transpose(glm::make_mat4(&node->mTransformation.a1));
-        std::string boneName(node->mName.C_Str());
-
-        // if the node is a bone, compute and store its skinning transformation
-        if (scene->BoneIDs.find(boneName) != scene->BoneIDs.end())
-        {
-            int boneID = scene->BoneIDs[boneName];
-            scene->BoneSkinningTransforms[boneID] = inverseModelTransform * transform * scene->BoneInverseBindPoseTransforms[boneID];
-        }
-
-        // add draws for all meshes assigned to this node
-        for (int nodeMeshIdx = 0; nodeMeshIdx < (int)node->mNumMeshes; nodeMeshIdx++)
-        {
-            GLDrawElementsIndirectCommand draw = scene->SkinnedMeshDrawCommands[node->mMeshes[nodeMeshIdx]];
-            scene->NodeDrawCmds.push_back(draw);
-            scene->NodeModelWorldTransforms.push_back(transform);
-            scene->NodeMaterialIDs.push_back(aiscene->mMeshes[node->mMeshes[nodeMeshIdx]]->mMaterialIndex);
-            scene->NodeTypes.push_back(SCENENODETYPE_SKINNEDMESH);
-            // the offset of the first bone that will be written from loading this mesh
-            scene->SkinnedMeshBaseBones.push_back((int)scene->BoneInverseBindPoseTransforms.size());
-        }
-
-        // traverse all children
-        for (int childIdx = 0; childIdx < (int)node->mNumChildren; childIdx++)
-        {
-            addNode(node->mChildren[childIdx], transform);
-        }
-    };
-
-    addNode(aiscene->mRootNode, glm::mat4());
-}
-#endif

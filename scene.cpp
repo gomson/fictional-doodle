@@ -116,7 +116,6 @@ static int AddSkinnedMesh(
     glBindVertexArray(0);
 
     scene->SkinnedMeshes.push_back(std::move(skinnedMesh));
-
     return (int)scene->SkinnedMeshes.size() - 1;
 }
 
@@ -145,8 +144,20 @@ static int AddRagdoll(
     }
 
     scene->Ragdolls.push_back(std::move(ragdoll));
-
     return (int)scene->Ragdolls.size() - 1;
+}
+
+static int AddSkinnedMeshSceneNode(
+    Scene* scene,
+    int skinnedMeshID)
+{
+    SceneNode sceneNode;
+    sceneNode.ModelWorldTransform = glm::mat4();
+    sceneNode.Type = SCENENODETYPE_SKINNEDMESH;
+    sceneNode.AsSkinnedMesh.SkinnedMeshID = skinnedMeshID;
+    
+    scene->SceneNodes.push_back(std::move(sceneNode));
+    return (int)scene->SceneNodes.size() - 1;
 }
 
 void InitScene(Scene* scene)
@@ -156,10 +167,10 @@ void InitScene(Scene* scene)
     std::string hellknight_modelFolder = "hellknight/";
     std::string hellknight_meshFile = "hellknight.md5mesh";
     std::vector<std::string> hellknight_animFiles{
+        "idle2.md5anim",
         "attack3.md5anim",
         "chest.md5anim",
         "headpain.md5anim",
-        "idle2.md5anim",
         "leftslash.md5anim",
         "pain_luparm.md5anim",
         "pain_ruparm.md5anim",
@@ -172,33 +183,39 @@ void InitScene(Scene* scene)
         "walk7_left.md5anim"
     };
 
-    int numHellknightBindPoseMeshes;
+    std::vector<int> hellknightBindPoseMeshIDs;
+    int hellknightSkeletonID;
     LoadMD5Mesh(
         scene, 
         assetFolder.c_str(), hellknight_modelFolder.c_str(),
         hellknight_meshFile.c_str(),
-        &numHellknightBindPoseMeshes);
+        NULL, &hellknightSkeletonID, &hellknightBindPoseMeshIDs);
     
-    int hellknightSkeletonID = scene->SkeletonNameToID.at("hellknight/hellknight.md5mesh");
+    std::vector<int> hellknightAnimSequenceIDs;
     for (const std::string& animFile : hellknight_animFiles)
     {
+        int animSequenceID;
         LoadMD5Anim(
             scene, 
             hellknightSkeletonID, 
             assetFolder.c_str(), hellknight_modelFolder.c_str(),
-            animFile.c_str());
+            animFile.c_str(),
+            &animSequenceID);
+        hellknightAnimSequenceIDs.push_back(animSequenceID);
     }
 
-    int hellknightInitialAnimSequenceID = scene->AnimSequenceNameToID.at("hellknight/idle2.md5anim");
+    int hellknightInitialAnimSequenceID = hellknightAnimSequenceIDs[0];
     int hellknightAnimatedSkeletonID = AddAnimatedSkeleton(scene, hellknightInitialAnimSequenceID);
 
-    // Note: No saliva, drool, and tongue.
-    for (int hellknightMeshIdx = 0; hellknightMeshIdx < numHellknightBindPoseMeshes; hellknightMeshIdx++)
+    for (int hellknightMeshIdx = 0; hellknightMeshIdx < (int)hellknightBindPoseMeshIDs.size(); hellknightMeshIdx++)
     {
-        std::string bindPoseMeshName = "hellknight/hellknight.md5mesh[" + std::to_string(hellknightMeshIdx) + "]";
-        int hellknightBindPoseMeshID = scene->BindPoseMeshNameToID.at(bindPoseMeshName);
+        int hellknightBindPoseMeshID = hellknightBindPoseMeshIDs[hellknightMeshIdx];
         int hellknightSkinnedMeshID = AddSkinnedMesh(scene, hellknightBindPoseMeshID, hellknightAnimatedSkeletonID);
         int hellknightRagdollID = AddRagdoll(scene, hellknightAnimatedSkeletonID);
+
+        // TODO: How do we stop the tongue and body and etc from falling out of sync in terms of position?
+        // Need a parent node in the scenegraph to keep them all rooted at the same place?
+        int hellknightSceneNode = AddSkinnedMeshSceneNode(scene, hellknightSkinnedMeshID);
     }
 
     scene->AllShadersOK = false;
