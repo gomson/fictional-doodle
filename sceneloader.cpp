@@ -512,7 +512,7 @@ void LoadMD5Anim(
     animSequence.Name = std::string(modelFolder) + animFile;
     animSequence.SkeletonID = skeletonID;
     animSequence.FramesPerSecond = (int)animation->mTicksPerSecond;
-    animSequence.NumFrames = (int)animSequence->mDuration;
+    animSequence.NumFrames = (int)animation->mDuration;
 
     // Allocate storage for each bone
     animSequence.BoneBaseFrame.resize(animation->mNumChannels);
