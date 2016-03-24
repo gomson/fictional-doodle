@@ -251,6 +251,7 @@ struct Scene
     GLint SceneSP_ModelViewLoc;
     GLint SceneSP_ModelViewProjectionLoc;
     GLint SceneSP_WorldViewLoc;
+    GLint SceneSP_CameraPositionLoc;
     GLint SceneSP_DiffuseTextureLoc;
     GLint SceneSP_SpecularTextureLoc;
     GLint SceneSP_NormalTextureLoc;

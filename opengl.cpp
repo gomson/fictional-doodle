@@ -181,6 +181,7 @@ void InitGL()
     GetProcGL(glGetUniformLocation, "glGetUniformLocation");
     GetProcGL(glUniform1i, "glUniform1i");
     GetProcGL(glUniform2f, "glUniform2f");
+    GetProcGL(glUniform3fv, "glUniform3fv");
     GetProcGL(glUniformMatrix4fv, "glUniformMatrix4fv");
     GetProcGL(glGenTextures, "glGenTextures");
     GetProcGL(glDeleteTextures, "glDeleteTextures");

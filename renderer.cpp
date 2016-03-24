@@ -93,6 +93,7 @@ void PaintRenderer(
         glUniform1i(scene->SceneSP_DiffuseTextureLoc, 0);
         glUniform1i(scene->SceneSP_SpecularTextureLoc, 1);
         glUniform1i(scene->SceneSP_NormalTextureLoc, 2);
+        glUniform3fv(scene->SceneSP_CameraPositionLoc, 1, glm::value_ptr(scene->CameraPosition));
         
         for (int nodeIdx = 0; nodeIdx < (int)scene->SceneNodes.size(); nodeIdx++)
         {

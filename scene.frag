@@ -13,6 +13,7 @@ uniform sampler2D NormalTexture;
 out vec3 FragColor;
 
 uniform mat4 WorldModel;
+uniform vec3 CameraPosition;
 
 void main()
 {
@@ -28,11 +29,24 @@ void main()
     vec3 normal = normalize(fNormal);
     mat3 tangentModelMatrix = mat3(tangent, bitangent, normal);
 
+    vec3 modelPosition = fPosition;
     vec3 modelNormal = tangentModelMatrix * normalMap;
+    vec3 modelCameraPos = (WorldModel * vec4(CameraPosition, 1)).xyz;
 
-    vec3 N = modelNormal;
-    vec3 L = normalize(modelLightPosition - fPosition);
-    float G = dot(N, L); // geometric term
+    vec3 V = normalize(modelCameraPos - modelPosition); // towards viewer
+    vec3 N = modelNormal; // normal
+    vec3 L = normalize(modelLightPosition - modelPosition); // light direction
+    float G = max(0, dot(N, L)); // geometric term
+    vec3 R = reflect(L, N); // reflection direction
+    float S = pow(max(0, dot(R, V)), 5); // specular coefficient
 
-    FragColor = diffuseMap * G;
+    float kA = 0.01;
+    float kD = 1.0;
+    float kS = 0.2;
+
+    vec3 ambient = vec3(1) * kA;
+    vec3 diffuse = G * diffuseMap * kD;
+    vec3 specular = S * specularMap * kS;
+
+    FragColor = ambient + diffuse + specular;
 }

@@ -279,6 +279,7 @@ static void ReloadShaders(Scene* scene)
             getUOpt(&scene->SceneSP_ModelViewLoc, "ModelView") ||
             getUOpt(&scene->SceneSP_ModelViewProjectionLoc, "ModelViewProjection") ||
             getUOpt(&scene->SceneSP_WorldViewLoc, "WorldView") ||
+            getUOpt(&scene->SceneSP_CameraPositionLoc, "CameraPosition") ||
             getUOpt(&scene->SceneSP_DiffuseTextureLoc, "DiffuseTexture") ||
             getUOpt(&scene->SceneSP_SpecularTextureLoc, "SpecularTexture") ||
             getUOpt(&scene->SceneSP_NormalTextureLoc, "NormalTexture"))
