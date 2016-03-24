@@ -365,7 +365,7 @@ static void ShowToolboxGUI(Scene* scene, SDL_Window* window)
             if (!animSequenceNames.empty())
             {
                 ImGui::Text("Animation Sequence");
-                if (ImGui::ListBox("##animsequences", &currAnimSequenceIndexInListbox, animSequenceNames.data(), (int)animSequenceNames.size()))
+                if (ImGui::Combo("##animsequences", &currAnimSequenceIndexInListbox, animSequenceNames.data(), (int)animSequenceNames.size()))
                 {
                     animatedSkeleton.CurrAnimSequenceID = animSequenceIDs[currAnimSequenceIndexInListbox];
                     animatedSkeleton.CurrTimeMillisecond = 0;
@@ -393,13 +393,13 @@ static void UpdateAnimatedSkeletons(Scene* scene, uint32_t dt_ms)
         // Calculate skinning transformations
         for (int boneIdx = 0; boneIdx < skeleton.NumBones; boneIdx++)
         {
-            glm::mat4 translation = glm::translate(frame[boneIdx].T);
-            glm::mat4 orientation = glm::mat4_cast(frame[boneIdx].Q);
+            glm::mat4 translation = translate(frame[boneIdx].T);
+            glm::mat4 orientation = mat4_cast(frame[boneIdx].Q);
             glm::mat4 boneTransform = translation * orientation * skeleton.BoneInverseBindPoseTransforms[boneIdx];
 
-            animSkeleton.CPUBoneTransforms[boneIdx].Row0 = glm::row(boneTransform, 0);
-            animSkeleton.CPUBoneTransforms[boneIdx].Row1 = glm::row(boneTransform, 1);
-            animSkeleton.CPUBoneTransforms[boneIdx].Row2 = glm::row(boneTransform, 2);
+            animSkeleton.CPUBoneTransforms[boneIdx].Row0 = row(boneTransform, 0);
+            animSkeleton.CPUBoneTransforms[boneIdx].Row1 = row(boneTransform, 1);
+            animSkeleton.CPUBoneTransforms[boneIdx].Row2 = row(boneTransform, 2);
         }
 
         // Upload skinning transformations
