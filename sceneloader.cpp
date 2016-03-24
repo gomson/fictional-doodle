@@ -316,6 +316,7 @@ static int LoadMD5Skeleton(
 static void LoadMD5Meshes(
     Scene* scene,
     int skeletonID,
+    const char* modelFolder, const char* meshFile,
     aiMesh** meshes, int numMeshes)
 {
     for (int meshIdx = 0; meshIdx < numMeshes; meshIdx++)
@@ -494,13 +495,18 @@ static void LoadMD5Meshes(
         glBindVertexArray(0);
 
         scene->BindPoseMeshes.push_back(std::move(bindPoseMesh));
+
+        std::string bindPoseMeshName = std::string(modelFolder) + meshFile + "[" + std::to_string(meshIdx) + "]";
+        int bindPoseMeshID = (int)scene->BindPoseMeshes.size() - 1;
+        scene->BindPoseMeshNameToID.emplace(bindPoseMeshName,bindPoseMeshID);
     }
 }
 
 void LoadMD5Mesh(
     Scene* scene,
     const char* assetFolder, const char* modelFolder,
-    const char* meshFile)
+    const char* meshFile,
+    int* numBindPoseMeshesAdded)
 {
     std::string meshpath = std::string(assetFolder) + modelFolder + meshFile;
     const aiScene* aiscene = aiImportFile(meshpath.c_str(), aiProcessPreset_TargetRealtime_MaxQuality);
@@ -511,8 +517,17 @@ void LoadMD5Mesh(
     }
 
     LoadMD5Materials(scene, assetFolder, modelFolder, aiscene->mMaterials, (int)aiscene->mNumMaterials);
+    
     int skeletonID = LoadMD5Skeleton(scene, aiscene);
-    LoadMD5Meshes(scene, skeletonID, &aiscene->mMeshes[0], (int)aiscene->mNumMeshes);
+    scene->SkeletonNameToID.emplace(std::string(modelFolder) + meshFile, skeletonID);
+
+    LoadMD5Meshes(
+        scene,
+        skeletonID,
+        modelFolder, meshFile,
+        &aiscene->mMeshes[0], (int)aiscene->mNumMeshes);
+
+    if (numBindPoseMeshesAdded) *numBindPoseMeshesAdded = (int)aiscene->mNumMeshes;
 
     aiReleaseImport(aiscene);
 }

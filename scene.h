@@ -202,6 +202,7 @@ struct SceneNode
 struct Scene
 {
     std::vector<Skeleton> Skeletons;
+    std::unordered_map<std::string, int> SkeletonNameToID;
 
     std::vector<BindPoseMesh> BindPoseMeshes;
     std::unordered_map<std::string, int> BindPoseMeshNameToID;

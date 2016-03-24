@@ -152,11 +152,14 @@ void InitScene(Scene* scene)
         "walk7_left.md5anim"
     };
 
+    int numHellknightBindPoseMeshes;
     LoadMD5Mesh(
         scene, 
         assetFolder.c_str(), hellknight_modelFolder.c_str(),
-        hellknight_meshFile.c_str());
-    int hellknightSkeletonID = -1; // TODO: query this
+        hellknight_meshFile.c_str(),
+        &numHellknightBindPoseMeshes);
+    
+    int hellknightSkeletonID = scene->SkeletonNameToID.at("hellknight/hellknight.md5mesh");
     for (const std::string& animFile : hellknight_animFiles)
     {
         LoadMD5Anim(
@@ -166,10 +169,10 @@ void InitScene(Scene* scene)
             animFile.c_str());
     }
 
-    int hellknightBindPoseMeshID = -1; // TODO: query this
-    int hellknightInitialAnimSequenceID = -1; // TODO: query this
+    // Note: No saliva, drool, and tongue.
+    int hellknightBindPoseMeshID = scene->BindPoseMeshNameToID.at("hellknight/hellknight.md5mesh[0]");
+    int hellknightInitialAnimSequenceID = scene->AnimSequenceNameToID.at("hellknight/idle2.md5anim");
     int hellknightSkinnedMeshID = AddSkinnedMesh(scene, hellknightBindPoseMeshID, hellknightInitialAnimSequenceID);
-
     int hellknightRagdollID = AddRagdoll(scene, hellknightSkinnedMeshID);
 
     scene->AllShadersOK = false;

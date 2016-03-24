@@ -10,7 +10,8 @@ struct Scene;
 void LoadMD5Mesh(
     Scene* scene,
     const char* assetFolder, const char* modelFolder,
-    const char* meshfile);
+    const char* meshfile,
+    int* numBindPoseMeshesAdded);
 
 // Adds the contents of a md5anim file to the scene.
 // Assumes skeletons are already in the Skeleton Table

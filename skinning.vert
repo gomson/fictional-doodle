@@ -16,11 +16,11 @@ out vec3 oBitangent;
 
 void main()
 {
-    mat4 skinningTransform = mat4(0.0);
+    mat4x3 skinningTransform = mat4x3(0.0);
 
     for (int i = 0; i < 4; i++)
     {
-        mat4x3 boneTransform = transpose(mat4(
+        mat4x3 boneTransform = transpose(mat3x4(
                 texelFetch(BoneTransforms, int(BoneIDs[i]) * 3 + 0),
                 texelFetch(BoneTransforms, int(BoneIDs[i]) * 3 + 1),
                 texelFetch(BoneTransforms, int(BoneIDs[i]) * 3 + 2)));
