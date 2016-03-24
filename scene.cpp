@@ -360,6 +360,7 @@ static void UpdateSkinnedGeometry(Scene* scene, uint32_t dt_ms)
 {
     // Skin vertices using the matrix palette and store them with transform feedback
     glUseProgram(scene->SkinningSP.Handle);
+    glUniform1i(scene->SkinningSP_BoneTransformsLoc, 0);
     glEnable(GL_RASTERIZER_DISCARD);
     for (int skinnedMeshIdx = 0; skinnedMeshIdx < (int)scene->SkinnedMeshes.size(); skinnedMeshIdx++)
     {
@@ -376,7 +377,6 @@ static void UpdateSkinnedGeometry(Scene* scene, uint32_t dt_ms)
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_BUFFER, animatedSkeleton.BoneTransformTO);
-        glUniform1i(scene->SkinningSP_BoneTransformsLoc, 0);
 
         glDrawArrays(GL_POINTS, 0, bindPoseMesh.NumVertices);
 
