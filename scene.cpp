@@ -23,32 +23,52 @@
 #include <sys/sysctl.h>
 #endif
 
-static int AddSkinnedMesh(
+static int AddAnimatedSkeleton(
     Scene* scene,
-    int bindPoseMeshID,
     int initialAnimSequenceID)
 {
-    SkinnedMesh skinnedMesh;
-
-    BindPoseMesh& bindPoseMesh = scene->BindPoseMeshes[bindPoseMeshID];
-    int skeletonID = bindPoseMesh.SkeletonID;
+    AnimatedSkeleton animatedSkeleton;
+    
+    const AnimSequence& animSequence = scene->AnimSequences[initialAnimSequenceID];
+    int skeletonID = animSequence.SkeletonID;
     Skeleton& skeleton = scene->Skeletons[skeletonID];
 
-    skinnedMesh.BindPoseMeshID = bindPoseMeshID;
-    skinnedMesh.CurrAnimSequenceID = initialAnimSequenceID;
-    skinnedMesh.CurrTimeMillisecond = 0;
-    skinnedMesh.CPUBoneTransforms.resize(skeleton.NumBones);
-    skinnedMesh.BoneControls.resize(skeleton.NumBones);
-
-    glGenBuffers(1, &skinnedMesh.BoneTransformTBO);
-    glBindBuffer(GL_TEXTURE_BUFFER, skinnedMesh.BoneTransformTBO);
+    glGenBuffers(1, &animatedSkeleton.BoneTransformTBO);
+    glBindBuffer(GL_TEXTURE_BUFFER, animatedSkeleton.BoneTransformTBO);
     glBufferData(GL_TEXTURE_BUFFER, sizeof(SkinningMatrix) * skeleton.NumBones, NULL, GL_DYNAMIC_DRAW);
     glBindBuffer(GL_TEXTURE_BUFFER, 0);
 
-    glGenTextures(1, &skinnedMesh.BoneTransformTO);
-    glBindTexture(GL_TEXTURE_BUFFER, skinnedMesh.BoneTransformTO);
-    glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32F, skinnedMesh.BoneTransformTBO);
+    glGenTextures(1, &animatedSkeleton.BoneTransformTO);
+    glBindTexture(GL_TEXTURE_BUFFER, animatedSkeleton.BoneTransformTO);
+    glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32F, animatedSkeleton.BoneTransformTBO);
     glBindTexture(GL_TEXTURE_BUFFER, 0);
+
+    animatedSkeleton.CurrAnimSequenceID = initialAnimSequenceID;
+    animatedSkeleton.CurrTimeMillisecond = 0;
+    animatedSkeleton.CPUBoneTransforms.resize(skeleton.NumBones);
+    animatedSkeleton.BoneControls.resize(skeleton.NumBones, BONECONTROL_ANIMATION);
+
+    scene->AnimatedSkeletons.push_back(std::move(animatedSkeleton));
+    return (int)scene->AnimatedSkeletons.size() - 1;
+}
+
+static int AddSkinnedMesh(
+    Scene* scene,
+    int bindPoseMeshID,
+    int animatedSkeletonID)
+{
+    SkinnedMesh skinnedMesh;
+
+    const BindPoseMesh& bindPoseMesh = scene->BindPoseMeshes[bindPoseMeshID];
+
+    if (bindPoseMesh.SkeletonID != scene->AnimSequences[scene->AnimatedSkeletons[animatedSkeletonID].CurrAnimSequenceID].SkeletonID)
+    {
+        fprintf(stderr, "Incompatible BindPoseMesh and AnimatedSkeleton\n");
+        return -1;
+    }
+
+    skinnedMesh.BindPoseMeshID = bindPoseMeshID;
+    skinnedMesh.AnimatedSkeletonID = animatedSkeletonID;
 
     glGenBuffers(1, &skinnedMesh.PositionTFBO);
     glBindBuffer(GL_TRANSFORM_FEEDBACK_BUFFER, skinnedMesh.PositionTFBO);
@@ -102,16 +122,16 @@ static int AddSkinnedMesh(
 
 static int AddRagdoll(
     Scene* scene,
-    int skinnedMeshID)
+    int animatedSkeletonID)
 {
     Ragdoll ragdoll;
-    ragdoll.SkinnedMeshID = skinnedMeshID;
+    ragdoll.AnimatedSkeletonID = animatedSkeletonID;
     ragdoll.OldBufferIndex = -1;
 
-    SkinnedMesh& skinnedMesh = scene->SkinnedMeshes[skinnedMeshID];
-    int bindPoseMeshID = skinnedMesh.BindPoseMeshID;
-    BindPoseMesh& bindPoseMesh = scene->BindPoseMeshes[bindPoseMeshID];
-    int skeletonID = bindPoseMesh.SkeletonID;
+    const AnimatedSkeleton& animatedSkeleton = scene->AnimatedSkeletons[animatedSkeletonID];
+    int animSequenceID = animatedSkeleton.CurrAnimSequenceID;
+    const AnimSequence& animSequence = scene->AnimSequences[animSequenceID];
+    int skeletonID = animSequence.SkeletonID;
     Skeleton& skeleton = scene->Skeletons[skeletonID];
 
     for (std::vector<glm::vec3>& bonePositions : ragdoll.BonePositions)
@@ -169,14 +189,16 @@ void InitScene(Scene* scene)
             animFile.c_str());
     }
 
+    int hellknightInitialAnimSequenceID = scene->AnimSequenceNameToID.at("hellknight/idle2.md5anim");
+    int hellknightAnimatedSkeletonID = AddAnimatedSkeleton(scene, hellknightInitialAnimSequenceID);
+
     // Note: No saliva, drool, and tongue.
     for (int hellknightMeshIdx = 0; hellknightMeshIdx < numHellknightBindPoseMeshes; hellknightMeshIdx++)
     {
         std::string bindPoseMeshName = "hellknight/hellknight.md5mesh[" + std::to_string(hellknightMeshIdx) + "]";
         int hellknightBindPoseMeshID = scene->BindPoseMeshNameToID.at(bindPoseMeshName);
-        int hellknightInitialAnimSequenceID = scene->AnimSequenceNameToID.at("hellknight/idle2.md5anim");
-        int hellknightSkinnedMeshID = AddSkinnedMesh(scene, hellknightBindPoseMeshID, hellknightInitialAnimSequenceID);
-        int hellknightRagdollID = AddRagdoll(scene, hellknightSkinnedMeshID);
+        int hellknightSkinnedMeshID = AddSkinnedMesh(scene, hellknightBindPoseMeshID, hellknightAnimatedSkeletonID);
+        int hellknightRagdollID = AddRagdoll(scene, hellknightAnimatedSkeletonID);
     }
 
     scene->AllShadersOK = false;
@@ -367,14 +389,14 @@ static void ShowToolboxGUI(Scene* scene, SDL_Window* window)
     ImGui::SetNextWindowPos(ImVec2((float)w - toolboxW, 0), ImGuiSetCond_Always);
     if (ImGui::Begin("Toolbox", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize))
     {
-        int currSelectedSkinnedMesh = 0;
+        int currSelectedAnimatedSkeleton = 0;
 
-        if (currSelectedSkinnedMesh < scene->SkinnedMeshes.size())
+        if (currSelectedAnimatedSkeleton < (int)scene->AnimatedSkeletons.size())
         {
-            SkinnedMesh& skinnedMesh = scene->SkinnedMeshes[currSelectedSkinnedMesh];
-            int bindPoseMeshID = skinnedMesh.BindPoseMeshID;
-            BindPoseMesh& bindPoseMesh = scene->BindPoseMeshes[bindPoseMeshID];
-            int skeletonID = bindPoseMesh.SkeletonID;
+            AnimatedSkeleton& animatedSkeleton = scene->AnimatedSkeletons[currSelectedAnimatedSkeleton];
+            int currAnimSequenceID = animatedSkeleton.CurrAnimSequenceID;
+            const AnimSequence& animSequence = scene->AnimSequences[currAnimSequenceID];
+            int skeletonID = animSequence.SkeletonID;
 
             // find all animations compatible with the skeleton
             std::vector<const char*> animSequenceNames;
@@ -387,7 +409,7 @@ static void ShowToolboxGUI(Scene* scene, SDL_Window* window)
                 {
                     animSequenceNames.push_back(animSequence.Name.c_str());
                     animSequenceIDs.push_back(animSequenceID);
-                    if (animSequenceID == skinnedMesh.CurrAnimSequenceID)
+                    if (animSequenceID == currAnimSequenceID)
                     {
                         currAnimSequenceIndexInListbox = (int)animSequenceNames.size() - 1;
                     }
@@ -400,8 +422,8 @@ static void ShowToolboxGUI(Scene* scene, SDL_Window* window)
                 ImGui::Text("Animation Sequence");
                 if (ImGui::ListBox("##animsequences", &currAnimSequenceIndexInListbox, animSequenceNames.data(), (int)animSequenceNames.size()))
                 {
-                    skinnedMesh.CurrAnimSequenceID = animSequenceIDs[currAnimSequenceIndexInListbox];
-                    skinnedMesh.CurrTimeMillisecond = 0;
+                    animatedSkeleton.CurrAnimSequenceID = animSequenceIDs[currAnimSequenceIndexInListbox];
+                    animatedSkeleton.CurrTimeMillisecond = 0;
                 }
             }
         }

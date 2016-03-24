@@ -119,33 +119,38 @@ struct AnimSequence
     int FramesPerSecond; // Frames per second for each animation sequence
 };
 
-// SkinnedMesh Table
-// All instances of skinned meshes in the scene.
-// Each skinned mesh instance is associated to one bind pose, which is associated to one skeleton.
-// Each skinned mesh instance is asssociated to a scene node.
-// Each skinned mesh instance is associated to an animation sequence, which is associated to one skeleton.
-// The skeleton of the bind pose and the skeleton of the animation sequence must be the same one.
-struct SkinnedMesh
+// AnimatedSkeleton Table
+// Each animated skeleton instance is associated to an animation sequence, which is associated to one skeleton.
+struct AnimatedSkeleton
 {
     GLuint BoneTransformTBO; // The matrices used to transform the bones
     GLuint BoneTransformTO; // Texture descriptor for the palette
-    GLuint SkinningTFO; // Transform feedback for skinning
-    GLuint SkinnedVAO; // Vertex array for rendering skinned meshes.
-    GLuint PositionTFBO; // Positions created from transform feedback
-    GLuint DifferentialTFBO; // Differential geometry from transform feedback
-    int BindPoseMeshID; // The ID of the bind pose of this skinned mesh
     int CurrAnimSequenceID; // The currently playing animation sequence for each skinned mesh
     int CurrTimeMillisecond; // The current time in the current animation sequence in milliseconds
     std::vector<glm::mat4> CPUBoneTransforms; // Transforms a vertex in bone space.
     std::vector<BoneControlMode> BoneControls; // How each bone is animated
 };
 
+// SkinnedMesh Table
+// All instances of skinned meshes in the scene.
+// Each skinned mesh instance is associated to one bind pose, which is associated to one skeleton.
+// The skeleton of the bind pose and the skeleton of the animated skeleton must be the same one.
+struct SkinnedMesh
+{
+    GLuint SkinningTFO; // Transform feedback for skinning
+    GLuint SkinnedVAO; // Vertex array for rendering skinned meshes.
+    GLuint PositionTFBO; // Positions created from transform feedback
+    GLuint DifferentialTFBO; // Differential geometry from transform feedback
+    int BindPoseMeshID; // The ID of the bind pose of this skinned mesh
+    int AnimatedSkeletonID; // The animated skeleton used to transform this mesh
+};
+
 // Ragdoll Table
 // All instances of ragdoll simulations in the scene.
-// Each ragdoll simulation is associatd to one skinned mesh.
+// Each ragdoll simulation is associatd to one animated skeleton.
 struct Ragdoll
 {
-    int SkinnedMeshID; // The skinned mesh that is being animated physically
+    int AnimatedSkeletonID; // The animated skeleton that is being animated physically
     int OldBufferIndex; // Which of the 2 buffers contains old data
     std::vector<glm::vec3> BonePositions[2]; // Old and new positions of the bone
     std::vector<glm::vec3> BoneVelocities[2]; // Old and new velocities of the bone
@@ -209,6 +214,8 @@ struct Scene
 
     std::vector<AnimSequence> AnimSequences;
     std::unordered_map<std::string, int> AnimSequenceNameToID;
+
+    std::vector<AnimatedSkeleton> AnimatedSkeletons;
 
     std::vector<SkinnedMesh> SkinnedMeshes;
     
