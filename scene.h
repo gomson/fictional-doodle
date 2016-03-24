@@ -80,6 +80,7 @@ enum AnimChannel
 // All unique static skeleton definitions.
 struct Skeleton
 {
+    glm::mat4 Transform; // Global skeleton transformation to correct bind pose orientation
     std::vector<std::string> BoneNames; // Name of each bone
     std::unordered_map<std::string, int> BoneNameToID; // Bone ID lookup from name
     std::vector<glm::mat4> BoneInverseBindPoseTransforms; // Transforms a vertex from model space to bone space

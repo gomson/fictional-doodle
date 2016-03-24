@@ -401,7 +401,7 @@ static void UpdateAnimatedSkeletons(Scene* scene, uint32_t dt_ms)
         {
             glm::mat4 translation = translate(frame[boneIdx].T);
             glm::mat4 orientation = mat4_cast(frame[boneIdx].Q);
-            glm::mat4 boneTransform = translation * orientation * skeleton.BoneInverseBindPoseTransforms[boneIdx];
+            glm::mat4 boneTransform = skeleton.Transform * translation * orientation * skeleton.BoneInverseBindPoseTransforms[boneIdx];
 
             animSkeleton.CPUBoneTransforms[boneIdx].Row0 = row(boneTransform, 0);
             animSkeleton.CPUBoneTransforms[boneIdx].Row1 = row(boneTransform, 1);

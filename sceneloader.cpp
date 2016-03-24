@@ -9,6 +9,7 @@
 #include <postprocess.h>
 
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtc/matrix_inverse.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -326,9 +327,11 @@ static int LoadMD5Skeleton(
         exit(1);
     }
 
-    std::unordered_map<std::string, glm::mat4> invBindPoseTransforms;
+    // Global skeleton transformation
+    glm::mat4 skeletonTransform = glm::transpose(glm::make_mat4(&root->mTransformation.a1));
 
-    // Retrieve inverse bind pose transforms from mesh data
+    // Retrieve inverse bind pose transformation for each mesh's bones
+    std::unordered_map<std::string, glm::mat4> invBindPoseTransforms;
     for (int meshIdx = 0; meshIdx < (int)aiscene->mNumMeshes; meshIdx++)
     {
         for (int boneIdx = 0; boneIdx < (int)aiscene->mMeshes[meshIdx]->mNumBones; boneIdx++)
@@ -347,7 +350,9 @@ static int LoadMD5Skeleton(
         if (strcmp(child->mName.C_Str(), "<MD5_Hierarchy>") == 0)
         {
             // Found skeleton
-            return LoadMD5SkeletonNode(scene, child, invBindPoseTransforms);
+            int skeletonID = LoadMD5SkeletonNode(scene, child, invBindPoseTransforms);
+            scene->Skeletons[skeletonID].Transform = skeletonTransform;
+            return skeletonID;
         }
     }
 
