@@ -13,17 +13,17 @@ static void ComputeUnitQuatW(glm::quat& q)
     q.w = ww < 0.0f ? 0.0f : -sqrt(ww);
 }
 
-void DecodeFrame(const Scene* scene, int animID, int frameID, std::vector<SQT>& frame)
+void DecodeFrame(Scene* scene, int animID, int frameID, std::vector<SQT>& frame)
 {
     const AnimSequence& animSeq = scene->AnimSequences[animID];
     const Skeleton &skeleton = scene->Skeletons[animSeq.SkeletonID];
 
     int frameOffset = frameID * animSeq.NumFrameComponents;
 
-    frame.resize(animSeq.numBones);
+    frame.resize(skeleton.NumBones);
 
     // Decode channel animation data
-    for (int bone = 0; bone < animSeq.NumBones; bone++)
+    for (int bone = 0; bone < skeleton.NumBones; bone++)
     {
         const float* frameData = data(animSeq.BoneFrameData) + animSeq.BoneFrameDataOffsets[bone] + frameOffset;
         glm::vec3 animatedT = animSeq.BoneBaseFrame[bone].T;
@@ -80,6 +80,7 @@ void InterpolateFrames(
     std::vector<SQT>& frame)
 {
     const AnimSequence& animSeq = scene->AnimSequences[animID];
+    const Skeleton& skeleton = scene->Skeletons[animSeq.SkeletonID];
 
     // TODO: These should be persisted somewhere to avoid reallocations, perhaps on the scene object itself as
     // general buffers to use for any frames?
@@ -90,9 +91,9 @@ void InterpolateFrames(
     DecodeFrame(scene, animID, frame2ID, frame2);
 
     // Maybe only resize if size if too small?
-    interpolatedFrame.resize(animSeq.NumBones);
+    frame.resize(skeleton.NumBones);
 
-    for (int bone = 0; bone < animSeq.NumBones; bone++)
+    for (int bone = 0; bone < skeleton.NumBones; bone++)
     {
         frame[bone].T = glm::mix(frame1[bone].T, frame2[bone].T, alpha);
         frame[bone].Q = glm::mix(frame1[bone].Q, frame2[bone].Q, alpha);
