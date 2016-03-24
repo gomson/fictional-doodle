@@ -271,81 +271,6 @@ static void ReloadShaders(Scene* scene)
     }
 }
 
-#if 0
-static void UpdateSceneDynamics(Scene* scene, uint32_t dt_ms)
-{
-    static PFNSIMULATEDYNAMICSPROC pfnSimulateDynamics = NULL;
-
-#ifdef _MSC_VER
-    static RuntimeCpp runtimeSimulateDynamics(
-        L"SimulateDynamics.dll",
-        { "SimulateDynamics" }
-    );
-    if (PollDLLs(&runtimeSimulateDynamics))
-    {
-        runtimeSimulateDynamics.GetProc(pfnSimulateDynamics, "SimulateDynamics");
-    }
-#else
-    pfnSimulateDynamics = SimulateDynamics;
-#endif
-
-    if (!pfnSimulateDynamics)
-    {
-        return;
-    }
-
-    // read from frontbuffer
-    const std::vector<glm::vec3>& oldPositions = scene->BoneDynamicsPositions[(scene->BoneDynamicsBackBufferIndex + 1) % Scene::NUM_BONE_DYNAMICS_BUFFERS];
-    const std::vector<glm::vec3>& oldVelocities = scene->BoneDynamicsVelocities[(scene->BoneDynamicsBackBufferIndex + 1) % Scene::NUM_BONE_DYNAMICS_BUFFERS];
-    
-    // write to backbuffer
-    std::vector<glm::vec3>& newPositions = scene->BoneDynamicsPositions[scene->BoneDynamicsBackBufferIndex];
-    std::vector<glm::vec3>& newVelocities = scene->BoneDynamicsVelocities[scene->BoneDynamicsBackBufferIndex];
-
-    int numParticles = (int)oldPositions.size();
-
-    // unit masses for now
-    std::vector<float> masses(numParticles, 1.0f);
-
-    // just gravity for now
-    std::vector<glm::vec3> externalForces(numParticles);
-    for (int i = 0; i < numParticles; i++)
-    {
-        externalForces[i] = glm::vec3(0.0f, -9.8f, 0.0f) * masses[i];
-    }
-
-    // no constraints yet
-    std::vector<Constraint> constraints;
-    int numConstraints = (int)constraints.size();
-
-    float dt_s = dt_ms / 1000.0f;
-    pfnSimulateDynamics(
-        dt_s,
-        (float*)data(oldPositions),
-        (float*)data(oldVelocities),
-        (float*)data(masses),
-        (float*)data(externalForces),
-        numParticles, DEFAULT_DYNAMICS_NUM_ITERATIONS,
-        data(constraints), numConstraints,
-        (float*)data(newPositions),
-        (float*)data(newVelocities));
-
-    // swap buffers
-    scene->BoneDynamicsBackBufferIndex = (scene->BoneDynamicsBackBufferIndex + 1) % Scene::NUM_BONE_DYNAMICS_BUFFERS;
-
-    // Update select bones based on dynamics
-    for (int b = 0; b < (int)scene->BoneSkinningTransforms.size(); b++)
-    {
-        if (scene->BoneControls[b] != BONECONTROL_DYNAMICS)
-        {
-            continue;
-        }
-
-        // TODO: Update bone transform
-    }
-}
-#endif
-
 static void ShowSystemInfoGUI(Scene* scene)
 {
     ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiSetCond_Always);
@@ -431,7 +356,7 @@ static void ShowToolboxGUI(Scene* scene, SDL_Window* window)
     ImGui::End();
 }
 
-static void UpdateSceneSkinnedGeometry(Scene* scene, uint32_t dt_ms)
+static void UpdateSkinnedGeometry(Scene* scene, uint32_t dt_ms)
 {
     // Skin vertices using the matrix palette and store them with transform feedback
     glUseProgram(scene->SkinningSP.Handle);
@@ -462,6 +387,81 @@ static void UpdateSceneSkinnedGeometry(Scene* scene, uint32_t dt_ms)
     glBindVertexArray(0);
     glUseProgram(0);
 }
+
+#if 0
+static void UpdateDynamics(Scene* scene, uint32_t dt_ms)
+{
+    static PFNSIMULATEDYNAMICSPROC pfnSimulateDynamics = NULL;
+
+#ifdef _MSC_VER
+    static RuntimeCpp runtimeSimulateDynamics(
+        L"SimulateDynamics.dll",
+        { "SimulateDynamics" }
+    );
+    if (PollDLLs(&runtimeSimulateDynamics))
+    {
+        runtimeSimulateDynamics.GetProc(pfnSimulateDynamics, "SimulateDynamics");
+    }
+#else
+    pfnSimulateDynamics = SimulateDynamics;
+#endif
+
+    if (!pfnSimulateDynamics)
+    {
+        return;
+    }
+
+    // read from frontbuffer
+    const std::vector<glm::vec3>& oldPositions = scene->BoneDynamicsPositions[(scene->BoneDynamicsBackBufferIndex + 1) % Scene::NUM_BONE_DYNAMICS_BUFFERS];
+    const std::vector<glm::vec3>& oldVelocities = scene->BoneDynamicsVelocities[(scene->BoneDynamicsBackBufferIndex + 1) % Scene::NUM_BONE_DYNAMICS_BUFFERS];
+
+    // write to backbuffer
+    std::vector<glm::vec3>& newPositions = scene->BoneDynamicsPositions[scene->BoneDynamicsBackBufferIndex];
+    std::vector<glm::vec3>& newVelocities = scene->BoneDynamicsVelocities[scene->BoneDynamicsBackBufferIndex];
+
+    int numParticles = (int)oldPositions.size();
+
+    // unit masses for now
+    std::vector<float> masses(numParticles, 1.0f);
+
+    // just gravity for now
+    std::vector<glm::vec3> externalForces(numParticles);
+    for (int i = 0; i < numParticles; i++)
+    {
+        externalForces[i] = glm::vec3(0.0f, -9.8f, 0.0f) * masses[i];
+    }
+
+    // no constraints yet
+    std::vector<Constraint> constraints;
+    int numConstraints = (int)constraints.size();
+
+    float dt_s = dt_ms / 1000.0f;
+    pfnSimulateDynamics(
+        dt_s,
+        (float*)data(oldPositions),
+        (float*)data(oldVelocities),
+        (float*)data(masses),
+        (float*)data(externalForces),
+        numParticles, DEFAULT_DYNAMICS_NUM_ITERATIONS,
+        data(constraints), numConstraints,
+        (float*)data(newPositions),
+        (float*)data(newVelocities));
+
+    // swap buffers
+    scene->BoneDynamicsBackBufferIndex = (scene->BoneDynamicsBackBufferIndex + 1) % Scene::NUM_BONE_DYNAMICS_BUFFERS;
+
+    // Update select bones based on dynamics
+    for (int b = 0; b < (int)scene->BoneSkinningTransforms.size(); b++)
+    {
+        if (scene->BoneControls[b] != BONECONTROL_DYNAMICS)
+        {
+            continue;
+        }
+
+        // TODO: Update bone transform
+    }
+}
+#endif
 
 void UpdateScene(Scene* scene, SDL_Window* window, uint32_t dt_ms)
 {
@@ -500,9 +500,9 @@ void UpdateScene(Scene* scene, SDL_Window* window, uint32_t dt_ms)
             !scene->EnableCamera ? 0 : keyboardState[SDL_SCANCODE_LCTRL] || keyboardState[SDL_SCANCODE_LSHIFT]);
     }
 
-    UpdateSceneSkinnedGeometry(scene, dt_ms);
+    UpdateSkinnedGeometry(scene, dt_ms);
 
 #if 0
-    UpdateSceneDynamics(scene, dt_ms);
+    UpdateDynamics(scene, dt_ms);
 #endif
 }
