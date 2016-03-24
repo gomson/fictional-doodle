@@ -23,4 +23,5 @@ void GetFrameAtTime(
     Scene* scene,
     int animID,
     int animTime,
+    bool interpolate,
     std::vector<SQT>& frame);

@@ -104,18 +104,24 @@ void GetFrameAtTime(
     Scene* scene,
     int animID,
     int animTime,
+    bool interpolate,
     std::vector<SQT>& frame)
 {
     const AnimSequence& animSeq = scene->AnimSequences[animID];
 
-    // Compute the two frames bounding the animation time
     int frameTime = animTime * animSeq.FramesPerSecond;
     int frameNum = frameTime / 1000;
     int frame1ID = frameNum % animSeq.NumFrames;
-    int frame2ID = (frame1ID + 1) % animSeq.NumFrames;;
 
-    // Compute percent of interpolation between the two frames
-    float alpha = (frameTime % 1000) * 0.001f;
+    if (interpolate)
+    {
+        int frame2ID = (frame1ID + 1) % animSeq.NumFrames;
+        float alpha = (frameTime % 1000) * 0.001f; // Percent of interpolation between frames
 
-    InterpolateFrames(scene, animID, frame1ID, frame2ID, alpha, frame);
+        InterpolateFrames(scene, animID, frame1ID, frame2ID, alpha, frame);
+    }
+    else
+    {
+        DecodeFrame(scene, animID, frame1ID, frame);
+    }
 }

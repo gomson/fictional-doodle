@@ -346,7 +346,7 @@ static void ShowToolboxGUI(Scene* scene, SDL_Window* window)
             // find all animations compatible with the skeleton
             std::vector<const char*> animSequenceNames;
             std::vector<int> animSequenceIDs;
-            int currAnimSequenceIndexInListbox = -1;
+            int currAnimSequenceIndexInCombo = -1;
             for (int animSequenceID = 0; animSequenceID < (int)scene->AnimSequences.size(); animSequenceID++)
             {
                 const AnimSequence& animSequence = scene->AnimSequences[animSequenceID];
@@ -356,7 +356,7 @@ static void ShowToolboxGUI(Scene* scene, SDL_Window* window)
                     animSequenceIDs.push_back(animSequenceID);
                     if (animSequenceID == currAnimSequenceID)
                     {
-                        currAnimSequenceIndexInListbox = (int)animSequenceNames.size() - 1;
+                        currAnimSequenceIndexInCombo = (int)animSequenceNames.size() - 1;
                     }
                 }
             }
@@ -364,10 +364,12 @@ static void ShowToolboxGUI(Scene* scene, SDL_Window* window)
             // Display list to select animation
             if (!animSequenceNames.empty())
             {
+                ImGui::Checkbox("Interpolate Frames", &animatedSkeleton.InterpolateFrames);
+
                 ImGui::Text("Animation Sequence");
-                if (ImGui::Combo("##animsequences", &currAnimSequenceIndexInListbox, animSequenceNames.data(), (int)animSequenceNames.size()))
+                if (ImGui::Combo("##animsequences", &currAnimSequenceIndexInCombo, animSequenceNames.data(), (int)animSequenceNames.size()))
                 {
-                    animatedSkeleton.CurrAnimSequenceID = animSequenceIDs[currAnimSequenceIndexInListbox];
+                    animatedSkeleton.CurrAnimSequenceID = animSequenceIDs[currAnimSequenceIndexInCombo];
                     animatedSkeleton.CurrTimeMillisecond = 0;
                 }
             }
@@ -378,14 +380,16 @@ static void ShowToolboxGUI(Scene* scene, SDL_Window* window)
 
 static void UpdateAnimatedSkeletons(Scene* scene, uint32_t dt_ms)
 {
+    // Storage for animation frame
+    std::vector<SQT> frame;
+
     for (int animSkeletonIdx = 0; animSkeletonIdx < (int)scene->AnimatedSkeletons.size(); animSkeletonIdx++)
     {
         AnimatedSkeleton& animSkeleton = scene->AnimatedSkeletons[animSkeletonIdx];
         animSkeleton.CurrTimeMillisecond += dt_ms;
 
         // Get new animation frame
-        std::vector<SQT> frame;
-        GetFrameAtTime(scene, animSkeleton.CurrAnimSequenceID, animSkeleton.CurrTimeMillisecond, frame);
+        GetFrameAtTime(scene, animSkeleton.CurrAnimSequenceID, animSkeleton.CurrTimeMillisecond, animSkeleton.InterpolateFrames, frame);
 
         const AnimSequence& animSequence = scene->AnimSequences[animSkeleton.CurrAnimSequenceID];
         const Skeleton& skeleton = scene->Skeletons[animSequence.SkeletonID];
