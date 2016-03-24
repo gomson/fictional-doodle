@@ -15,10 +15,11 @@
 
 #include <vector>
 #include <string>
+#include <functional>
 
 static void LoadMaterials(
     Scene* scene,
-    const char* folder,
+    const char* assetFolder, const char* modelFolder,
     aiMaterial** materials, int numMaterials)
 {
     // Only the texture types we care about
@@ -49,7 +50,7 @@ static void LoadMaterials(
                     exit(1);
                 }
 
-                texturesToLoad[textureTypeIdx].push_back(std::string(folder) + path.C_Str());
+                texturesToLoad[textureTypeIdx].push_back(std::string(modelFolder) + path.C_Str());
             }
         }
     }
@@ -84,7 +85,7 @@ static void LoadMaterials(
     {
         for (int textureToLoadIdx = 0; textureToLoadIdx < (int)texturesToLoad.size(); textureToLoadIdx++)
         {
-            const std::string& fullpath = texturesToLoad[textureTypeIdx][textureToLoadIdx];
+            const std::string& fullpath = assetFolder + texturesToLoad[textureTypeIdx][textureToLoadIdx];
 
             int req_comp = -1;
             if (textureTypes[textureTypeIdx] == aiTextureType_DIFFUSE)
@@ -111,73 +112,75 @@ static void LoadMaterials(
             if (!img)
             {
                 fprintf(stderr, "stbi_load (%s): %s\n", fullpath.c_str(), stbi_failure_reason());
-                exit(1);
-            }
-
-            GLenum srcDataFormat[4] = {
-                GL_RED, GL_RG, GL_RGB, GL_RGBA
-            };
-
-            GLuint texture;
-            glGenTextures(1, &texture);
-            glBindTexture(GL_TEXTURE_2D, texture);
-
-            if (textureTypes[textureTypeIdx] == aiTextureType_DIFFUSE)
-            {
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8_ALPHA8, width, height, 0, srcDataFormat[comp - 1], GL_UNSIGNED_BYTE, img);
-            }
-            else if (textureTypes[textureTypeIdx] == aiTextureType_SPECULAR)
-            {
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, width, height, 0, srcDataFormat[comp - 1], GL_UNSIGNED_BYTE, img);
-                GLint swizzleMask[] = { GL_RED, GL_RED, GL_RED, GL_ONE };
-                glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA, swizzleMask);
-            }
-            else if (textureTypes[textureTypeIdx] == aiTextureType_NORMALS)
-            {
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8_SNORM, width, height, 0, srcDataFormat[comp - 1], GL_UNSIGNED_BYTE, img);
             }
             else
             {
-                fprintf(stderr, "%s: Unhandled texture type %d\n", fullpath.c_str(), textureTypes[textureTypeIdx]);
-                exit(1);
-            }
+                GLenum srcDataFormat[4] = {
+                    GL_RED, GL_RG, GL_RGB, GL_RGBA
+                };
 
-            glGenerateMipmap(GL_TEXTURE_2D);
-            glBindTexture(GL_TEXTURE_2D, 0);
+                GLuint texture;
+                glGenTextures(1, &texture);
+                glBindTexture(GL_TEXTURE_2D, texture);
 
-            int id = -1;
+                if (textureTypes[textureTypeIdx] == aiTextureType_DIFFUSE)
+                {
+                    glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8_ALPHA8, width, height, 0, srcDataFormat[comp - 1], GL_UNSIGNED_BYTE, img);
+                }
+                else if (textureTypes[textureTypeIdx] == aiTextureType_SPECULAR)
+                {
+                    glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, width, height, 0, srcDataFormat[comp - 1], GL_UNSIGNED_BYTE, img);
+                    GLint swizzleMask[] = { GL_RED, GL_RED, GL_RED, GL_ONE };
+                    glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA, swizzleMask);
+                }
+                else if (textureTypes[textureTypeIdx] == aiTextureType_NORMALS)
+                {
+                    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8_SNORM, width, height, 0, srcDataFormat[comp - 1], GL_UNSIGNED_BYTE, img);
+                }
+                else
+                {
+                    fprintf(stderr, "%s: Unhandled texture type %d\n", fullpath.c_str(), textureTypes[textureTypeIdx]);
+                    exit(1);
+                }
 
-            if (textureTypes[textureTypeIdx] == aiTextureType_DIFFUSE)
-            {
-                DiffuseTexture d;
-                d.TO = texture;
-                scene->DiffuseTextures.push_back(d);
-                id = (int)scene->DiffuseTextures.size() - 1;
-            }
-            else if (textureTypes[textureTypeIdx] == aiTextureType_SPECULAR)
-            {
-                SpecularTexture s;
-                s.TO = texture;
-                scene->SpecularTextures.push_back(s);
-                id = (int)scene->SpecularTextures.size() - 1;
-            }
-            else if (textureTypes[textureTypeIdx] == aiTextureType_NORMALS)
-            {
-                NormalTexture n;
-                n.TO = texture;
-                scene->NormalTextures.push_back(n);
-                id = (int)scene->NormalTextures.size() - 1;
-            }
-            else
-            {
-                fprintf(stderr, "%s: Unhandled texture type %d\n", fullpath.c_str(), textureTypes[textureTypeIdx]);
-                exit(1);
-            }
+                glGenerateMipmap(GL_TEXTURE_2D);
+                glBindTexture(GL_TEXTURE_2D, 0);
 
-            textureNameToIDs[textureTypeIdx]->emplace(fullpath, id);
+                int id = -1;
+
+                if (textureTypes[textureTypeIdx] == aiTextureType_DIFFUSE)
+                {
+                    DiffuseTexture d;
+                    d.TO = texture;
+                    scene->DiffuseTextures.push_back(d);
+                    id = (int)scene->DiffuseTextures.size() - 1;
+                }
+                else if (textureTypes[textureTypeIdx] == aiTextureType_SPECULAR)
+                {
+                    SpecularTexture s;
+                    s.TO = texture;
+                    scene->SpecularTextures.push_back(s);
+                    id = (int)scene->SpecularTextures.size() - 1;
+                }
+                else if (textureTypes[textureTypeIdx] == aiTextureType_NORMALS)
+                {
+                    NormalTexture n;
+                    n.TO = texture;
+                    scene->NormalTextures.push_back(n);
+                    id = (int)scene->NormalTextures.size() - 1;
+                }
+                else
+                {
+                    fprintf(stderr, "%s: Unhandled texture type %d\n", fullpath.c_str(), textureTypes[textureTypeIdx]);
+                    exit(1);
+                }
+
+                textureNameToIDs[textureTypeIdx]->emplace(texturesToLoad[textureTypeIdx][textureToLoadIdx], id);
+
+                stbi_image_free(img);
+            }
 
             stbi_set_flip_vertically_on_load(0);
-            stbi_image_free(img);
         }
     }
 
@@ -202,25 +205,29 @@ static void LoadMaterials(
                     exit(1);
                 }
 
-                std::string fullpath = std::string(folder) + path.C_Str();
-                int textureID = textureNameToIDs[textureTypeIdx]->find(fullpath)->second;
+                std::string modelpath = std::string(modelFolder) + path.C_Str();
+                auto foundNameToID = textureNameToIDs[textureTypeIdx]->find(modelpath);
+                if (foundNameToID != textureNameToIDs[textureTypeIdx]->end())
+                {
+                    int textureID = foundNameToID->second;
 
-                if (textureTypes[textureTypeIdx] == aiTextureType_DIFFUSE)
-                {
-                    newMat.DiffuseTextureIDs.push_back(textureID);
-                }
-                else if (textureTypes[textureTypeIdx] == aiTextureType_SPECULAR)
-                {
-                    newMat.SpecularTextureIDs.push_back(textureID);
-                }
-                else if (textureTypes[textureTypeIdx] == aiTextureType_NORMALS)
-                {
-                    newMat.NormalTextureIDs.push_back(textureID);
-                }
-                else
-                {
-                    fprintf(stderr, "%s: Unhandled texture type %d\n", fullpath.c_str(), textureTypes[textureTypeIdx]);
-                    exit(1);
+                    if (textureTypes[textureTypeIdx] == aiTextureType_DIFFUSE)
+                    {
+                        newMat.DiffuseTextureIDs.push_back(textureID);
+                    }
+                    else if (textureTypes[textureTypeIdx] == aiTextureType_SPECULAR)
+                    {
+                        newMat.SpecularTextureIDs.push_back(textureID);
+                    }
+                    else if (textureTypes[textureTypeIdx] == aiTextureType_NORMALS)
+                    {
+                        newMat.NormalTextureIDs.push_back(textureID);
+                    }
+                    else
+                    {
+                        fprintf(stderr, "%s: Unhandled texture type %d\n", modelpath.c_str(), textureTypes[textureTypeIdx]);
+                        exit(1);
+                    }
                 }
             }
         }
@@ -229,11 +236,109 @@ static void LoadMaterials(
     }
 }
 
+static void LoadMeshes(
+    Scene* scene,
+    const char* modelFolder,
+    aiMesh** meshes, int numMeshes)
+{
+    std::vector<int> indexCounts(numMeshes);
+    std::vector<int> vertexCounts(numMeshes);
+
+    for (int meshIdx = 0; meshIdx < numMeshes; meshIdx++)
+    {
+        aiMesh* mesh = meshes[meshIdx];
+
+        if (mesh->mPrimitiveTypes != aiPrimitiveType_TRIANGLE)
+        {
+            fprintf(stderr, "Mesh %s was not made out of triangles\n", mesh->mName.C_Str());
+            exit(1);
+        }
+
+        if (!mesh->mTextureCoords[0])
+        {
+            fprintf(stderr, "Mesh %s didn't have TexCoord0\n", mesh->mName.C_Str());
+            exit(1);
+        }
+
+        if (!mesh->mNormals)
+        {
+            fprintf(stderr, "Mesh %s didn't have normals\n", mesh->mName.C_Str());
+            exit(1);
+        }
+
+        if (!mesh->mTangents)
+        {
+            fprintf(stderr, "Mesh %s didn't have tangents\n", mesh->mName.C_Str());
+            exit(1);
+        }
+
+        if (!mesh->mBitangents)
+        {
+            fprintf(stderr, "Mesh %s didn't have bitangents\n", mesh->mName.C_Str());
+            exit(1);
+        }
+    }
+}
+
+static void ParseMD5MeshNode(
+    Scene* scene,
+    aiNode* ainode)
+{
+    if (strcmp(ainode->mName.C_Str(), "<MD5_Mesh>") != 0)
+    {
+        fprintf(stderr, "Expected <MD5_Mesh>, got %s\n", ainode->mName.C_Str());
+        exit(1);
+    }
+}
+
+static void ParseMD5HierarchyNode(
+    Scene* scene,
+    aiNode* ainode)
+{
+    if (strcmp(ainode->mName.C_Str(), "<MD5_Hierarchy>") != 0)
+    {
+        fprintf(stderr, "Expected <MD5_Hierarchy>, got %s\n", ainode->mName.C_Str());
+        exit(1);
+    }
+}
+
+static void ParseMD5RootNode(
+    Scene* scene,
+    aiNode* ainode)
+{
+    if (strcmp(ainode->mName.C_Str(), "<MD5_Root>") != 0)
+    {
+        fprintf(stderr, "Expected <MD5_Root>, got %s\n", ainode->mName.C_Str());
+        exit(1);
+    }
+
+    // traverse all children
+    for (int childIdx = 0; childIdx < (int)ainode->mNumChildren; childIdx++)
+    {
+        aiNode* child = ainode->mChildren[childIdx];
+
+        if (strcmp(child->mName.C_Str(), "<MD5_Mesh>") == 0)
+        {
+            ParseMD5MeshNode(scene, child);
+        }
+        else if (strcmp(child->mName.C_Str(), "<MD5_Hierarchy>") == 0)
+        {
+            ParseMD5HierarchyNode(scene, child);
+        }
+        else
+        {
+            fprintf(stderr, "Unexpected root node child: %s\n", child->mName.C_Str());
+            exit(1);
+        }
+    }
+}
+
 void LoadMD5Mesh(
     Scene* scene,
-    const char* folder, const char* meshfile)
+    const char* assetFolder, const char* modelFolder,
+    const char* meshFile)
 {
-    std::string meshpath = std::string(folder) + meshfile;
+    std::string meshpath = std::string(assetFolder) + modelFolder + meshFile;
     const aiScene* aiscene = aiImportFile(meshpath.c_str(), aiProcessPreset_TargetRealtime_MaxQuality);
     if (!aiscene)
     {
@@ -241,7 +346,11 @@ void LoadMD5Mesh(
         exit(1);
     }
 
-    LoadMaterials(scene, folder, aiscene->mMaterials, (int)aiscene->mNumMaterials);
+    LoadMaterials(scene, assetFolder, modelFolder, aiscene->mMaterials, (int)aiscene->mNumMaterials);
+
+    ParseMD5RootNode(scene, aiscene->mRootNode);
+    
+    // LoadMeshes(scene, modelFolder, aiscene->mMeshes, (int)aiscene->mNumMeshes);
 
     aiReleaseImport(aiscene);
 }
@@ -249,10 +358,11 @@ void LoadMD5Mesh(
 void LoadMD5Anim(
     Scene* scene,
     int skeletonID,
-    const char* folder, const char* animfile)
+    const char* assetFolder, const char* modelFolder,
+    const char* animFile)
 {
-    std::string path = std::string(folder) + animfile;
-    const aiScene* animScene = aiImportFile(path.c_str(), aiProcessPreset_TargetRealtime_MaxQuality);
+    std::string fullpath = std::string(assetFolder) + modelFolder + animFile;
+    const aiScene* animScene = aiImportFile(fullpath.c_str(), aiProcessPreset_TargetRealtime_MaxQuality);
 
     // Check if file exists and was successfully parsed
     if (!animScene)
@@ -264,7 +374,7 @@ void LoadMD5Anim(
     // Check if file contains an animation
     if (!animScene->mNumAnimations)
     {
-        fprintf(stderr, "No animations: %s\n", path.c_str());
+        fprintf(stderr, "No animations: %s\n", fullpath.c_str());
         return;
     }
 
@@ -274,9 +384,9 @@ void LoadMD5Anim(
     const aiAnimation* animation = animScene->mAnimations[0];
 
     AnimSequence animSequence;
-    animSequence.Name = animfile;
+    animSequence.Name = std::string(modelFolder) + animFile;
     animSequence.SkeletonID = skeletonID;
-    animSequence.FramesPerSecond = animation->mTicksPerSecond;
+    animSequence.FramesPerSecond = (int)animation->mTicksPerSecond;
 
     // Allocate storage for each bone
     animSequence.BoneBaseFrame.resize(animation->mNumChannels);
@@ -398,12 +508,14 @@ void LoadMD5Anim(
     scene->AnimSequences.push_back(animSequence);
 
     int animSequenceID = (int)scene->AnimSequences.size() - 1;
-    scene->AnimSequenceNameToID[path] = animSequenceID;
+
+    scene->AnimSequenceNameToID.emplace(scene->AnimSequences.back().Name, animSequenceID);
 
     aiReleaseImport(animScene);
 }
 
 // TODO: Remove and replace
+#if 0
 void LoadScene(Scene* scene)
 {
 #if 1
@@ -691,3 +803,4 @@ void LoadScene(Scene* scene)
         scene->BoneDynamicsVelocities[i].resize(numBones);
     }
 }
+#endif

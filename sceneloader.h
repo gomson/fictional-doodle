@@ -8,8 +8,9 @@ struct Scene;
 // Appends new materials to Material Table
 // Appends new diffuse textures to DiffuseTexture table
 void LoadMD5Mesh(
-    Scene* scene, 
-    const char* folder, const char* meshfile);
+    Scene* scene,
+    const char* assetFolder, const char* modelFolder,
+    const char* meshfile);
 
 // Adds the contents of a md5anim file to the scene.
 // Assumes skeletons are already in the Skeleton Table
@@ -17,4 +18,5 @@ void LoadMD5Mesh(
 void LoadMD5Anim(
     Scene* scene, 
     int skeletonID,
-    const char* folder, const char* animfile);
+    const char* assetFolder, const char* modelFolder,
+    const char* animfile);

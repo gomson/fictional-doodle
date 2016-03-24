@@ -42,8 +42,7 @@ static int AddSkinnedMesh(
 
     glGenBuffers(1, &skinnedMesh.BoneTransformTBO);
     glBindBuffer(GL_TEXTURE_BUFFER, skinnedMesh.BoneTransformTBO);
-    static_assert(false, "sizeof(glm::vec4) * 3 should be sizeof(SkinningMatrix) or something");
-    glBufferData(GL_TEXTURE_BUFFER, sizeof(glm::vec4) * 3 * skeleton.NumBones, NULL, GL_DYNAMIC_DRAW);
+    glBufferData(GL_TEXTURE_BUFFER, sizeof(SkinningMatrix) * skeleton.NumBones, NULL, GL_DYNAMIC_DRAW);
     glBindBuffer(GL_TEXTURE_BUFFER, 0);
 
     glGenTextures(1, &skinnedMesh.BoneTransformTO);
@@ -130,9 +129,11 @@ static int AddRagdoll(
 
 void InitScene(Scene* scene)
 {
-    std::string hellknight_path = "assets/hellknight/";
-    std::string hellknight_modelName = "hellknight.md5mesh";
-    std::vector<std::string> hellknight_animNames{
+    std::string assetFolder = "assets/";
+
+    std::string hellknight_modelFolder = "hellknight/";
+    std::string hellknight_meshFile = "hellknight.md5mesh";
+    std::vector<std::string> hellknight_animFiles{
         "attack3.md5anim",
         "chest.md5anim",
         "headpain.md5anim",
@@ -149,11 +150,18 @@ void InitScene(Scene* scene)
         "walk7_left.md5anim"
     };
 
-    LoadMD5Mesh(scene, hellknight_path.c_str(), hellknight_modelName.c_str());
+    LoadMD5Mesh(
+        scene, 
+        assetFolder.c_str(), hellknight_modelFolder.c_str(),
+        hellknight_meshFile.c_str());
     int hellknightSkeletonID = -1; // TODO: query this
-    for (const std::string& animName : hellknight_animNames)
+    for (const std::string& animFile : hellknight_animFiles)
     {
-        LoadMD5Anim(scene, hellknightSkeletonID, hellknight_path.c_str(), animName.c_str());
+        LoadMD5Anim(
+            scene, 
+            hellknightSkeletonID, 
+            assetFolder.c_str(), hellknight_modelFolder.c_str(),
+            animFile.c_str());
     }
 
     int hellknightBindPoseMeshID = -1; // TODO: query this
@@ -223,7 +231,8 @@ static void ReloadShaders(Scene* scene)
     }
 }
 
-void UpdateSceneDynamics(Scene* scene, uint32_t dt_ms)
+#if 0
+static void UpdateSceneDynamics(Scene* scene, uint32_t dt_ms)
 {
     static PFNSIMULATEDYNAMICSPROC pfnSimulateDynamics = NULL;
 
@@ -295,8 +304,9 @@ void UpdateSceneDynamics(Scene* scene, uint32_t dt_ms)
         // TODO: Update bone transform
     }
 }
+#endif
 
-void ShowSystemInfoGUI(Scene* scene)
+static void ShowSystemInfoGUI(Scene* scene)
 {
     ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiSetCond_Always);
     if (ImGui::Begin("Info", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize))
@@ -327,7 +337,7 @@ void ShowSystemInfoGUI(Scene* scene)
     ImGui::End();
 }
 
-void ShowToolboxGUI(Scene* scene, SDL_Window* window)
+static void ShowToolboxGUI(Scene* scene, SDL_Window* window)
 {
     ImGuiIO& io = ImGui::GetIO();
     int w = int(io.DisplaySize.x / io.DisplayFramebufferScale.x);
@@ -339,21 +349,50 @@ void ShowToolboxGUI(Scene* scene, SDL_Window* window)
     ImGui::SetNextWindowPos(ImVec2((float)w - toolboxW, 0), ImGuiSetCond_Always);
     if (ImGui::Begin("Toolbox", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize))
     {
-        std::vector<const char*> animSequenceNames(scene->AnimSequenceNames.size());
-        for (int i = 0; i < (int)animSequenceNames.size(); i++)
+        int currSelectedSkinnedMesh = 0;
+
+        if (currSelectedSkinnedMesh < scene->SkinnedMeshes.size())
         {
-            animSequenceNames[i] = scene->AnimSequenceNames[i].c_str();
-        }
-        if (!animSequenceNames.empty())
-        {
-            ImGui::Text("Animation Sequence");
-            ImGui::ListBox("##animsequences", &scene->CurrAnimSequence, &animSequenceNames[0], (int)animSequenceNames.size());
+            SkinnedMesh& skinnedMesh = scene->SkinnedMeshes[currSelectedSkinnedMesh];
+            int bindPoseMeshID = skinnedMesh.BindPoseMeshID;
+            BindPoseMesh& bindPoseMesh = scene->BindPoseMeshes[bindPoseMeshID];
+            int skeletonID = bindPoseMesh.SkeletonID;
+
+            // find all animations compatible with the skeleton
+            std::vector<const char*> animSequenceNames;
+            std::vector<int> animSequenceIDs;
+            int currAnimSequenceIndexInListbox = -1;
+            for (int animSequenceID = 0; animSequenceID < (int)scene->AnimSequences.size(); animSequenceID++)
+            {
+                const AnimSequence& animSequence = scene->AnimSequences[animSequenceID];
+                if (animSequence.SkeletonID == skeletonID)
+                {
+                    animSequenceNames.push_back(animSequence.Name.c_str());
+                    animSequenceIDs.push_back(animSequenceID);
+                    if (animSequenceID == skinnedMesh.CurrAnimSequenceID)
+                    {
+                        currAnimSequenceIndexInListbox = (int)animSequenceNames.size() - 1;
+                    }
+                }
+            }
+
+            // Display list to select animation
+            if (!animSequenceNames.empty())
+            {
+                ImGui::Text("Animation Sequence");
+                if (ImGui::ListBox("##animsequences", &currAnimSequenceIndexInListbox, animSequenceNames.data(), (int)animSequenceNames.size()))
+                {
+                    skinnedMesh.CurrAnimSequenceID = animSequenceIDs[currAnimSequenceIndexInListbox];
+                    skinnedMesh.CurrTimeMillisecond = 0;
+                }
+            }
         }
     }
     ImGui::End();
 }
 
-void UpdateSceneSkinnedGeometry(Scene* scene, uint32_t dt_ms)
+#if 0
+static void UpdateSceneSkinnedGeometry(Scene* scene, uint32_t dt_ms)
 {
     // Update matrix palette based on current sequence/frame of animation
     {
@@ -395,6 +434,7 @@ void UpdateSceneSkinnedGeometry(Scene* scene, uint32_t dt_ms)
         glUseProgram(0);
     }
 }
+#endif
 
 void UpdateScene(Scene* scene, SDL_Window* window, uint32_t dt_ms)
 {
@@ -433,7 +473,9 @@ void UpdateScene(Scene* scene, SDL_Window* window, uint32_t dt_ms)
             !scene->EnableCamera ? 0 : keyboardState[SDL_SCANCODE_LCTRL] || keyboardState[SDL_SCANCODE_LSHIFT]);
     }
 
+#if 0
     UpdateSceneSkinnedGeometry(scene, dt_ms);
 
     UpdateSceneDynamics(scene, dt_ms);
+#endif
 }

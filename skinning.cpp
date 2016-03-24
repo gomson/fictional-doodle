@@ -18,7 +18,7 @@ void DecodeFrame(const Scene* scene, int animationID, int frameID, std::vector<S
     const AnimSequence& animSeq = scene->AnimSequences[animationID];
     const Skeleton &skeleton = scene->Skeletons[animSeq.SkeletonID];
 
-    int numBones = size(animSeq.BoneBaseFrame);
+    int numBones = (int)size(animSeq.BoneBaseFrame);
     int frameOffset = frameID * animSeq.NumFrameComponents;
 
     boneTransforms.resize(numBones);

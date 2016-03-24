@@ -55,6 +55,13 @@ struct SQT
     glm::quat Q;
 };
 
+struct SkinningMatrix
+{
+    glm::vec4 Row0;
+    glm::vec4 Row1;
+    glm::vec4 Row2;
+};
+
 // Bitsets to say which components of the animation changes every frame
 // For example if an object does not rotate then the Q (Quaternion) channels are turned off, which saves space.
 // When a channel is not set in an animation sequence, then the baseFrame setting is used instead.
@@ -191,18 +198,24 @@ struct SceneNode
 struct Scene
 {
     std::vector<Skeleton> Skeletons;
+
     std::vector<BindPoseMesh> BindPoseMeshes;
+    std::unordered_map<std::string, int> BindPoseMeshNameToID;
+
     std::vector<AnimSequence> AnimSequences;
     std::unordered_map<std::string, int> AnimSequenceNameToID;
 
     std::vector<SkinnedMesh> SkinnedMeshes;
+    
     std::vector<Ragdoll> Ragdolls;
     
     std::vector<DiffuseTexture> DiffuseTextures;
-    std::vector<SpecularTexture> SpecularTextures;
-    std::vector<NormalTexture> NormalTextures;
     std::unordered_map<std::string, int> DiffuseTextureNameToID;
+    
+    std::vector<SpecularTexture> SpecularTextures;
     std::unordered_map<std::string, int> SpecularTextureNameToID;
+
+    std::vector<NormalTexture> NormalTextures;
     std::unordered_map<std::string, int> NormalTextureNameToID;
 
     std::vector<Material> Materials;
