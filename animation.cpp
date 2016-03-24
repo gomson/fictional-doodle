@@ -1,4 +1,4 @@
-#include "skinning.h"
+#include "animation.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
