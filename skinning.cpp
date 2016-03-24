@@ -115,7 +115,7 @@ void GetFrameAtTime(
     int frame2ID = (frame1ID + 1) % animSeq.NumFrames;;
 
     // Compute percent of interpolation between the two frames
-    int alpha = (frameTime % 1000) * 0.001f;
+    float alpha = (frameTime % 1000) * 0.001f;
 
     InterpolateFrames(scene, animID, frame1ID, frame2ID, alpha, frame);
 }
