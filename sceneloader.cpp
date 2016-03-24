@@ -238,7 +238,8 @@ static void LoadMD5Materials(
 
 static int LoadMD5SkeletonNode(
     Scene* scene,
-    aiNode* ainode)
+    aiNode* ainode,
+    std::unordered_map<std::string, glm::mat4> invBindPoseTransforms)
 {
     if (strcmp(ainode->mName.C_Str(), "<MD5_Hierarchy>") != 0)
     {
@@ -285,6 +286,7 @@ static int LoadMD5SkeletonNode(
     {
         skeleton.BoneNames[boneID] = boneNodes[boneID]->mName.C_Str();
         skeleton.BoneNameToID.emplace(skeleton.BoneNames[boneID], boneID);
+        skeleton.BoneInverseBindPoseTransforms[boneID] = invBindPoseTransforms[skeleton.BoneNames[boneID]];
     }
 
     scene->Skeletons.push_back(std::move(skeleton));
@@ -304,6 +306,19 @@ static int LoadMD5Skeleton(
         exit(1);
     }
 
+    std::unordered_map<std::string, glm::mat4> invBindPoseTransforms;
+
+    // Retrieve inverse bind pose transforms from mesh data
+    for (int meshIdx = 0; meshIdx < (int)aiscene->mNumMeshes; meshIdx++)
+    {
+        for (int boneIdx = 0; boneIdx < (int)aiscene->mMeshes[meshIdx]->mNumBones; boneIdx++)
+        {
+            const aiBone* bone = aiscene->mMeshes[meshIdx]->mBones[boneIdx];
+            std::string boneName = bone->mName.C_Str();
+            invBindPoseTransforms[boneName] = glm::transpose(glm::make_mat4(&bone->mOffsetMatrix.a1));
+        }
+    }
+
     // traverse all children
     for (int childIdx = 0; childIdx < (int)root->mNumChildren; childIdx++)
     {
@@ -312,7 +327,7 @@ static int LoadMD5Skeleton(
         if (strcmp(child->mName.C_Str(), "<MD5_Hierarchy>") == 0)
         {
             // Found skeleton
-            return LoadMD5SkeletonNode(scene, child);
+            return LoadMD5SkeletonNode(scene, child, invBindPoseTransforms);
         }
     }
 
