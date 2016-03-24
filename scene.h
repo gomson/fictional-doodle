@@ -81,6 +81,7 @@ enum AnimChannel
 struct Skeleton
 {
     std::vector<std::string> BoneNames; // Name of each bone
+    std::unordered_map<std::string, int> BoneNameToID; // Bone ID lookup from name
     std::vector<glm::mat4> BoneInverseBindPoseTransforms; // Transforms a vertex from model space to bone space
     std::vector<int> BoneParents; // Bone parent index, or -1 if root
     int NumBones;
@@ -222,7 +223,7 @@ struct Scene
     std::vector<Material> Materials;
     std::vector<SceneNode> SceneNodes;
   
-    // Skinning shader. Used to skin vertices on GPU, and outputs vertices in world space.
+    // Skinning shader. Used to skin vertices on GPU.
     // These vertices are stored using transform feedback and fed into the rendering later.
     ReloadableShader SkinningVS{ "skinning.vert" };
     ReloadableProgram SkinningSP = ReloadableProgram(&SkinningVS)

@@ -17,7 +17,7 @@
 #include <string>
 #include <functional>
 
-static void LoadMaterials(
+static void LoadMD5Materials(
     Scene* scene,
     const char* assetFolder, const char* modelFolder,
     aiMaterial** materials, int numMaterials)
@@ -236,14 +236,11 @@ static void LoadMaterials(
     }
 }
 
-static void LoadMeshes(
+static void LoadMD5Meshes(
     Scene* scene,
-    const char* modelFolder,
+    int skeletonID,
     aiMesh** meshes, int numMeshes)
 {
-    std::vector<int> indexCounts(numMeshes);
-    std::vector<int> vertexCounts(numMeshes);
-
     for (int meshIdx = 0; meshIdx < numMeshes; meshIdx++)
     {
         aiMesh* mesh = meshes[meshIdx];
@@ -277,21 +274,151 @@ static void LoadMeshes(
             fprintf(stderr, "Mesh %s didn't have bitangents\n", mesh->mName.C_Str());
             exit(1);
         }
+
+        if (!mesh->mBones)
+        {
+            fprintf(stderr, "Mesh %s didn't have bones\n", mesh->mName.C_Str());
+            exit(1);
+        }
+
+        int vertexCount = (int)mesh->mNumVertices;
+        std::vector<PositionVertex> positions(vertexCount);
+        std::vector<TexCoordVertex> texCoords(vertexCount);
+        std::vector<DifferentialVertex> differentials(vertexCount);
+        for (int vertexIdx = 0; vertexIdx < vertexCount; vertexIdx++)
+        {
+            positions[vertexIdx].Position = glm::make_vec3(&mesh->mVertices[vertexIdx][0]);
+            texCoords[vertexIdx].TexCoord0 = glm::make_vec2(&mesh->mTextureCoords[0][vertexIdx][0]);
+            differentials[vertexIdx].Normal = glm::make_vec3(&mesh->mNormals[vertexIdx][0]);
+            differentials[vertexIdx].Tangent = glm::make_vec3(&mesh->mTangents[vertexIdx][0]);
+            differentials[vertexIdx].Bitangent = glm::make_vec3(&mesh->mBitangents[vertexIdx][0]);
+        }
+
+        const Skeleton& skeleton = scene->Skeletons[skeletonID];
+
+        int boneCount = (int)mesh->mNumBones;
+        std::vector<BoneWeightVertex> boneWeights(vertexCount);
+        std::vector<int> vertexNumBones(vertexCount);
+        for (int boneIdx = 0; boneIdx < boneCount; boneIdx++)
+        {
+            aiBone* bone = mesh->mBones[boneIdx];
+            int boneWeightCount = (int)bone->mNumWeights;
+            
+            auto foundBone = skeleton.BoneNameToID.find(bone->mName.C_Str());
+            if (foundBone == end(skeleton.BoneNameToID))
+            {
+                fprintf(stderr, "Couldn't find bone %s in skeleton\n", bone->mName.C_Str());
+                exit(1);
+            }
+
+            int boneID = foundBone->second;
+
+            for (int weightIdx = 0; weightIdx < boneWeightCount; weightIdx++)
+            {
+                aiVertexWeight vertexWeight = bone->mWeights[weightIdx];
+                int vertexID = vertexWeight.mVertexId;
+                float weight = vertexWeight.mWeight;
+
+                if (vertexNumBones[vertexID] < 4)
+                {
+                    boneWeights[vertexID].BoneIDs[vertexNumBones[vertexID]] = boneID;
+                    boneWeights[vertexID].Weights[vertexNumBones[vertexID]] = weight;
+                    vertexNumBones[vertexID]++;
+                }
+                else if (boneWeights[vertexID].Weights[3] < weight)
+                {
+                    // Keep the top 4 influencing weights in sorted order. bubble down.
+                    boneWeights[vertexID].Weights[3] = weight;
+                    for (int nextWeight = 2; nextWeight >= 0; nextWeight--)
+                    {
+                        if (boneWeights[vertexID].Weights[nextWeight] >= boneWeights[vertexID].Weights[nextWeight + 1])
+                        {
+                            break;
+                        }
+                        
+                        std::swap(boneWeights[vertexID].Weights[nextWeight], boneWeights[vertexID].Weights[nextWeight + 1]);
+                    }
+                }
+            }
+        }
+
+        int faceCount = (int)mesh->mNumFaces;
+        std::vector<glm::uvec3> indices(faceCount);
+        for (int faceIdx = 0; faceIdx < faceCount; faceIdx++)
+        {
+            indices[faceIdx] = glm::make_vec3(&mesh->mFaces[faceIdx].mIndices[0]);
+        }
+
+        BindPoseMesh bindPoseMesh;
+        bindPoseMesh.NumVertices = vertexCount;
+        bindPoseMesh.NumIndices = faceCount * 3;
+        bindPoseMesh.SkeletonID = skeletonID;
+
+        glGenBuffers(1, &bindPoseMesh.PositionVBO);
+        glBindBuffer(GL_ARRAY_BUFFER, bindPoseMesh.PositionVBO);
+        glBufferData(GL_ARRAY_BUFFER, positions.size() * sizeof(positions[0]), positions.data(), GL_STATIC_DRAW);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+        glGenBuffers(1, &bindPoseMesh.TexCoordVBO);
+        glBindBuffer(GL_ARRAY_BUFFER, bindPoseMesh.TexCoordVBO);
+        glBufferData(GL_ARRAY_BUFFER, texCoords.size() * sizeof(texCoords[0]), texCoords.data(), GL_STATIC_DRAW);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+        glGenBuffers(1, &bindPoseMesh.DifferentialVBO);
+        glBindBuffer(GL_ARRAY_BUFFER, bindPoseMesh.DifferentialVBO);
+        glBufferData(GL_ARRAY_BUFFER, differentials.size() * sizeof(differentials[0]), differentials.data(), GL_STATIC_DRAW);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+        glGenBuffers(1, &bindPoseMesh.BoneVBO);
+        glBindBuffer(GL_ARRAY_BUFFER, bindPoseMesh.BoneVBO);
+        glBufferData(GL_ARRAY_BUFFER, boneWeights.size() * sizeof(boneWeights[0]), boneWeights.data(), GL_STATIC_DRAW);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+        glGenBuffers(1, &bindPoseMesh.EBO);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bindPoseMesh.EBO);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(indices[0]), indices.data(), GL_STATIC_DRAW);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+        glGenVertexArrays(1, &bindPoseMesh.SkinningVAO);
+        glBindVertexArray(bindPoseMesh.SkinningVAO);
+
+        glBindBuffer(GL_ARRAY_BUFFER, bindPoseMesh.PositionVBO);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(PositionVertex), (GLvoid*)offsetof(PositionVertex, Position));
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+        glEnableVertexAttribArray(0);
+
+        glBindBuffer(GL_ARRAY_BUFFER, bindPoseMesh.TexCoordVBO);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(TexCoordVertex), (GLvoid*)offsetof(TexCoordVertex, TexCoord0));
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+        glEnableVertexAttribArray(1);
+
+        glBindBuffer(GL_ARRAY_BUFFER, bindPoseMesh.DifferentialVBO);
+        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(DifferentialVertex), (GLvoid*)offsetof(DifferentialVertex, Normal));
+        glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(DifferentialVertex), (GLvoid*)offsetof(DifferentialVertex, Tangent));
+        glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(DifferentialVertex), (GLvoid*)offsetof(DifferentialVertex, Bitangent));
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+        glEnableVertexAttribArray(2);
+        glEnableVertexAttribArray(3);
+        glEnableVertexAttribArray(4);
+
+        glBindBuffer(GL_ARRAY_BUFFER, bindPoseMesh.BoneVBO);
+        glVertexAttribIPointer(5, 4, GL_UNSIGNED_BYTE, sizeof(BoneWeightVertex), (GLvoid*)offsetof(BoneWeightVertex, BoneIDs));
+        glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(BoneWeightVertex), (GLvoid*)offsetof(BoneWeightVertex, Weights));
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+        glEnableVertexAttribArray(5);
+        glEnableVertexAttribArray(6);
+
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bindPoseMesh.EBO);
+
+        glBindVertexArray(0);
     }
 }
 
-static void ParseMD5MeshNode(
-    Scene* scene,
-    aiNode* ainode)
-{
-    if (strcmp(ainode->mName.C_Str(), "<MD5_Mesh>") != 0)
-    {
-        fprintf(stderr, "Expected <MD5_Mesh>, got %s\n", ainode->mName.C_Str());
-        exit(1);
-    }
-}
-
-static void ParseMD5HierarchyNode(
+static int LoadMD5SkeletonNode(
     Scene* scene,
     aiNode* ainode)
 {
@@ -300,37 +427,37 @@ static void ParseMD5HierarchyNode(
         fprintf(stderr, "Expected <MD5_Hierarchy>, got %s\n", ainode->mName.C_Str());
         exit(1);
     }
+
+    return 0;
 }
 
-static void ParseMD5RootNode(
+static int LoadMD5Skeleton(
     Scene* scene,
-    aiNode* ainode)
+    const aiScene* aiscene)
 {
-    if (strcmp(ainode->mName.C_Str(), "<MD5_Root>") != 0)
+    aiNode* root = aiscene->mRootNode;
+
+    if (strcmp(root->mName.C_Str(), "<MD5_Root>") != 0)
     {
-        fprintf(stderr, "Expected <MD5_Root>, got %s\n", ainode->mName.C_Str());
+        fprintf(stderr, "Expected <MD5_Root>, got %s\n", root->mName.C_Str());
         exit(1);
     }
 
     // traverse all children
-    for (int childIdx = 0; childIdx < (int)ainode->mNumChildren; childIdx++)
+    for (int childIdx = 0; childIdx < (int)root->mNumChildren; childIdx++)
     {
-        aiNode* child = ainode->mChildren[childIdx];
+        aiNode* child = root->mChildren[childIdx];
 
-        if (strcmp(child->mName.C_Str(), "<MD5_Mesh>") == 0)
+        if (strcmp(child->mName.C_Str(), "<MD5_Hierarchy>") == 0)
         {
-            ParseMD5MeshNode(scene, child);
-        }
-        else if (strcmp(child->mName.C_Str(), "<MD5_Hierarchy>") == 0)
-        {
-            ParseMD5HierarchyNode(scene, child);
-        }
-        else
-        {
-            fprintf(stderr, "Unexpected root node child: %s\n", child->mName.C_Str());
-            exit(1);
+            // Found skeleton
+            return LoadMD5SkeletonNode(scene, child);
         }
     }
+
+    fprintf(stderr, "Failed to find skeleton in scene\n");
+    exit(1);
+    return -1;
 }
 
 void LoadMD5Mesh(
@@ -346,11 +473,9 @@ void LoadMD5Mesh(
         exit(1);
     }
 
-    LoadMaterials(scene, assetFolder, modelFolder, aiscene->mMaterials, (int)aiscene->mNumMaterials);
-
-    ParseMD5RootNode(scene, aiscene->mRootNode);
-    
-    // LoadMeshes(scene, modelFolder, aiscene->mMeshes, (int)aiscene->mNumMeshes);
+    LoadMD5Materials(scene, assetFolder, modelFolder, aiscene->mMaterials, (int)aiscene->mNumMaterials);
+    int skeletonID = LoadMD5Skeleton(scene, aiscene);
+    LoadMD5Meshes(scene, skeletonID, &aiscene->mMeshes[0], (int)aiscene->mNumMeshes);
 
     aiReleaseImport(aiscene);
 }
@@ -372,9 +497,9 @@ void LoadMD5Anim(
     }
 
     // Check if file contains an animation
-    if (!animScene->mNumAnimations)
+    if (animScene->mNumAnimations != 1)
     {
-        fprintf(stderr, "No animations: %s\n", fullpath.c_str());
+        fprintf(stderr, "Expected 1 animation in %s, got %d\n", fullpath.c_str(), (int)animScene->mNumAnimations);
         return;
     }
 

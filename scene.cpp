@@ -91,6 +91,8 @@ static int AddSkinnedMesh(
     glEnableVertexAttribArray(3);
     glEnableVertexAttribArray(4);
 
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bindPoseMesh.EBO);
+
     glBindVertexArray(0);
 
     scene->SkinnedMeshes.push_back(std::move(skinnedMesh));
