@@ -387,13 +387,13 @@ void LoadMD5Anim(
     animSequence.Name = std::string(modelFolder) + animFile;
     animSequence.SkeletonID = skeletonID;
     animSequence.FramesPerSecond = (int)animation->mTicksPerSecond;
+    animSequence.NumFrames = (int)animSequence->mDuration;
 
     // Allocate storage for each bone
     animSequence.BoneBaseFrame.resize(animation->mNumChannels);
     animSequence.BoneChannelBits.resize(animation->mNumChannels);
     animSequence.BoneFrameDataOffsets.resize(animation->mNumChannels);
 
-    int numFrames = (int)animation->mDuration;
     int numFrameComponents = 0;
 
     // For each bone
@@ -461,13 +461,13 @@ void LoadMD5Anim(
     }
 
     // Create storage for frame data
-    animSequence.BoneFrameData.resize(numFrames * numFrameComponents);
+    animSequence.BoneFrameData.resize(animSequence.NumFrames * numFrameComponents);
     animSequence.NumFrameComponents = numFrameComponents;
 
     // Generate encoded frame data
     for (int bone = 0; bone < (int)animation->mNumChannels; bone++)
     {
-        for (int frame = 0; frame < numFrames; frame++)
+        for (int frame = 0; frame < animSequence.NumFrames; frame++)
         {
             int off = animSequence.BoneFrameDataOffsets[bone];
             uint8_t bits = animSequence.BoneChannelBits[bone];
@@ -518,6 +518,7 @@ void LoadMD5Anim(
 #if 0
 void LoadScene(Scene* scene)
 {
+    /*
 #if 1
     std::string scenepath = "assets/hellknight/";
     std::string modelname = "hellknight.md5mesh";
@@ -802,5 +803,6 @@ void LoadScene(Scene* scene)
         scene->BoneDynamicsPositions[i].resize(numBones);
         scene->BoneDynamicsVelocities[i].resize(numBones);
     }
+    */
 }
 #endif
