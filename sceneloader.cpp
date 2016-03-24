@@ -238,8 +238,8 @@ static void LoadMD5Materials(
 
 static int LoadMD5SkeletonNode(
     Scene* scene,
-    aiNode* ainode,
-    std::unordered_map<std::string, glm::mat4> invBindPoseTransforms)
+    const aiNode* ainode,
+    const std::unordered_map<std::string, glm::mat4>& invBindPoseTransforms)
 {
     if (strcmp(ainode->mName.C_Str(), "<MD5_Hierarchy>") != 0)
     {
@@ -286,11 +286,20 @@ static int LoadMD5SkeletonNode(
     {
         skeleton.BoneNames[boneID] = boneNodes[boneID]->mName.C_Str();
         skeleton.BoneNameToID.emplace(skeleton.BoneNames[boneID], boneID);
-        skeleton.BoneInverseBindPoseTransforms[boneID] = invBindPoseTransforms[skeleton.BoneNames[boneID]];
+
+        // Unused bones won't have an inverse bind pose transform to use
+        auto it = invBindPoseTransforms.find(skeleton.BoneNames[boneID]);
+        if (it != invBindPoseTransforms.end())
+        {
+            skeleton.BoneInverseBindPoseTransforms[boneID] = it->second;
+        }
+        else
+        {
+            fprintf(stderr, "Bone %s has no inverse bind pose transform\n", skeleton.BoneNames[boneID].c_str());
+        }
     }
 
     scene->Skeletons.push_back(std::move(skeleton));
-
     return (int)scene->Skeletons.size() - 1;
 }
 
