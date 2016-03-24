@@ -13,18 +13,17 @@ static void ComputeUnitQuatW(glm::quat& q)
     q.w = ww < 0.0f ? 0.0f : -sqrt(ww);
 }
 
-void DecodeFrame(const Scene* scene, int animationID, int frameID, std::vector<SQT>& boneTransforms)
+void DecodeFrame(const Scene* scene, int animID, int frameID, std::vector<SQT>& frame)
 {
-    const AnimSequence& animSeq = scene->AnimSequences[animationID];
+    const AnimSequence& animSeq = scene->AnimSequences[animID];
     const Skeleton &skeleton = scene->Skeletons[animSeq.SkeletonID];
 
-    int numBones = (int)size(animSeq.BoneBaseFrame);
     int frameOffset = frameID * animSeq.NumFrameComponents;
 
-    boneTransforms.resize(numBones);
+    frame.resize(animSeq.numBones);
 
     // Decode channel animation data
-    for (int bone = 0; bone < numBones; bone++)
+    for (int bone = 0; bone < animSeq.NumBones; bone++)
     {
         const float* frameData = data(animSeq.BoneFrameData) + animSeq.BoneFrameDataOffsets[bone] + frameOffset;
         glm::vec3 animatedT = animSeq.BoneBaseFrame[bone].T;
@@ -59,24 +58,44 @@ void DecodeFrame(const Scene* scene, int animationID, int frameID, std::vector<S
 
         if (skeleton.BoneParents[bone] < 0)
         {
-            boneTransforms[bone].T = animatedT;
-            boneTransforms[bone].Q = animatedQ;
+            frame[bone].T = animatedT;
+            frame[bone].Q = animatedQ;
         }
         else
         {
-            const SQT& parentTransform = boneTransforms[skeleton.BoneParents[bone]];
-
-            // Rotate position relative to parent
-            glm::vec3 rotatedT = glm::rotate(parentTransform.Q, animatedT);
-
-            // Compute final transformations
-            boneTransforms[bone].T = parentTransform.T + rotatedT;
-            boneTransforms[bone].Q = parentTransform.Q * animatedQ;
+            // Apply parent transformations
+            const SQT& parentTransform = frame[skeleton.BoneParents[bone]];
+            frame[bone].T = glm::rotate(parentTransform.Q, animatedT) + parentTransform.T;
+            frame[bone].Q = glm::normalize(parentTransform.Q * animatedQ);
         }
     }
 }
 
-void InterpolateFrames(Scene* scene)
+void InterpolateFrames(
+    Scene* scene,
+    int animID,
+    int frame1ID,
+    int frame2ID,
+    float alpha,
+    std::vector<SQT>& frame)
 {
+    const AnimSequence& animSeq = scene->AnimSequences[animID];
 
+    // TODO: These should be persisted somewhere to avoid reallocations, perhaps on the scene object itself as
+    // general buffers to use for any frames?
+    std::vector<SQT> frame1;
+    std::vector<SQT> frame2;
+
+    DecodeFrame(scene, animID, frame1ID, frame1);
+    DecodeFrame(scene, animID, frame2ID, frame2);
+
+    // Maybe only resize if size if too small?
+    interpolatedFrame.resize(animSeq.NumBones);
+
+    for (int bone = 0; bone < animSeq.NumBones; bone++)
+    {
+        frame[bone].T = glm::mix(frame1[bone].T, frame2[bone].T, alpha);
+        frame[bone].Q = glm::mix(frame1[bone].Q, frame2[bone].Q, alpha);
+    }
+}
 }
