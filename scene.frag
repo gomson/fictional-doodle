@@ -15,7 +15,7 @@ void main()
 {
     vec3 diffuseMap = texture(DiffuseTexture, fTexCoord).rgb;
     vec3 specularMap = texture(SpecularTexture, fTexCoord).rgb;
-    vec3 normalMap = texture(NormalTexture, fTexCoord).rgb;
+    vec3 normalMap = normalize(texture(NormalTexture, fTexCoord).rgb);
 
     vec3 tangent = normalize(fTangent);
     vec3 bitangent = normalize(fBitangent);
@@ -23,6 +23,5 @@ void main()
     mat3 tangentModelMatrix = mat3(tangent, bitangent, normal);
 
     vec3 modelNormal = tangentModelMatrix * normalMap;
-
-    FragColor = modelNormal;
+    FragColor = diffuseMap.rgb;
 }

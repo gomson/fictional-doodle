@@ -19,7 +19,7 @@
     <ClCompile Include="..\shaderreloader.cpp" />
     <ClCompile Include="..\mysdl_dpi.cpp" />
     <ClCompile Include="..\sceneloader.cpp" />
-    <ClCompile Include="..\skinning.cpp" />
+    <ClCompile Include="..\animation.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\scene.frag" />
@@ -56,6 +56,6 @@
     <ClInclude Include="..\shaderreloader.h" />
     <ClInclude Include="..\mysdl_dpi.h" />
     <ClInclude Include="..\sceneloader.h" />
-    <ClInclude Include="..\skinning.h" />
+    <ClInclude Include="..\animation.h" />
   </ItemGroup>
 </Project>

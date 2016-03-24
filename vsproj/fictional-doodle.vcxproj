@@ -89,6 +89,7 @@ xcopy /d /y "$(SolutionDir)lib\assimp.dll" "$(OutDir)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\animation.cpp" />
     <ClCompile Include="..\imgui\imgui.cpp" />
     <ClCompile Include="..\imgui\imgui_demo.cpp" />
     <ClCompile Include="..\imgui\imgui_draw.cpp" />
@@ -101,7 +102,6 @@ xcopy /d /y "$(SolutionDir)lib\assimp.dll" "$(OutDir)"</Command>
     <ClCompile Include="..\scene.cpp" />
     <ClCompile Include="..\sceneloader.cpp" />
     <ClCompile Include="..\shaderreloader.cpp" />
-    <ClCompile Include="..\skinning.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\scene.frag" />
@@ -109,6 +109,7 @@ xcopy /d /y "$(SolutionDir)lib\assimp.dll" "$(OutDir)"</Command>
     <None Include="..\skinning.vert" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\animation.h" />
     <ClInclude Include="..\dynamics.h" />
     <ClInclude Include="..\imgui\imconfig.h" />
     <ClInclude Include="..\imgui\imgui.h" />
@@ -123,7 +124,6 @@ xcopy /d /y "$(SolutionDir)lib\assimp.dll" "$(OutDir)"</Command>
     <ClInclude Include="..\scene.h" />
     <ClInclude Include="..\sceneloader.h" />
     <ClInclude Include="..\shaderreloader.h" />
-    <ClInclude Include="..\skinning.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

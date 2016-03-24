@@ -116,6 +116,11 @@ static void LoadMD5Materials(
             }
             else
             {
+                if (req_comp != 0)
+                {
+                    comp = req_comp;
+                }
+
                 GLenum srcDataFormat[4] = {
                     GL_RED, GL_RG, GL_RGB, GL_RGBA
                 };
