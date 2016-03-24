@@ -249,7 +249,15 @@ static int LoadMD5SkeletonNode(
     // traverse skeleton and flatten it
     std::vector<aiNode*> boneNodes;
     std::vector<int> boneParentIDs;
-    for (std::vector<std::pair<aiNode*, int>> skeletonDFSStack{ {ainode, -1 } }; !empty(skeletonDFSStack);)
+    std::vector<std::pair<aiNode*, int>> skeletonDFSStack;
+
+    // Initialize stack with parentless bones
+    for (int childIdx = (int)ainode->mNumChildren - 1; childIdx >= 0; childIdx--)
+    {
+        skeletonDFSStack.emplace_back(ainode->mChildren[childIdx], -1);
+    }
+
+    while (!empty(skeletonDFSStack))
     {
         aiNode* node = skeletonDFSStack.back().first;
         int parentID = skeletonDFSStack.back().second;
