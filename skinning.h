@@ -18,3 +18,9 @@ void InterpolateFrames(
     int frame2ID,
     float alpha,
     std::vector<SQT>& frame);
+
+void GetFrameAtTime(
+    Scene* scene,
+    int animID,
+    int animTime,
+    std::vector<SQT>& frame);
