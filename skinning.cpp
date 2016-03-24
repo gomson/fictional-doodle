@@ -65,8 +65,8 @@ void DecodeFrame(Scene* scene, int animID, int frameID, std::vector<SQT>& frame)
         {
             // Apply parent transformations
             const SQT& parentTransform = frame[skeleton.BoneParents[bone]];
-            frame[bone].T = glm::rotate(parentTransform.Q, animatedT) + parentTransform.T;
-            frame[bone].Q = glm::normalize(parentTransform.Q * animatedQ);
+            frame[bone].T = rotate(parentTransform.Q, animatedT) + parentTransform.T;
+            frame[bone].Q = normalize(parentTransform.Q * animatedQ);
         }
     }
 }
@@ -95,8 +95,8 @@ void InterpolateFrames(
 
     for (int bone = 0; bone < skeleton.NumBones; bone++)
     {
-        frame[bone].T = glm::mix(frame1[bone].T, frame2[bone].T, alpha);
-        frame[bone].Q = glm::mix(frame1[bone].Q, frame2[bone].Q, alpha);
+        frame[bone].T = mix(frame1[bone].T, frame2[bone].T, alpha);
+        frame[bone].Q = mix(frame1[bone].Q, frame2[bone].Q, alpha);
     }
 }
 
