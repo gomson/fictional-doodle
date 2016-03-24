@@ -431,50 +431,37 @@ static void ShowToolboxGUI(Scene* scene, SDL_Window* window)
     ImGui::End();
 }
 
-#if 0
 static void UpdateSceneSkinnedGeometry(Scene* scene, uint32_t dt_ms)
 {
-    // Update matrix palette based on current sequence/frame of animation
-    {
-        for (int skinnedMeshIdx = 0; skinnedMeshIdx < (int)scene->SkinnedMeshDrawCommands.size(); skinnedMeshIdx++)
-        {
-
-        }
-    }
-
     // Skin vertices using the matrix palette and store them with transform feedback
+    glUseProgram(scene->SkinningSP.Handle);
+    glEnable(GL_RASTERIZER_DISCARD);
+    for (int skinnedMeshIdx = 0; skinnedMeshIdx < (int)scene->SkinnedMeshes.size(); skinnedMeshIdx++)
     {
-        glUseProgram(scene->SkinningSP.Handle);
-        glBindVertexArray(scene->SkinningVAO);
+        const SkinnedMesh& skinnedMesh = scene->SkinnedMeshes[skinnedMeshIdx];
+        int bindPoseMeshID = skinnedMesh.BindPoseMeshID;
+        const BindPoseMesh& bindPoseMesh = scene->BindPoseMeshes[bindPoseMeshID];
+        int animatedSkeletonID = skinnedMesh.AnimatedSkeletonID;
+        const AnimatedSkeleton& animatedSkeleton = scene->AnimatedSkeletons[animatedSkeletonID];
 
-        glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, scene->SkinningTFO);
-        glEnable(GL_RASTERIZER_DISCARD);
+        glBindVertexArray(bindPoseMesh.SkinningVAO);
+
+        glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, skinnedMesh.SkinningTFO);
         glBeginTransformFeedback(GL_POINTS); // capture points so triangles aren't unfolded
 
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_BUFFER, scene->SkinningMatrixPaletteTexture);
+        glBindTexture(GL_TEXTURE_BUFFER, animatedSkeleton.BoneTransformTO);
         glUniform1i(scene->SkinningSP_BoneTransformsLoc, 0);
 
-        // skin every mesh in the scene one by one
-        for (int skinnedMeshIdx = 0; skinnedMeshIdx < (int)scene->SkinnedMeshDrawCommands.size(); skinnedMeshIdx++)
-        {
-            int nodeID = scene->SkinnedMeshNodeIDs[skinnedMeshIdx];
-
-            GLDrawElementsIndirectCommand draw = scene->SkinnedMeshDrawCommands[skinnedMeshIdx];
-            int bindPoseID = scene->SkinnedMeshBindPoseIDs[skinnedMeshIdx];
-            int numVertices = scene->BindBoseMeshNumVertices[bindPoseID];
-            glDrawArrays(GL_POINTS, draw.baseVertex, numVertices);
-        }
+        glDrawArrays(GL_POINTS, 0, bindPoseMesh.NumVertices);
 
         glEndTransformFeedback();
-        glDisable(GL_RASTERIZER_DISCARD);
-        glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, 0);
-
-        glBindVertexArray(0);
-        glUseProgram(0);
     }
+    glDisable(GL_RASTERIZER_DISCARD);
+    glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, 0);
+    glBindVertexArray(0);
+    glUseProgram(0);
 }
-#endif
 
 void UpdateScene(Scene* scene, SDL_Window* window, uint32_t dt_ms)
 {
@@ -513,9 +500,9 @@ void UpdateScene(Scene* scene, SDL_Window* window, uint32_t dt_ms)
             !scene->EnableCamera ? 0 : keyboardState[SDL_SCANCODE_LCTRL] || keyboardState[SDL_SCANCODE_LSHIFT]);
     }
 
-#if 0
     UpdateSceneSkinnedGeometry(scene, dt_ms);
 
+#if 0
     UpdateSceneDynamics(scene, dt_ms);
 #endif
 }
