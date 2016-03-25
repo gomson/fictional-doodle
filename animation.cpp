@@ -96,7 +96,7 @@ void InterpolateFrames(
     for (int bone = 0; bone < skeleton.NumBones; bone++)
     {
         frame[bone].T = mix(frame1[bone].T, frame2[bone].T, alpha);
-        frame[bone].Q = mix(frame1[bone].Q, frame2[bone].Q, alpha);
+        frame[bone].Q = slerp(frame1[bone].Q, frame2[bone].Q, alpha);
     }
 }
 
