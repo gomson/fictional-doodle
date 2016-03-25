@@ -17,7 +17,7 @@ uniform vec3 CameraPosition;
 
 void main()
 {
-    vec3 worldLightPosition = vec3(100, 100, 100);
+    vec3 worldLightPosition = vec3(100, 1000, 100);
     vec3 modelLightPosition = (WorldModel * vec4(worldLightPosition, 1)).xyz;
 
     vec3 diffuseMap = texture(DiffuseTexture, fTexCoord).rgb;
@@ -40,11 +40,11 @@ void main()
     vec3 R = reflect(L, N); // reflection direction
     float S = pow(max(0, dot(R, V)), 5); // specular coefficient
 
-    float kA = 0.01;
+    float kA = 0.05;
     float kD = 1.0;
     float kS = 0.2;
 
-    vec3 ambient = vec3(1) * kA;
+    vec3 ambient = diffuseMap * kA;
     vec3 diffuse = G * diffuseMap * kD;
     vec3 specular = S * specularMap * kS;
 

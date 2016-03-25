@@ -148,9 +148,10 @@ void PaintRenderer(
                 glm::mat4 modelView = worldView * modelWorld;
                 glm::mat4 modelViewProjection = worldViewProjection * modelWorld;
 
-                glUniformMatrix4fv(scene->SceneSP_ModelWorldLoc, 1, GL_FALSE, glm::value_ptr(modelWorld));
-                glUniformMatrix4fv(scene->SceneSP_ModelViewLoc, 1, GL_FALSE, glm::value_ptr(modelView));
-                glUniformMatrix4fv(scene->SceneSP_ModelViewProjectionLoc, 1, GL_FALSE, glm::value_ptr(modelViewProjection));
+                glUniformMatrix4fv(scene->SceneSP_ModelWorldLoc, 1, GL_FALSE, value_ptr(modelWorld));
+                glUniformMatrix4fv(scene->SceneSP_WorldModelLoc, 1, GL_FALSE, value_ptr(glm::inverse(modelWorld)));
+                glUniformMatrix4fv(scene->SceneSP_ModelViewLoc, 1, GL_FALSE, value_ptr(modelView));
+                glUniformMatrix4fv(scene->SceneSP_ModelViewProjectionLoc, 1, GL_FALSE, value_ptr(modelViewProjection));
                 
                 glDrawElements(GL_TRIANGLES, bindPoseMesh.NumIndices, GL_UNSIGNED_INT, NULL);
             }
