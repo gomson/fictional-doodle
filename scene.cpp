@@ -48,6 +48,7 @@ static int AddAnimatedSkeleton(
 
     animatedSkeleton.CurrAnimSequenceID = initialAnimSequenceID;
     animatedSkeleton.CurrTimeMillisecond = 0;
+    animatedSkeleton.TimeMultiplier = 1.0f;
     animatedSkeleton.InterpolateFrames = true;
     animatedSkeleton.CPUBoneTransforms.resize(skeleton.NumBones);
     animatedSkeleton.BoneControls.resize(skeleton.NumBones, BONECONTROL_ANIMATION);
@@ -385,6 +386,9 @@ static void ShowToolboxGUI(Scene* scene, SDL_Window* window)
 
                 ImGui::Checkbox("Interpolate Frames", &animatedSkeleton.InterpolateFrames);
 
+                ImGui::Text("Animation Speed");
+                ImGui::SliderFloat("##animspeed", &animatedSkeleton.TimeMultiplier, 0.0f, 2.0f);
+
                 ImGui::Text("Animation Sequence");
                 if (ImGui::Combo("##animsequences", &currAnimSequenceIndexInCombo, animSequenceNames.data(), (int)animSequenceNames.size()))
                 {
@@ -416,7 +420,7 @@ static void UpdateAnimatedSkeletons(Scene* scene, uint32_t dt_ms)
     for (int animSkeletonIdx = 0; animSkeletonIdx < (int)scene->AnimatedSkeletons.size(); animSkeletonIdx++)
     {
         AnimatedSkeleton& animSkeleton = scene->AnimatedSkeletons[animSkeletonIdx];
-        animSkeleton.CurrTimeMillisecond += dt_ms;
+        animSkeleton.CurrTimeMillisecond += (uint32_t)(animSkeleton.TimeMultiplier * dt_ms);
 
         // Get new animation frame
         GetFrameAtTime(scene, animSkeleton.CurrAnimSequenceID, animSkeleton.CurrTimeMillisecond, animSkeleton.InterpolateFrames, frame);
