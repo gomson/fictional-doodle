@@ -1,3 +1,5 @@
+// Linear Blend Skinning
+
 #version 410
 
 layout(location = 0) in  vec4 Position;
@@ -16,22 +18,20 @@ out vec3 oBitangent;
 
 void main()
 {
-    mat4x3 skinningTransform = mat4x3(0.0);
+    // Transposed skinning matrix
+    mat3x4 skinningTransform = mat3x4(0.0);
 
+    // Blend matrices
     for (int i = 0; i < 4; i++)
     {
-        mat4x3 boneTransform = transpose(mat3x4(
-                texelFetch(BoneTransforms, int(BoneIDs[i]) * 3 + 0),
-                texelFetch(BoneTransforms, int(BoneIDs[i]) * 3 + 1),
-                texelFetch(BoneTransforms, int(BoneIDs[i]) * 3 + 2)));
-
-        skinningTransform += Weights[i] * boneTransform;
+        skinningTransform[0] += Weights[i] * texelFetch(BoneTransforms, int(BoneIDs[i]) * 3 + 0);
+        skinningTransform[1] += Weights[i] * texelFetch(BoneTransforms, int(BoneIDs[i]) * 3 + 1);
+        skinningTransform[2] += Weights[i] * texelFetch(BoneTransforms, int(BoneIDs[i]) * 3 + 2);
     }
 
-    oPosition = vec3(skinningTransform * Position);
-
-    // assuming no non-uniform scale
-    oNormal = mat3(skinningTransform) * Normal;
-    oTangent = mat3(skinningTransform) * Tangent;
-    oBitangent = mat3(skinningTransform) * Bitangent;
+    // Left multiply vectors with transposed matrix to undo transposition
+    oPosition  = Position  * skinningTransform;
+    oNormal    = Normal    * mat3x3(skinningTransform);
+    oTangent   = Tangent   * mat3x3(skinningTransform);
+    oBitangent = Bitangent * mat3x3(skinningTransform);
 }
