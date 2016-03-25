@@ -374,9 +374,15 @@ static void ShowToolboxGUI(Scene* scene, SDL_Window* window)
                 }
             }
 
+            int currSkinningMethodInCombo = 1;
+            std::vector<const char*> skinningMethodNames = { "Dual Quaternion Linear Blending", "Linear Blend Skinning" };
+
             // Display list to select animation
             if (!animSequenceNames.empty())
             {
+                // Right-align items to increase width of text
+                ImGui::PushItemWidth(-1.0f);
+
                 ImGui::Checkbox("Interpolate Frames", &animatedSkeleton.InterpolateFrames);
 
                 ImGui::Text("Animation Sequence");
@@ -385,6 +391,17 @@ static void ShowToolboxGUI(Scene* scene, SDL_Window* window)
                     animatedSkeleton.CurrAnimSequenceID = animSequenceIDs[currAnimSequenceIndexInCombo];
                     animatedSkeleton.CurrTimeMillisecond = 0;
                 }
+
+                ImGui::Text("Skinning Method:");
+                if (ImGui::Combo("##skinningmethods", &currSkinningMethodInCombo, skinningMethodNames.data(), (int)skinningMethodNames.size()))
+                {
+                    // TODO: Set skinning technique on skeleton or skinned mesh?
+                    //
+                    // The former option forces all meshes with the same skeleton to be animated the same way.
+                    // The latter requires deferring the upload of bone transformations, or uploading a unique buffer for each technique.
+                }
+
+                ImGui::PopItemWidth();
             }
         }
     }
