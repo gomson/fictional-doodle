@@ -38,7 +38,7 @@ static int AddAnimatedSkeleton(
 
     glGenBuffers(1, &animatedSkeleton.BoneTransformTBO);
     glBindBuffer(GL_TEXTURE_BUFFER, animatedSkeleton.BoneTransformTBO);
-    glBufferData(GL_TEXTURE_BUFFER, sizeof(SkinningMatrix) * skeleton.NumBones, NULL, GL_DYNAMIC_DRAW);
+    glBufferData(GL_TEXTURE_BUFFER, sizeof(glm::mat3x4) * skeleton.NumBones, NULL, GL_DYNAMIC_DRAW);
     glBindBuffer(GL_TEXTURE_BUFFER, 0);
 
     glGenTextures(1, &animatedSkeleton.BoneTransformTO);
@@ -435,14 +435,13 @@ static void UpdateAnimatedSkeletons(Scene* scene, uint32_t dt_ms)
             glm::mat4 orientation = mat4_cast(frame[boneIdx].Q);
             glm::mat4 boneTransform = skeleton.Transform * translation * orientation * skeleton.BoneInverseBindPoseTransforms[boneIdx];
 
-            animSkeleton.CPUBoneTransforms[boneIdx].Row0 = row(boneTransform, 0);
-            animSkeleton.CPUBoneTransforms[boneIdx].Row1 = row(boneTransform, 1);
-            animSkeleton.CPUBoneTransforms[boneIdx].Row2 = row(boneTransform, 2);
+            // Store upper 3 rows as columns, so the shader can extract each row as a texel
+            animSkeleton.CPUBoneTransforms[boneIdx] = transpose(glm::mat4x3(boneTransform));
         }
 
         // Upload skinning transformations
         glBindBuffer(GL_TEXTURE_BUFFER, animSkeleton.BoneTransformTBO);
-        glBufferSubData(GL_TEXTURE_BUFFER, 0, sizeof(SkinningMatrix) * skeleton.NumBones, (GLvoid*)data(animSkeleton.CPUBoneTransforms));
+        glBufferSubData(GL_TEXTURE_BUFFER, 0, sizeof(glm::mat3x4) * skeleton.NumBones, (GLvoid*)data(animSkeleton.CPUBoneTransforms));
         glBindBuffer(GL_TEXTURE_BUFFER, 0);
     }
 }

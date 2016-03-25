@@ -131,7 +131,7 @@ struct AnimatedSkeleton
     int CurrTimeMillisecond; // The current time in the current animation sequence in milliseconds
     float TimeMultiplier; // Controls the speed of animation
     bool InterpolateFrames; // If true, interpolate animation frames
-    std::vector<SkinningMatrix> CPUBoneTransforms; // Transforms a vertex in bone space.
+    std::vector<glm::mat3x4> CPUBoneTransforms; // Transforms a vertex in bone space.
     std::vector<BoneControlMode> BoneControls; // How each bone is animated
 };
 
@@ -238,7 +238,7 @@ struct Scene
   
     // Skinning shader. Used to skin vertices on GPU.
     // These vertices are stored using transform feedback and fed into the rendering later.
-    ReloadableShader SkinningVS{ "skinning.vert" };
+    ReloadableShader SkinningVS{ "skinning_lbs.vert" };
     ReloadableProgram SkinningSP = ReloadableProgram(&SkinningVS)
         .WithVaryings({"oPosition", "gl_NextBuffer", "oNormal", "oTangent", "oBitangent" }, GL_INTERLEAVED_ATTRIBS);
     GLint SkinningSP_BoneTransformsLoc;
