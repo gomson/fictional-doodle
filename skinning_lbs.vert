@@ -31,7 +31,7 @@ void main()
 
     // Left multiply vectors with transposed matrix to undo transposition
     oPosition  = Position  * skinningTransform;
-    oNormal    = Normal    * mat3x3(skinningTransform);
-    oTangent   = Tangent   * mat3x3(skinningTransform);
-    oBitangent = Bitangent * mat3x3(skinningTransform);
+    oNormal    = Normal    * mat3(skinningTransform);
+    oTangent   = Tangent   * mat3(skinningTransform);
+    oBitangent = Bitangent * mat3(skinningTransform);
 }
