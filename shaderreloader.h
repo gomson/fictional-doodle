@@ -111,4 +111,7 @@ struct ReloadableProgram
     GLenum TransformFeedbackBufferMode;
 };
 
-bool ReloadProgram(ReloadableProgram* program);
+void ReloadProgram(
+    ReloadableProgram* program,
+    bool* wasOutOfDate = NULL,
+    bool* newProgramLinked = NULL);

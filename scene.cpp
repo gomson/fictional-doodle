@@ -234,13 +234,22 @@ static void ReloadShaders(Scene* scene)
 {
     // Convenience functions to make things more concise
     GLuint sp;
-    bool programZero = false;
-    auto reload = [&sp, &programZero](ReloadableProgram* program)
+    bool anyProgramOutOfDate = false;
+    bool anyProgramRelinkFailed = false;
+    auto reload = [&sp, &anyProgramOutOfDate, &anyProgramRelinkFailed](ReloadableProgram* program)
     {
-        bool newProgram = ReloadProgram(program);
+        bool wasOutOfDate, newProgramLinked;
+        ReloadProgram(program, &wasOutOfDate, &newProgramLinked);
         sp = program->Handle;
-        if (sp == 0) programZero = true;
-        return newProgram;
+        if (wasOutOfDate)
+        {
+            anyProgramOutOfDate = true;
+        }
+        if (wasOutOfDate && !newProgramLinked)
+        {
+            anyProgramRelinkFailed = true;
+        }
+        return newProgramLinked;
     };
 
     // Get uniform and do nothing if not found
@@ -260,8 +269,6 @@ static void ReloadShaders(Scene* scene)
         }
         return *result == -1;
     };
-
-    scene->AllShadersOK = false;
 
     // Reload shaders & uniforms
     if (reload(&scene->SkinningSP))
@@ -288,9 +295,9 @@ static void ReloadShaders(Scene* scene)
         }
     }
 
-    if (!programZero)
+    if (anyProgramOutOfDate)
     {
-        scene->AllShadersOK = true;
+        scene->AllShadersOK = !anyProgramRelinkFailed;
     }
 }
 
@@ -337,6 +344,9 @@ static void ShowToolboxGUI(Scene* scene, SDL_Window* window)
     ImGui::SetNextWindowPos(ImVec2((float)w - toolboxW, 0), ImGuiSetCond_Always);
     if (ImGui::Begin("Toolbox", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize))
     {
+        ImVec4 shaderStatusColor = scene->AllShadersOK ? ImVec4(0, 1, 0, 1) : ImVec4(1, 0, 0, 1);
+        ImGui::ColorButton(shaderStatusColor); ImGui::SameLine(); ImGui::Text("Shader compilation status");
+
         int currSelectedAnimatedSkeleton = 0;
 
         if (currSelectedAnimatedSkeleton < (int)scene->AnimatedSkeletons.size())
@@ -526,14 +536,14 @@ static void UpdateDynamics(Scene* scene, uint32_t dt_ms)
 void UpdateScene(Scene* scene, SDL_Window* window, uint32_t dt_ms)
 {
     ReloadShaders(scene);
-    
+
+    ShowSystemInfoGUI(scene);
+    ShowToolboxGUI(scene, window);
+
     if (!scene->AllShadersOK)
     {
         return;
     }
-
-    ShowSystemInfoGUI(scene);
-    ShowToolboxGUI(scene, window);
 
     // Update camera
     {

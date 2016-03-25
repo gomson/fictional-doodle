@@ -71,7 +71,10 @@ static std::string ShaderStringFromFile(const char* filename)
     return std::move(s);
 }
 
-bool ReloadProgram(ReloadableProgram* program)
+void ReloadProgram(
+    ReloadableProgram* program,
+    bool* wasOutOfDate,
+    bool* newProgramLinked)
 {
     ReloadableShader* shaders[] = {
         program->VS,
@@ -132,6 +135,10 @@ bool ReloadProgram(ReloadableProgram* program)
         }
     }
 
+    bool programOK = !anyErrors;
+    if (newProgramLinked) *newProgramLinked = false;
+    if (wasOutOfDate) *wasOutOfDate = anyChanged;
+
     if (anyChanged && !anyErrors)
     {
         GLuint newProgram;
@@ -188,14 +195,13 @@ bool ReloadProgram(ReloadableProgram* program)
             }
             fprintf(stderr, "): %s\n", log.data());
             glDeleteProgram(newProgram);
+            programOK = false;
         }
         else
         {
             glDeleteProgram(program->Handle);
             program->Handle = newProgram;
-            return true;
+            if (newProgramLinked) *newProgramLinked = true;
         }
     }
-
-    return false;
 }

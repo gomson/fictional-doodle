@@ -61,11 +61,6 @@ void PaintRenderer(
     SDL_Window* window, 
     Scene* scene)
 {
-    if (!scene->AllShadersOK)
-    {
-        return;
-    }
-
     int drawableWidth, drawableHeight;
     SDL_GL_GetDrawableSize(window, &drawableWidth, &drawableHeight);
 
@@ -76,6 +71,7 @@ void PaintRenderer(
     glm::mat4 worldViewProjection = projection * worldView;
 
     // Scene rendering
+    if (scene->AllShadersOK)
     {
         glBindFramebuffer(GL_FRAMEBUFFER, renderer->BackbufferFBO);
 

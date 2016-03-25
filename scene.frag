@@ -17,7 +17,7 @@ uniform vec3 CameraPosition;
 
 void main()
 {
-    vec3 worldLightPosition = vec3(100, 1000, 100);
+    vec3 worldLightPosition = vec3(100, 500, 100);
     vec3 modelLightPosition = (WorldModel * vec4(worldLightPosition, 1)).xyz;
 
     vec3 diffuseMap = texture(DiffuseTexture, fTexCoord).rgb;
@@ -27,6 +27,10 @@ void main()
     vec3 tangent = normalize(fTangent);
     vec3 bitangent = normalize(fBitangent);
     vec3 normal = normalize(fNormal);
+    if (dot(cross(normal, tangent),bitangent) < 0)
+    {
+        tangent = -tangent;
+    }
     mat3 tangentModelMatrix = mat3(tangent, bitangent, normal);
 
     vec3 modelPosition = fPosition;
@@ -38,11 +42,11 @@ void main()
     vec3 L = normalize(modelLightPosition - modelPosition); // light direction
     float G = max(0, dot(N, L)); // geometric term
     vec3 R = reflect(L, N); // reflection direction
-    float S = pow(max(0, dot(R, V)), 5); // specular coefficient
+    float S = pow(max(0, dot(R, V)), 2); // specular coefficient
 
-    float kA = 0.05;
-    float kD = 1.0;
-    float kS = 0.2;
+    float kA = 0.01;
+    float kD = 0.9;
+    float kS = 0.1;
 
     vec3 ambient = diffuseMap * kA;
     vec3 diffuse = G * diffuseMap * kD;
