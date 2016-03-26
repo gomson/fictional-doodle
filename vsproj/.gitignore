@@ -2,3 +2,4 @@
 *.opendb
 x64
 .vs
+*.VC.db
