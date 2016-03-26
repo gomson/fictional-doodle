@@ -377,8 +377,6 @@ static void ShowToolboxGUI(Scene* scene, SDL_Window* window)
                 }
             }
 
-            std::vector<const char*> skinningMethodNames{"Dual Quaternion Linear Blending", "Linear Blend Skinning"};
-
             // Display list to select animation
             if (!animSequenceNames.empty())
             {
@@ -397,9 +395,15 @@ static void ShowToolboxGUI(Scene* scene, SDL_Window* window)
                     animatedSkeleton.CurrTimeMillisecond = 0;
                 }
 
-                ImGui::Text("Skinning Method:");
-                if (ImGui::Combo("##skinningmethods", (int*)&scene->MeshSkinningMethod, skinningMethodNames.data(), (int)skinningMethodNames.size()))
+                ImGui::Text("Skinning Method");
+                if (ImGui::RadioButton("Dual Quaternion Linear Blending", scene->MeshSkinningMethod == SKINNING_DLB))
                 {
+                    scene->MeshSkinningMethod = SKINNING_DLB;
+                    ReloadShaders(scene);
+                }
+                if (ImGui::RadioButton("Linear Blend Skinning", scene->MeshSkinningMethod == SKINNING_LBS))
+                {
+                    scene->MeshSkinningMethod = SKINNING_LBS;
                     ReloadShaders(scene);
                 }
 
