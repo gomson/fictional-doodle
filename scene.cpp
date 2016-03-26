@@ -460,6 +460,9 @@ static void UpdateAnimatedSkeletons(Scene* scene, uint32_t dt_ms)
             boneTransformsData = animSkeleton.BoneTransformMatrices.data();
             boneTransformsSize = sizeof(glm::mat3x4) * skeleton.NumBones;
             break;
+        default:
+            boneTransformsData = NULL;
+            boneTransformsSize = 0;
         }
 
         // Upload skinning transformations
