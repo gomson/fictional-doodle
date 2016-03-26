@@ -50,7 +50,8 @@ static int AddAnimatedSkeleton(
     animatedSkeleton.CurrTimeMillisecond = 0;
     animatedSkeleton.TimeMultiplier = 1.0f;
     animatedSkeleton.InterpolateFrames = true;
-    animatedSkeleton.CPUBoneTransforms.resize(skeleton.NumBones);
+    animatedSkeleton.BoneTransformDualQuats.resize(skeleton.NumBones);
+    animatedSkeleton.BoneTransformMatrices.resize(skeleton.NumBones);
     animatedSkeleton.BoneControls.resize(skeleton.NumBones, BONECONTROL_ANIMATION);
 
     scene->AnimatedSkeletons.push_back(std::move(animatedSkeleton));
@@ -229,6 +230,7 @@ void InitScene(Scene* scene)
     scene->CameraPosition = glm::vec3(85.9077225f, 200.844162f, 140.049072f);
     scene->CameraQuaternion = glm::vec4(-0.351835f, 0.231701f, 0.090335f, 0.902411f);
     scene->EnableCamera = true;
+    scene->MeshSkinningMethod = SKINNING_DLB;
 }
 
 static void ReloadShaders(Scene* scene)
@@ -272,7 +274,7 @@ static void ReloadShaders(Scene* scene)
     };
 
     // Reload shaders & uniforms
-    if (reload(&scene->SkinningSP))
+    if (reload(&scene->SkinningSPs[scene->MeshSkinningMethod]))
     {
         if (getU(&scene->SkinningSP_BoneTransformsLoc, "BoneTransforms"))
         {
@@ -375,8 +377,7 @@ static void ShowToolboxGUI(Scene* scene, SDL_Window* window)
                 }
             }
 
-            int currSkinningMethodInCombo = 1;
-            std::vector<const char*> skinningMethodNames = { "Dual Quaternion Linear Blending", "Linear Blend Skinning" };
+            std::vector<const char*> skinningMethodNames{"Dual Quaternion Linear Blending", "Linear Blend Skinning"};
 
             // Display list to select animation
             if (!animSequenceNames.empty())
@@ -397,12 +398,9 @@ static void ShowToolboxGUI(Scene* scene, SDL_Window* window)
                 }
 
                 ImGui::Text("Skinning Method:");
-                if (ImGui::Combo("##skinningmethods", &currSkinningMethodInCombo, skinningMethodNames.data(), (int)skinningMethodNames.size()))
+                if (ImGui::Combo("##skinningmethods", (int*)&scene->MeshSkinningMethod, skinningMethodNames.data(), (int)skinningMethodNames.size()))
                 {
-                    // TODO: Set skinning technique on skeleton or skinned mesh?
-                    //
-                    // The former option forces all meshes with the same skeleton to be animated the same way.
-                    // The latter requires deferring the upload of bone transformations, or uploading a unique buffer for each technique.
+                    ReloadShaders(scene);
                 }
 
                 ImGui::PopItemWidth();
@@ -434,14 +432,39 @@ static void UpdateAnimatedSkeletons(Scene* scene, uint32_t dt_ms)
             glm::mat4 translation = translate(frame[boneIdx].T);
             glm::mat4 orientation = mat4_cast(frame[boneIdx].Q);
             glm::mat4 boneTransform = skeleton.Transform * translation * orientation * skeleton.BoneInverseBindPoseTransforms[boneIdx];
+            glm::mat3x4 boneTransformRowsAsCols = transpose(glm::mat4x3(boneTransform));
 
-            // Store upper 3 rows as columns, so the shader can extract each row as a texel
-            animSkeleton.CPUBoneTransforms[boneIdx] = transpose(glm::mat4x3(boneTransform));
+            switch (scene->MeshSkinningMethod)
+            {
+            case SKINNING_DLB:
+                // Convert transform to a dual quaterion for the DLB shader
+                animSkeleton.BoneTransformDualQuats[boneIdx] = glm::dualquat(boneTransformRowsAsCols);
+                break;
+            case SKINNING_LBS:
+                // Use upper 3 rows as columns, so the LBS shader can extract each row as a texel
+                animSkeleton.BoneTransformMatrices[boneIdx] = boneTransformRowsAsCols;
+                break;
+            }
+        }
+
+        GLvoid *boneTransformsData;
+        GLsizeiptr boneTransformsSize;
+
+        switch (scene->MeshSkinningMethod)
+        {
+        case SKINNING_DLB:
+            boneTransformsData = animSkeleton.BoneTransformDualQuats.data();
+            boneTransformsSize = sizeof(glm::dualquat) * skeleton.NumBones;
+            break;
+        case SKINNING_LBS:
+            boneTransformsData = animSkeleton.BoneTransformMatrices.data();
+            boneTransformsSize = sizeof(glm::mat3x4) * skeleton.NumBones;
+            break;
         }
 
         // Upload skinning transformations
         glBindBuffer(GL_TEXTURE_BUFFER, animSkeleton.BoneTransformTBO);
-        glBufferSubData(GL_TEXTURE_BUFFER, 0, sizeof(glm::mat3x4) * skeleton.NumBones, (GLvoid*)data(animSkeleton.CPUBoneTransforms));
+        glBufferSubData(GL_TEXTURE_BUFFER, 0, boneTransformsSize, boneTransformsData);
         glBindBuffer(GL_TEXTURE_BUFFER, 0);
     }
 }
@@ -449,7 +472,7 @@ static void UpdateAnimatedSkeletons(Scene* scene, uint32_t dt_ms)
 static void UpdateSkinnedGeometry(Scene* scene, uint32_t dt_ms)
 {
     // Skin vertices using the matrix palette and store them with transform feedback
-    glUseProgram(scene->SkinningSP.Handle);
+    glUseProgram(scene->SkinningSPs[scene->MeshSkinningMethod].Handle);
     glUniform1i(scene->SkinningSP_BoneTransformsLoc, 0);
     glEnable(GL_RASTERIZER_DISCARD);
     for (int skinnedMeshIdx = 0; skinnedMeshIdx < (int)scene->SkinnedMeshes.size(); skinnedMeshIdx++)

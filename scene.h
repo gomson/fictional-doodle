@@ -5,6 +5,7 @@
 
 #include <glm/glm.hpp>
 #include <glm/gtc/type_precision.hpp>
+#include <glm/gtx/dual_quaternion.hpp>
 
 #include <string>
 #include <vector>
@@ -55,11 +56,11 @@ struct SQT
     glm::quat Q;
 };
 
-struct SkinningMatrix
+// Used for array indices, don't change!
+enum SkinningMethod
 {
-    glm::vec4 Row0;
-    glm::vec4 Row1;
-    glm::vec4 Row2;
+    SKINNING_DLB, // Dual quaternion linear blending
+    SKINNING_LBS  // Linear blend skinning
 };
 
 // Bitsets to say which components of the animation changes every frame
@@ -131,7 +132,8 @@ struct AnimatedSkeleton
     int CurrTimeMillisecond; // The current time in the current animation sequence in milliseconds
     float TimeMultiplier; // Controls the speed of animation
     bool InterpolateFrames; // If true, interpolate animation frames
-    std::vector<glm::mat3x4> CPUBoneTransforms; // Transforms a vertex in bone space.
+    std::vector<glm::dualquat> BoneTransformDualQuats; // Skinning palette for DLB
+    std::vector<glm::mat3x4> BoneTransformMatrices; // Skinning palette for LBS
     std::vector<BoneControlMode> BoneControls; // How each bone is animated
 };
 
@@ -236,11 +238,15 @@ struct Scene
     std::vector<Material> Materials;
     std::vector<SceneNode> SceneNodes;
   
-    // Skinning shader. Used to skin vertices on GPU.
-    // These vertices are stored using transform feedback and fed into the rendering later.
-    ReloadableShader SkinningVS{ "skinning_lbs.vert" };
-    ReloadableProgram SkinningSP = ReloadableProgram(&SkinningVS)
-        .WithVaryings({"oPosition", "gl_NextBuffer", "oNormal", "oTangent", "oBitangent" }, GL_INTERLEAVED_ATTRIBS);
+    // Skinning shader programs that output skinned vertices using transform feedback.
+    std::vector<const char*> SkinningOutputs{ "oPosition", "gl_NextBuffer", "oNormal", "oTangent", "oBitangent" };
+    ReloadableShader SkinningDLB{ "skinning_dlb.vert" };
+    ReloadableShader SkinningLBS{ "skinning_lbs.vert" };
+    ReloadableProgram SkinningSPs[2] =
+    {
+        ReloadableProgram(&SkinningDLB).WithVaryings(SkinningOutputs, GL_INTERLEAVED_ATTRIBS),
+        ReloadableProgram(&SkinningLBS).WithVaryings(SkinningOutputs, GL_INTERLEAVED_ATTRIBS)
+    };
     GLint SkinningSP_BoneTransformsLoc;
 
     // Scene shader. Used to render objects in the scene which have their geometry defined in world space.
@@ -269,6 +275,9 @@ struct Scene
     // The camera only reads user input when it is enabled.
     // Needed to implement menu navigation without the camera moving due to mouse/keyboard action.
     bool EnableCamera;
+
+    // The current skinning method used to skin all meshes in the scene
+    SkinningMethod MeshSkinningMethod;
 };
 
 void InitScene(Scene* scene);
