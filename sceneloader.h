@@ -13,9 +13,9 @@ void LoadMD5Mesh(
     Scene* scene,
     const char* assetFolder, const char* modelFolder,
     const char* meshfile,
-    std::vector<int>* addedMaterialIDs,
-    int* addedSkeletonID,
-    std::vector<int>* addedBindPoseMeshIDs);
+    std::vector<int>* loadedMaterialIDs,
+    int* loadedSkeletonID,
+    std::vector<int>* loadedBindPoseMeshIDs);
 
 // Adds the contents of a md5anim file to the scene.
 // Assumes skeletons are already in the Skeleton Table
@@ -25,4 +25,12 @@ void LoadMD5Anim(
     int skeletonID,
     const char* assetFolder, const char* modelFolder,
     const char* animfile,
-    int* addedAnimSequenceID);
+    int* loadedAnimSequenceID);
+
+// Adds the contents of an obj file to the scene
+void LoadOBJMesh(
+    Scene* scene,
+    const char* assetFolder, const char* modelFolder,
+    const char* objFile,
+    std::vector<int>* loadedMaterialIDs,
+    std::vector<int>* loadedStaticMeshIDs);

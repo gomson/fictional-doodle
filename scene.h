@@ -48,6 +48,7 @@ enum BoneControlMode
 enum SceneNodeType
 {
     SCENENODETYPE_TRANSFORM,
+    SCENENODETYPE_STATICMESH,
     SCENENODETYPE_SKINNEDMESH
 };
 
@@ -79,6 +80,20 @@ enum AnimChannel
     // There is no quaternion W, since the quaternions are normalized so it can be deduced from the x/y/z.
 };
 
+// StaticMesh Table
+// All unique static meshes.
+struct StaticMesh
+{
+    GLuint MeshVAO; // vertex array for drawing the mesh
+    GLuint PositionVBO; // position only buffer
+    GLuint TexCoordVBO; // texture coordinates buffer
+    GLuint DifferentialVBO; // differential geometry buffer (t,n,b)
+    GLuint MeshEBO; // Index buffer for the mesh
+    int NumIndices; // Number of indices in the static mesh
+    int NumVertices; // Number of vertices in the static mesh
+    int MaterialID; // The material this mesh was designed for
+};
+
 // Skeleton Table
 // All unique static skeleton definitions.
 struct Skeleton
@@ -89,8 +104,8 @@ struct Skeleton
     std::unordered_map<std::string, int> BoneNameToID; // Bone ID lookup from name
     std::vector<glm::mat4> BoneInverseBindPoseTransforms; // Transforms a vertex from model space to bone space
     std::vector<int> BoneParents; // Bone parent index, or -1 if root
-    int NumBones;
-    int NumBoneIndices;
+    int NumBones; // Number of bones in the skeleton
+    int NumBoneIndices; // Number of indices for rendering the skeleton as a line mesh
 };
 
 // BindPoseMesh Table
@@ -206,6 +221,11 @@ struct TransformSceneNode
     // Empty node with no purpose other than making nodes relative to it
 };
 
+struct StaticMeshSceneNode
+{
+    int StaticMeshID;
+};
+
 struct SkinnedMeshSceneNode
 {
     int SkinnedMeshID;
@@ -224,12 +244,15 @@ struct SceneNode
     union
     {
         TransformSceneNode AsTransform;
+        StaticMeshSceneNode AsStaticMesh;
         SkinnedMeshSceneNode AsSkinnedMesh;
     };
 };
 
 struct Scene
 {
+    std::vector<StaticMesh> StaticMeshes;
+
     std::vector<Skeleton> Skeletons;
 
     std::vector<BindPoseMesh> BindPoseMeshes;
@@ -279,6 +302,7 @@ struct Scene
     GLint SceneSP_SpecularTextureLoc;
     GLint SceneSP_NormalTextureLoc;
     GLint SceneSP_IlluminationModelLoc;
+    GLint SceneSP_HasNormalMapLoc;
 
     // Skeleton shader program used to render bones.
     ReloadableShader SkeletonVS{ "skeleton.vert" };

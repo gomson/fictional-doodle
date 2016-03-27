@@ -102,13 +102,27 @@ void PaintRenderer(
         {
             // These nodes don't draw anything
         }
-        else if (sceneNode.Type == SCENENODETYPE_SKINNEDMESH)
+        else if (sceneNode.Type == SCENENODETYPE_STATICMESH || sceneNode.Type == SCENENODETYPE_SKINNEDMESH)
         {
-            const SkinnedMeshSceneNode& skinnedMeshSceneNode = sceneNode.AsSkinnedMesh;
-            const SkinnedMesh& skinnedMesh = scene->SkinnedMeshes[skinnedMeshSceneNode.SkinnedMeshID];
-            const BindPoseMesh& bindPoseMesh = scene->BindPoseMeshes[skinnedMesh.BindPoseMeshID];
-
-            int materialID = bindPoseMesh.MaterialID;
+            int materialID = -1;
+            if (sceneNode.Type == SCENENODETYPE_STATICMESH)
+            {
+                const StaticMesh& staticMesh = scene->StaticMeshes[sceneNode.AsStaticMesh.StaticMeshID];
+                materialID = staticMesh.MaterialID;
+            }
+            else if (sceneNode.Type == SCENENODETYPE_SKINNEDMESH)
+            {
+                const SkinnedMeshSceneNode& skinnedMeshSceneNode = sceneNode.AsSkinnedMesh;
+                const SkinnedMesh& skinnedMesh = scene->SkinnedMeshes[skinnedMeshSceneNode.SkinnedMeshID];
+                const BindPoseMesh& bindPoseMesh = scene->BindPoseMeshes[skinnedMesh.BindPoseMeshID];
+                materialID = bindPoseMesh.MaterialID;
+            }
+            else
+            {
+                fprintf(stderr, "Unknown scene node type %d\n", sceneNode.Type);
+                exit(1);
+            }
+            
             const Material& material = scene->Materials[materialID];
 
             int hasTransparency = false;
@@ -121,7 +135,7 @@ void PaintRenderer(
                 }
             }
 
-            float viewDepth = (worldView * sceneNode.WorldTransform * glm::vec4(0,0,0,1)).z;
+            float viewDepth = (worldView * sceneNode.WorldTransform * glm::vec4(0, 0, 0, 1)).z;
 
             DrawCmd cmd;
             cmd.HasTransparency = hasTransparency;
@@ -162,80 +176,100 @@ void PaintRenderer(
 
         for (int drawIdx = 0; drawIdx < (int)draws.size(); drawIdx++)
         {
-            DrawCmd cmd = draws[drawIdx];
-
-            glUseProgram(scene->SceneSP.Handle);
-            glUniformMatrix4fv(scene->SceneSP_WorldViewLoc, 1, GL_FALSE, glm::value_ptr(worldView));
-            glUniform1i(scene->SceneSP_DiffuseTextureLoc, 0);
-            glUniform1i(scene->SceneSP_SpecularTextureLoc, 1);
-            glUniform1i(scene->SceneSP_NormalTextureLoc, 2);
-            glUniform3fv(scene->SceneSP_CameraPositionLoc, 1, glm::value_ptr(scene->CameraPosition));
-
-            glEnable(GL_DEPTH_TEST);
-
-            if (!cmd.HasTransparency)
-            {
-                glDepthMask(GL_TRUE);
-                glDepthFunc(GL_LESS);
-                glDisable(GL_BLEND);
-                glBlendFuncSeparate(GL_ONE, GL_ZERO, GL_ONE, GL_ZERO);
-                glUniform1i(scene->SceneSP_IlluminationModelLoc, 1);
-            }
-            else
-            {
-                glDepthMask(GL_FALSE);
-                glDepthFunc(GL_LEQUAL);
-                glEnable(GL_BLEND);
-                glBlendFuncSeparate(GL_ONE, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ZERO);
-                glUniform1i(scene->SceneSP_IlluminationModelLoc, 2);
-            }
-
-            int materialID = cmd.MaterialID;
-            const Material& material = scene->Materials[materialID];
-
-            // Set diffuse texture
-            glActiveTexture(GL_TEXTURE0);
-            if (material.DiffuseTextureIDs.size() < 1 || material.DiffuseTextureIDs[0] == -1)
-            {
-                glBindTexture(GL_TEXTURE_2D, 0);
-            }
-            else
-            {
-                glBindTexture(GL_TEXTURE_2D, scene->DiffuseTextures[material.DiffuseTextureIDs[0]].TO);
-            }
-
-            // Set specular texture
-            glActiveTexture(GL_TEXTURE1);
-            if (material.SpecularTextureIDs.size() < 1 || material.SpecularTextureIDs[0] == -1)
-            {
-                glBindTexture(GL_TEXTURE_2D, 0);
-            }
-            else
-            {
-                glBindTexture(GL_TEXTURE_2D, scene->SpecularTextures[material.SpecularTextureIDs[0]].TO);
-            }
-
-            // Set normal map texture
-            glActiveTexture(GL_TEXTURE2);
-            if (material.NormalTextureIDs.size() < 1 || material.NormalTextureIDs[0] == -1)
-            {
-                glBindTexture(GL_TEXTURE_2D, 0);
-            }
-            else
-            {
-                glBindTexture(GL_TEXTURE_2D, scene->NormalTextures[material.NormalTextureIDs[0]].TO);
-            }
-
+            const DrawCmd& cmd = draws[drawIdx];
             const SceneNode& sceneNode = scene->SceneNodes[cmd.NodeID];
 
             // Draw node
-            if (sceneNode.Type == SCENENODETYPE_SKINNEDMESH)
+            if (sceneNode.Type == SCENENODETYPE_STATICMESH || sceneNode.Type == SCENENODETYPE_SKINNEDMESH)
             {
-                const SkinnedMeshSceneNode& skinnedMeshSceneNode = sceneNode.AsSkinnedMesh;
-                const SkinnedMesh& skinnedMesh = scene->SkinnedMeshes[skinnedMeshSceneNode.SkinnedMeshID];
-                const BindPoseMesh& bindPoseMesh = scene->BindPoseMeshes[skinnedMesh.BindPoseMeshID];
+                glUseProgram(scene->SceneSP.Handle);
+                glUniformMatrix4fv(scene->SceneSP_WorldViewLoc, 1, GL_FALSE, glm::value_ptr(worldView));
+                glUniform1i(scene->SceneSP_DiffuseTextureLoc, 0);
+                glUniform1i(scene->SceneSP_SpecularTextureLoc, 1);
+                glUniform1i(scene->SceneSP_NormalTextureLoc, 2);
+                glUniform3fv(scene->SceneSP_CameraPositionLoc, 1, glm::value_ptr(scene->CameraPosition));
 
-                glBindVertexArray(skinnedMesh.SkinnedVAO);
+                glEnable(GL_DEPTH_TEST);
+
+                if (!cmd.HasTransparency)
+                {
+                    glDepthMask(GL_TRUE);
+                    glDepthFunc(GL_LESS);
+                    glDisable(GL_BLEND);
+                    glBlendFuncSeparate(GL_ONE, GL_ZERO, GL_ONE, GL_ZERO);
+                    glUniform1i(scene->SceneSP_IlluminationModelLoc, 1);
+                }
+                else
+                {
+                    glDepthMask(GL_FALSE);
+                    glDepthFunc(GL_LEQUAL);
+                    glEnable(GL_BLEND);
+                    glBlendFuncSeparate(GL_ONE, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ZERO);
+                    glUniform1i(scene->SceneSP_IlluminationModelLoc, 2);
+                }
+
+                int materialID = cmd.MaterialID;
+                const Material& material = scene->Materials[materialID];
+
+                // Set diffuse texture
+                glActiveTexture(GL_TEXTURE0);
+                if (material.DiffuseTextureIDs.size() < 1 || material.DiffuseTextureIDs[0] == -1)
+                {
+                    glBindTexture(GL_TEXTURE_2D, 0);
+                }
+                else
+                {
+                    glBindTexture(GL_TEXTURE_2D, scene->DiffuseTextures[material.DiffuseTextureIDs[0]].TO);
+                }
+
+                // Set specular texture
+                glActiveTexture(GL_TEXTURE1);
+                if (material.SpecularTextureIDs.size() < 1 || material.SpecularTextureIDs[0] == -1)
+                {
+                    glBindTexture(GL_TEXTURE_2D, 0);
+                }
+                else
+                {
+                    glBindTexture(GL_TEXTURE_2D, scene->SpecularTextures[material.SpecularTextureIDs[0]].TO);
+                }
+
+                // Set normal map texture
+                glActiveTexture(GL_TEXTURE2);
+                if (material.NormalTextureIDs.size() < 1 || material.NormalTextureIDs[0] == -1)
+                {
+                    glBindTexture(GL_TEXTURE_2D, 0);
+                    glUniform1i(scene->SceneSP_HasNormalMapLoc, 0);
+                }
+                else
+                {
+                    glBindTexture(GL_TEXTURE_2D, scene->NormalTextures[material.NormalTextureIDs[0]].TO);
+                    glUniform1i(scene->SceneSP_HasNormalMapLoc, 1);
+                }
+
+                GLuint vao;
+                int numIndices;
+
+                if (sceneNode.Type == SCENENODETYPE_STATICMESH)
+                {
+                    const StaticMesh& staticMesh = scene->StaticMeshes[sceneNode.AsStaticMesh.StaticMeshID];
+                    vao = staticMesh.MeshVAO;
+                    numIndices = staticMesh.NumIndices;
+                }
+                else if (sceneNode.Type == SCENENODETYPE_SKINNEDMESH)
+                {
+                    const SkinnedMeshSceneNode& skinnedMeshSceneNode = sceneNode.AsSkinnedMesh;
+                    const SkinnedMesh& skinnedMesh = scene->SkinnedMeshes[skinnedMeshSceneNode.SkinnedMeshID];
+                    const BindPoseMesh& bindPoseMesh = scene->BindPoseMeshes[skinnedMesh.BindPoseMeshID];
+                    vao = skinnedMesh.SkinnedVAO;
+                    numIndices = bindPoseMesh.NumIndices;
+                }
+                else
+                {
+                    fprintf(stderr, "Unhandled scene node type %d\n", sceneNode.Type);
+                    exit(1);
+                }
+
+                glBindVertexArray(vao);
 
                 glm::mat4 modelWorld = sceneNode.WorldTransform;
                 glm::mat4 modelView = worldView * modelWorld;
@@ -245,12 +279,13 @@ void PaintRenderer(
                 glUniformMatrix4fv(scene->SceneSP_WorldModelLoc, 1, GL_FALSE, value_ptr(glm::inverse(modelWorld)));
                 glUniformMatrix4fv(scene->SceneSP_ModelViewLoc, 1, GL_FALSE, value_ptr(modelView));
                 glUniformMatrix4fv(scene->SceneSP_ModelViewProjectionLoc, 1, GL_FALSE, value_ptr(modelViewProjection));
-                
-                glDrawElements(GL_TRIANGLES, bindPoseMesh.NumIndices, GL_UNSIGNED_INT, NULL);
 
-                // Render skeleton
-                if (scene->ShowSkeletons)
+                glDrawElements(GL_TRIANGLES, numIndices, GL_UNSIGNED_INT, NULL);
+
+                if (sceneNode.Type == SCENENODETYPE_SKINNEDMESH && scene->ShowSkeletons)
                 {
+                    const SkinnedMeshSceneNode& skinnedMeshSceneNode = sceneNode.AsSkinnedMesh;
+                    const SkinnedMesh& skinnedMesh = scene->SkinnedMeshes[skinnedMeshSceneNode.SkinnedMeshID];
                     const AnimatedSkeleton& animatedSkeleton = scene->AnimatedSkeletons[skinnedMesh.AnimatedSkeletonID];
                     const AnimSequence& animSequence = scene->AnimSequences[animatedSkeleton.CurrAnimSequenceID];
                     const Skeleton& skeleton = scene->Skeletons[animSequence.SkeletonID];
@@ -260,7 +295,7 @@ void PaintRenderer(
                     glDisable(GL_DEPTH_TEST);
 
                     glBindVertexArray(animatedSkeleton.SkeletonVAO);
-                    
+
                     glUniformMatrix4fv(scene->SkeletonSP_ModelViewProjectionLoc, 1, GL_FALSE, value_ptr(modelViewProjection));
 
                     // Draw white bones
@@ -275,11 +310,6 @@ void PaintRenderer(
                     glPointSize(1.0f);
                     glUseProgram(0);
                 }
-            }
-            else
-            {
-                fprintf(stderr, "Unknown scene node type %d\n", sceneNode.Type);
-                exit(1);
             }
         }
 

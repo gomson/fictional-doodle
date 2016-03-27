@@ -15,6 +15,7 @@ out vec4 FragColor;
 uniform mat4 WorldModel;
 uniform vec3 CameraPosition;
 uniform int IlluminationModel;
+uniform int HasNormalMap;
 
 void main()
 {
@@ -32,16 +33,24 @@ void main()
         vec4 diffuseMap = texture(DiffuseTexture, fTexCoord);
         vec4 specularMap = texture(SpecularTexture, fTexCoord);
 
-        vec3 normalMap = normalize(texture(NormalTexture, fTexCoord).rgb);
-        vec3 tangent = normalize(fTangent);
-        vec3 bitangent = normalize(fBitangent);
-        vec3 normal = normalize(fNormal);
-        if (dot(cross(normal, tangent), bitangent) < 0)
+        vec3 modelNormal;
+        if (HasNormalMap != 0)
         {
-            tangent = -tangent;
+            vec3 normalMap = normalize(texture(NormalTexture, fTexCoord).rgb);
+            vec3 tangent = normalize(fTangent);
+            vec3 bitangent = normalize(fBitangent);
+            vec3 normal = normalize(fNormal);
+            if (dot(cross(normal, tangent), bitangent) < 0)
+            {
+                tangent = -tangent;
+            }
+            mat3 tangentModelMatrix = mat3(tangent, bitangent, normal);
+            modelNormal = tangentModelMatrix * normalMap;
         }
-        mat3 tangentModelMatrix = mat3(tangent, bitangent, normal);
-        vec3 modelNormal = tangentModelMatrix * normalMap;
+        else
+        {
+            modelNormal = normalize(fNormal);
+        }
 
         float a = 30;
         float kA = 0.03;

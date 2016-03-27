@@ -213,6 +213,19 @@ static int AddTransformSceneNode(
     return (int)scene->SceneNodes.size() - 1;
 }
 
+static int AddStaticMeshSceneNode(
+    Scene* scene,
+    int staticMeshID)
+{
+    SceneNode sceneNode;
+    sceneNode.Type = SCENENODETYPE_STATICMESH;
+    sceneNode.TransformParentNodeID = -1;
+    sceneNode.AsStaticMesh.StaticMeshID = staticMeshID;
+
+    scene->SceneNodes.push_back(std::move(sceneNode));
+    return (int)scene->SceneNodes.size() - 1;
+}
+
 static int AddSkinnedMeshSceneNode(
     Scene* scene,
     int skinnedMeshID)
@@ -285,6 +298,16 @@ void InitScene(Scene* scene)
         scene->SceneNodes[hellknightSceneNode].TransformParentNodeID = hellknightTransformNodeID;
     }
 
+    std::vector<int> floorStaticMeshIDs;
+    LoadOBJMesh(scene, assetFolder.c_str(), "floor/", "floor.obj", NULL, &floorStaticMeshIDs);
+
+    int floorTransformNodeID = AddTransformSceneNode(scene);
+    for (int floorMeshIdx = 0; floorMeshIdx < (int)floorStaticMeshIDs.size(); floorMeshIdx++)
+    {
+        int floorSceneNode = AddStaticMeshSceneNode(scene, floorStaticMeshIDs[floorMeshIdx]);
+        scene->SceneNodes[floorSceneNode].TransformParentNodeID = floorTransformNodeID;
+    }
+
     scene->AllShadersOK = false;
 
     // initial camera position
@@ -354,7 +377,8 @@ static void ReloadShaders(Scene* scene)
             getUOpt(&scene->SceneSP_DiffuseTextureLoc, "DiffuseTexture") ||
             getUOpt(&scene->SceneSP_SpecularTextureLoc, "SpecularTexture") ||
             getUOpt(&scene->SceneSP_NormalTextureLoc, "NormalTexture") ||
-            getUOpt(&scene->SceneSP_IlluminationModelLoc, "IlluminationModel"))
+            getUOpt(&scene->SceneSP_IlluminationModelLoc, "IlluminationModel") ||
+            getUOpt(&scene->SceneSP_HasNormalMapLoc, "HasNormalMap"))
         {
             return;
         }

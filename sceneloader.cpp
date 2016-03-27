@@ -222,6 +222,9 @@ static void LoadMD5Materials(
     {
         aiMaterial* material = materials[materialIdx];
 
+        // Potential improvement: 
+        // Look for an existing material with the same properties,
+        // instead of creating a new one.
         Material newMat;
 
         for (int textureTypeIdx = 0; textureTypeIdx < (int)std::size(textureTypes); textureTypeIdx++)
@@ -597,9 +600,9 @@ void LoadMD5Mesh(
     Scene* scene,
     const char* assetFolder, const char* modelFolder,
     const char* meshFile,
-    std::vector<int>* addedMaterialIDs,
-    int* addedSkeletonID,
-    std::vector<int>* addedBindPoseMeshIDs)
+    std::vector<int>* loadedMaterialIDs,
+    int* loadedSkeletonID,
+    std::vector<int>* loadedBindPoseMeshIDs)
 {
     std::string meshpath = std::string(assetFolder) + modelFolder + meshFile;
     const aiScene* aiscene = aiImportFile(meshpath.c_str(), aiProcessPreset_TargetRealtime_MaxQuality);
@@ -617,20 +620,24 @@ void LoadMD5Mesh(
         materialIDMapping.data());
     
     int skeletonID = LoadMD5Skeleton(scene, aiscene);
-    if (addedSkeletonID) *addedSkeletonID = skeletonID;
+    if (loadedSkeletonID) *loadedSkeletonID = skeletonID;
 
-    if (addedBindPoseMeshIDs) addedBindPoseMeshIDs->resize(aiscene->mNumMeshes);
+    if (loadedBindPoseMeshIDs)
+    {
+        loadedBindPoseMeshIDs->resize(aiscene->mNumMeshes);
+    }
+
     LoadMD5Meshes(
         scene,
         skeletonID,
         modelFolder, meshFile,
         &aiscene->mMeshes[0], (int)aiscene->mNumMeshes,
         materialIDMapping.data(),
-        addedBindPoseMeshIDs ? addedBindPoseMeshIDs->data() : NULL);
+        loadedBindPoseMeshIDs ? loadedBindPoseMeshIDs->data() : NULL);
 
-    if (addedMaterialIDs)
+    if (loadedMaterialIDs)
     {
-        *addedMaterialIDs = std::move(materialIDMapping);
+        *loadedMaterialIDs = std::move(materialIDMapping);
     }
 
     aiReleaseImport(aiscene);
@@ -641,7 +648,7 @@ void LoadMD5Anim(
     int skeletonID,
     const char* assetFolder, const char* modelFolder,
     const char* animFile,
-    int* addedAnimSequenceID)
+    int* loadedAnimSequenceID)
 {
     std::string fullpath = std::string(assetFolder) + modelFolder + animFile;
     const aiScene* animScene = aiImportFile(fullpath.c_str(), aiProcessPreset_TargetRealtime_MaxQuality);
@@ -790,10 +797,176 @@ void LoadMD5Anim(
     scene->AnimSequences.push_back(std::move(animSequence));
 
     int animSequenceID = (int)scene->AnimSequences.size() - 1;
-    if (addedAnimSequenceID)
+    if (loadedAnimSequenceID)
     {
-        *addedAnimSequenceID = animSequenceID;
+        *loadedAnimSequenceID = animSequenceID;
     }
 
     aiReleaseImport(animScene);
+}
+
+static void LoadOBJMeshes(
+    Scene* scene,
+    const char* modelFolder, const char* meshFile,
+    aiMesh** meshes, int numMeshes,
+    const int* materialIDMapping, // 1-1 mapping with assimp scene materials
+    int* staticMeshIDMapping)
+{
+    for (int meshIdx = 0; meshIdx < numMeshes; meshIdx++)
+    {
+        aiMesh* mesh = meshes[meshIdx];
+
+        if (mesh->mPrimitiveTypes != aiPrimitiveType_TRIANGLE)
+        {
+            fprintf(stderr, "Mesh %s was not made out of triangles\n", mesh->mName.C_Str());
+            exit(1);
+        }
+
+        if (!mesh->mTextureCoords[0])
+        {
+            fprintf(stderr, "Mesh %s didn't have TexCoord\n", mesh->mName.C_Str());
+            exit(1);
+        }
+
+        if (!mesh->mNormals)
+        {
+            fprintf(stderr, "Mesh %s didn't have normals\n", mesh->mName.C_Str());
+            exit(1);
+        }
+
+        if (!mesh->mTangents)
+        {
+            fprintf(stderr, "Mesh %s didn't have tangents\n", mesh->mName.C_Str());
+            exit(1);
+        }
+
+        if (!mesh->mBitangents)
+        {
+            fprintf(stderr, "Mesh %s didn't have bitangents\n", mesh->mName.C_Str());
+            exit(1);
+        }
+
+        int vertexCount = (int)mesh->mNumVertices;
+        std::vector<PositionVertex> positions(vertexCount);
+        std::vector<TexCoordVertex> texCoords(vertexCount);
+        std::vector<DifferentialVertex> differentials(vertexCount);
+        for (int vertexIdx = 0; vertexIdx < vertexCount; vertexIdx++)
+        {
+            positions[vertexIdx].Position = glm::make_vec3(&mesh->mVertices[vertexIdx][0]);
+            texCoords[vertexIdx].TexCoord = glm::make_vec2(&mesh->mTextureCoords[0][vertexIdx][0]);
+            differentials[vertexIdx].Normal = glm::make_vec3(&mesh->mNormals[vertexIdx][0]);
+            differentials[vertexIdx].Tangent = glm::make_vec3(&mesh->mTangents[vertexIdx][0]);
+            differentials[vertexIdx].Bitangent = glm::make_vec3(&mesh->mBitangents[vertexIdx][0]);
+        }
+
+        int faceCount = (int)mesh->mNumFaces;
+        std::vector<glm::uvec3> indices(faceCount);
+        for (int faceIdx = 0; faceIdx < faceCount; faceIdx++)
+        {
+            indices[faceIdx] = glm::make_vec3(&mesh->mFaces[faceIdx].mIndices[0]);
+        }
+
+        StaticMesh staticMesh;
+        staticMesh.NumVertices = vertexCount;
+        staticMesh.NumIndices = faceCount * 3;
+        staticMesh.MaterialID = materialIDMapping[mesh->mMaterialIndex];
+
+        glGenBuffers(1, &staticMesh.PositionVBO);
+        glBindBuffer(GL_ARRAY_BUFFER, staticMesh.PositionVBO);
+        glBufferData(GL_ARRAY_BUFFER, positions.size() * sizeof(positions[0]), positions.data(), GL_STATIC_DRAW);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+        glGenBuffers(1, &staticMesh.TexCoordVBO);
+        glBindBuffer(GL_ARRAY_BUFFER, staticMesh.TexCoordVBO);
+        glBufferData(GL_ARRAY_BUFFER, texCoords.size() * sizeof(texCoords[0]), texCoords.data(), GL_STATIC_DRAW);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+        glGenBuffers(1, &staticMesh.DifferentialVBO);
+        glBindBuffer(GL_ARRAY_BUFFER, staticMesh.DifferentialVBO);
+        glBufferData(GL_ARRAY_BUFFER, differentials.size() * sizeof(differentials[0]), differentials.data(), GL_STATIC_DRAW);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+        glGenBuffers(1, &staticMesh.MeshEBO);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, staticMesh.MeshEBO);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(indices[0]), indices.data(), GL_STATIC_DRAW);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+        glGenVertexArrays(1, &staticMesh.MeshVAO);
+        glBindVertexArray(staticMesh.MeshVAO);
+
+        glBindBuffer(GL_ARRAY_BUFFER, staticMesh.PositionVBO);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(PositionVertex), (GLvoid*)offsetof(PositionVertex, Position));
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+        glEnableVertexAttribArray(0);
+
+        glBindBuffer(GL_ARRAY_BUFFER, staticMesh.TexCoordVBO);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(TexCoordVertex), (GLvoid*)offsetof(TexCoordVertex, TexCoord));
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+        glEnableVertexAttribArray(1);
+
+        glBindBuffer(GL_ARRAY_BUFFER, staticMesh.DifferentialVBO);
+        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(DifferentialVertex), (GLvoid*)offsetof(DifferentialVertex, Normal));
+        glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(DifferentialVertex), (GLvoid*)offsetof(DifferentialVertex, Tangent));
+        glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(DifferentialVertex), (GLvoid*)offsetof(DifferentialVertex, Bitangent));
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+        glEnableVertexAttribArray(2);
+        glEnableVertexAttribArray(3);
+        glEnableVertexAttribArray(4);
+
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, staticMesh.MeshEBO);
+
+        glBindVertexArray(0);
+
+        if (staticMeshIDMapping)
+        {
+            staticMeshIDMapping[meshIdx] = (int)scene->StaticMeshes.size();
+        }
+        scene->StaticMeshes.push_back(std::move(staticMesh));
+    }
+}
+
+void LoadOBJMesh(
+    Scene* scene,
+    const char* assetFolder, const char* modelFolder,
+    const char* objFile,
+    std::vector<int>* loadedMaterialIDs,
+    std::vector<int>* loadedStaticMeshIDs)
+{
+    std::string meshpath = std::string(assetFolder) + modelFolder + objFile;
+    const aiScene* aiscene = aiImportFile(meshpath.c_str(), aiProcessPreset_TargetRealtime_MaxQuality);
+    if (!aiscene)
+    {
+        fprintf(stderr, "aiImportFile: %s\n", aiGetErrorString());
+        exit(1);
+    }
+
+    std::vector<int> materialIDMapping(aiscene->mNumMaterials);
+    LoadMD5Materials(
+        scene,
+        assetFolder, modelFolder,
+        aiscene->mMaterials, (int)aiscene->mNumMaterials,
+        materialIDMapping.data());
+
+    std::vector<int> staticMeshIDMapping(aiscene->mNumMeshes);
+    LoadOBJMeshes(
+        scene,
+        modelFolder, objFile,
+        aiscene->mMeshes, (int)aiscene->mNumMeshes,
+        materialIDMapping.data(),
+        staticMeshIDMapping.data());
+
+    if (loadedMaterialIDs)
+    {
+        *loadedMaterialIDs = std::move(materialIDMapping);
+    }
+
+    if (loadedStaticMeshIDs)
+    {
+        *loadedStaticMeshIDs = std::move(staticMeshIDMapping);
+    }
+
+    aiReleaseImport(aiscene);
 }
