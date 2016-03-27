@@ -44,7 +44,7 @@ void main()
         vec3 modelNormal = tangentModelMatrix * normalMap;
 
         float a = 4;
-        float kA = 0.01;
+        float kA = 0.08;
         float kD = 1.0;
         float kS = 0.5;
 
