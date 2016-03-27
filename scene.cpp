@@ -430,15 +430,22 @@ static void ShowToolboxGUI(Scene* scene, SDL_Window* window)
                 ImGui::PushItemWidth(-1.0f);
 
                 ImGui::Checkbox("Interpolate Frames", &animatedSkeleton.InterpolateFrames);
-
-                ImGui::Text("Animation Speed");
-                ImGui::SliderFloat("##animspeed", &animatedSkeleton.TimeMultiplier, 0.0f, 2.0f);
+                ImGui::Checkbox("Show Skeletons", &scene->ShowSkeletons);
 
                 ImGui::Text("Animation Sequence");
                 if (ImGui::Combo("##animsequences", &currAnimSequenceIndexInCombo, animSequenceNames.data(), (int)animSequenceNames.size()))
                 {
                     animatedSkeleton.CurrAnimSequenceID = animSequenceIDs[currAnimSequenceIndexInCombo];
                     animatedSkeleton.CurrTimeMillisecond = 0;
+                }
+
+                ImGui::Text("Animation Speed");
+                ImGui::SliderFloat("##animspeed", &animatedSkeleton.TimeMultiplier, 0.0f, 2.0f);
+
+                ImGui::Text("Hellknight Position");
+                if (ImGui::SliderFloat3("##hellknightposition", value_ptr(scene->HellknightPosition), -100.0f, 100.0f))
+                {
+                    scene->SceneNodes[scene->HellknightTransformNodeID].LocalTransform = translate(glm::mat4(), scene->HellknightPosition);
                 }
 
                 ImGui::Text("Skinning Method");
@@ -451,14 +458,6 @@ static void ShowToolboxGUI(Scene* scene, SDL_Window* window)
                 {
                     scene->MeshSkinningMethod = SKINNING_LBS;
                     ReloadShaders(scene);
-                }
-
-                ImGui::Checkbox("Show Skeletons", &scene->ShowSkeletons);
-
-                ImGui::Text("Hellknight Position");
-                if (ImGui::SliderFloat3("##hellknightposition", value_ptr(scene->HellknightPosition), -100.0f, 100.0f))
-                {
-                    scene->SceneNodes[scene->HellknightTransformNodeID].LocalTransform = translate(glm::mat4(), scene->HellknightPosition);
                 }
 
                 ImGui::Text("Bone Control");
