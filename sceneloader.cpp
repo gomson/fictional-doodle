@@ -290,12 +290,20 @@ static int LoadMD5SkeletonNode(
     }
 
     int boneCount = (int)boneNodes.size();
-    
+
+    // Generate bone indices for rendering
+    std::vector<glm::uvec2> boneIndices(boneCount - 1);
+    for (int boneIdx = 1, indexIdx = 0; boneIdx < boneCount; boneIdx++, indexIdx++)
+    {
+        boneIndices[indexIdx] = glm::uvec2(boneParentIDs[boneIdx], boneIdx);
+    }
+
     Skeleton skeleton;
     skeleton.BoneNames.resize(boneCount);
     skeleton.BoneInverseBindPoseTransforms.resize(boneCount);
     skeleton.BoneParents = std::move(boneParentIDs);
     skeleton.NumBones = boneCount;
+    skeleton.NumBoneIndices = 2 * boneIndices.size();
 
     for (int boneID = 0; boneID < boneCount; boneID++)
     {
@@ -313,6 +321,12 @@ static int LoadMD5SkeletonNode(
             fprintf(stderr, "Bone %s has no inverse bind pose transform\n", skeleton.BoneNames[boneID].c_str());
         }
     }
+
+    // Upload bone indices
+    glGenBuffers(1, &skeleton.BoneEBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, skeleton.BoneEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, boneIndices.size() * sizeof(boneIndices[0]), boneIndices.data(), GL_STATIC_DRAW);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
     scene->Skeletons.push_back(std::move(skeleton));
     return (int)scene->Skeletons.size() - 1;

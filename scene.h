@@ -81,12 +81,14 @@ enum AnimChannel
 // All unique static skeleton definitions.
 struct Skeleton
 {
+    GLuint BoneEBO; // Indices of bones used for rendering the skeleton
     glm::mat4 Transform; // Global skeleton transformation to correct bind pose orientation
     std::vector<std::string> BoneNames; // Name of each bone
     std::unordered_map<std::string, int> BoneNameToID; // Bone ID lookup from name
     std::vector<glm::mat4> BoneInverseBindPoseTransforms; // Transforms a vertex from model space to bone space
     std::vector<int> BoneParents; // Bone parent index, or -1 if root
     int NumBones;
+    int NumBoneIndices;
 };
 
 // BindPoseMesh Table
@@ -128,6 +130,8 @@ struct AnimatedSkeleton
 {
     GLuint BoneTransformTBO; // The matrices used to transform the bones
     GLuint BoneTransformTO; // Texture descriptor for the palette
+    GLuint SkeletonVAO; // Vertex array for rendering animated skeletons
+    GLuint SkeletonVBO; // Vertex buffer object for the skeleton vertices
     int CurrAnimSequenceID; // The currently playing animation sequence for each skinned mesh
     int CurrTimeMillisecond; // The current time in the current animation sequence in milliseconds
     float TimeMultiplier; // Controls the speed of animation
@@ -135,6 +139,7 @@ struct AnimatedSkeleton
     std::vector<glm::dualquat> BoneTransformDualQuats; // Skinning palette for DLB
     std::vector<glm::mat3x4> BoneTransformMatrices; // Skinning palette for LBS
     std::vector<BoneControlMode> BoneControls; // How each bone is animated
+    std::vector<glm::vec3> BoneVertices; // Vertices of the animated skeleton
 };
 
 // SkinnedMesh Table
@@ -264,6 +269,13 @@ struct Scene
     GLint SceneSP_SpecularTextureLoc;
     GLint SceneSP_NormalTextureLoc;
     GLint SceneSP_IlluminationModelLoc;
+
+    // Skeleton shader program used to render bones.
+    ReloadableShader SkeletonVS{ "skeleton.vert" };
+    ReloadableShader SkeletonFS{ "skeleton.frag" };
+    ReloadableProgram SkeletonSP{ &SkeletonVS, &SkeletonFS };
+    GLint SkeletonSP_ColorLoc;
+    GLint SkeletonSP_ModelViewProjectionLoc;
 
     // true if all shaders in the scene are compiling/linking successfully.
     // Scene updates will stop if not all shaders are working, since it will likely crash.

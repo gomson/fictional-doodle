@@ -212,6 +212,7 @@ void InitGL()
     GetProcGL(glBindTransformFeedback, "glBindTransformFeedback");
     GetProcGL(glBeginTransformFeedback, "glBeginTransformFeedback");
     GetProcGL(glEndTransformFeedback, "glEndTransformFeedback");
+    GetProcGL(glPointSize, "glPointSize");
 
     GLint majorVersion, minorVersion;
     glGetIntegerv(GL_MAJOR_VERSION, &majorVersion);

@@ -126,6 +126,7 @@ PROCGL(PFNGLGENTRANSFORMFEEDBACKSPROC, glGenTransformFeedbacks);
 PROCGL(PFNGLBINDTRANSFORMFEEDBACKPROC, glBindTransformFeedback);
 PROCGL(PFNGLBEGINTRANSFORMFEEDBACKPROC, glBeginTransformFeedback);
 PROCGL(PFNGLENDTRANSFORMFEEDBACKPROC, glEndTransformFeedback);
+PROCGL(PFNGLPOINTSIZEPROC, glPointSize);
 
 template<class ProcT>
 void GetProcGL(ProcGL<ProcT>& proc, const char* name)

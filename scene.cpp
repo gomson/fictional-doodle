@@ -33,8 +33,9 @@ static int AddAnimatedSkeleton(
     AnimatedSkeleton animatedSkeleton;
     
     const AnimSequence& animSequence = scene->AnimSequences[initialAnimSequenceID];
-    int skeletonID = animSequence.SkeletonID;
-    Skeleton& skeleton = scene->Skeletons[skeletonID];
+    Skeleton& skeleton = scene->Skeletons[animSequence.SkeletonID];
+
+    // Skinning
 
     glGenBuffers(1, &animatedSkeleton.BoneTransformTBO);
     glBindBuffer(GL_TEXTURE_BUFFER, animatedSkeleton.BoneTransformTBO);
@@ -46,6 +47,26 @@ static int AddAnimatedSkeleton(
     glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32F, animatedSkeleton.BoneTransformTBO);
     glBindTexture(GL_TEXTURE_BUFFER, 0);
 
+    // Skeleton
+
+    glGenBuffers(1, &animatedSkeleton.SkeletonVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, animatedSkeleton.SkeletonVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * skeleton.NumBones, NULL, GL_DYNAMIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    glGenVertexArrays(1, &animatedSkeleton.SkeletonVAO);
+    glBindVertexArray(animatedSkeleton.SkeletonVAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, animatedSkeleton.SkeletonVBO);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    glEnableVertexAttribArray(0);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, skeleton.BoneEBO);
+
+    glBindVertexArray(0);
+
     animatedSkeleton.CurrAnimSequenceID = initialAnimSequenceID;
     animatedSkeleton.CurrTimeMillisecond = 0;
     animatedSkeleton.TimeMultiplier = 1.0f;
@@ -53,6 +74,7 @@ static int AddAnimatedSkeleton(
     animatedSkeleton.BoneTransformDualQuats.resize(skeleton.NumBones);
     animatedSkeleton.BoneTransformMatrices.resize(skeleton.NumBones);
     animatedSkeleton.BoneControls.resize(skeleton.NumBones, BONECONTROL_ANIMATION);
+    animatedSkeleton.BoneVertices.resize(skeleton.NumBones);
 
     scene->AnimatedSkeletons.push_back(std::move(animatedSkeleton));
     return (int)scene->AnimatedSkeletons.size() - 1;
@@ -299,6 +321,15 @@ static void ReloadShaders(Scene* scene)
         }
     }
 
+    if (reload(&scene->SkeletonSP))
+    {
+        if (getU(&scene->SkeletonSP_ColorLoc, "Color") ||
+            getU(&scene->SkeletonSP_ModelViewProjectionLoc, "ModelViewProjection"))
+        {
+            return;
+        }
+    }
+
     if (anyProgramOutOfDate)
     {
         scene->AllShadersOK = !anyProgramRelinkFailed;
@@ -431,7 +462,7 @@ static void UpdateAnimatedSkeletons(Scene* scene, uint32_t dt_ms)
         const AnimSequence& animSequence = scene->AnimSequences[animSkeleton.CurrAnimSequenceID];
         const Skeleton& skeleton = scene->Skeletons[animSequence.SkeletonID];
 
-        // Calculate skinning transformations
+        // Calculate skinning transformations and bone vertices
         for (int boneIdx = 0; boneIdx < skeleton.NumBones; boneIdx++)
         {
             glm::mat4 translation = translate(frame[boneIdx].T);
@@ -450,7 +481,14 @@ static void UpdateAnimatedSkeletons(Scene* scene, uint32_t dt_ms)
                 animSkeleton.BoneTransformMatrices[boneIdx] = boneTransformRowsAsCols;
                 break;
             }
+
+            animSkeleton.BoneVertices[boneIdx] = glm::vec3(skeleton.Transform * glm::vec4(frame[boneIdx].T, 1.0));
         }
+
+        // Upload skeleton bones
+        glBindBuffer(GL_ARRAY_BUFFER, animSkeleton.SkeletonVBO);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(animSkeleton.BoneVertices[0]) * animSkeleton.BoneVertices.size(), animSkeleton.BoneVertices.data());
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
 
         GLvoid *boneTransformsData;
         GLsizeiptr boneTransformsSize;

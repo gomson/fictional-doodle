@@ -253,12 +253,45 @@ void PaintRenderer(
         glActiveTexture(GL_TEXTURE2);
         glBindTexture(GL_TEXTURE_2D, 0);
 
+        glDisable(GL_FRAMEBUFFER_SRGB);
+
+        // Overlay spooky skeletons
+        glClear(GL_DEPTH_BUFFER_BIT);
+
+        glUseProgram(scene->SkeletonSP.Handle);
+        glPointSize(3.0); // Make rendered joints visible
+
+        for (const SceneNode& sceneNode : scene->SceneNodes)
+        {
+            if (sceneNode.Type == SCENENODETYPE_SKINNEDMESH)
+            {
+                const SkinnedMeshSceneNode skinnedMeshSceneNode = sceneNode.AsSkinnedMesh;
+                const SkinnedMesh& skinnedMesh = scene->SkinnedMeshes[skinnedMeshSceneNode.SkinnedMeshID];
+                const AnimatedSkeleton& animatedSkeleton = scene->AnimatedSkeletons[skinnedMesh.AnimatedSkeletonID];
+                const AnimSequence& animSequence = scene->AnimSequences[animatedSkeleton.CurrAnimSequenceID];
+                const Skeleton& skeleton = scene->Skeletons[animSequence.SkeletonID];
+
+                glBindVertexArray(animatedSkeleton.SkeletonVAO);
+
+                const glm::mat4& modelWorld = sceneNode.ModelWorldTransform;
+                glm::mat4 modelViewProjection = worldViewProjection * modelWorld;
+
+                glUniformMatrix4fv(scene->SkeletonSP_ModelViewProjectionLoc, 1, GL_FALSE, value_ptr(modelViewProjection));
+
+                // Draw white bones
+                glUniform3fv(scene->SkeletonSP_ColorLoc, 1, value_ptr(glm::vec3(1.0f, 1.0f, 1.0f)));
+                glDrawElements(GL_LINES, skeleton.NumBoneIndices, GL_UNSIGNED_INT, NULL);
+
+                // Draw green points at joints
+                glUniform3fv(scene->SkeletonSP_ColorLoc, 1, value_ptr(glm::vec3(0.0f, 1.0f, 0.0f)));
+                glDrawArrays(GL_POINTS, 0, skeleton.NumBones);
+            }
+        }
+
         glBindVertexArray(0);
         glUseProgram(0);
 
         glDisable(GL_DEPTH_TEST);
-
-        glDisable(GL_FRAMEBUFFER_SRGB);
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
