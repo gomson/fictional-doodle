@@ -228,13 +228,10 @@ struct SceneNode
 struct Scene
 {
     std::vector<Skeleton> Skeletons;
-    std::unordered_map<std::string, int> SkeletonNameToID;
 
     std::vector<BindPoseMesh> BindPoseMeshes;
-    std::unordered_map<std::string, int> BindPoseMeshNameToID;
 
     std::vector<AnimSequence> AnimSequences;
-    std::unordered_map<std::string, int> AnimSequenceNameToID;
 
     std::vector<AnimatedSkeleton> AnimatedSkeletons;
 

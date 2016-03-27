@@ -567,10 +567,6 @@ static void LoadMD5Meshes(
             bindPoseMeshIDMapping[meshIdx] = (int)scene->BindPoseMeshes.size();
         }
         scene->BindPoseMeshes.push_back(std::move(bindPoseMesh));
-
-        std::string bindPoseMeshName = std::string(modelFolder) + meshFile + "[" + std::to_string(meshIdx) + "]";
-        int bindPoseMeshID = (int)scene->BindPoseMeshes.size() - 1;
-        scene->BindPoseMeshNameToID.emplace(bindPoseMeshName,bindPoseMeshID);
     }
 }
 
@@ -598,7 +594,6 @@ void LoadMD5Mesh(
         materialIDMapping.data());
     
     int skeletonID = LoadMD5Skeleton(scene, aiscene);
-    scene->SkeletonNameToID.emplace(std::string(modelFolder) + meshFile, skeletonID);
     if (addedSkeletonID) *addedSkeletonID = skeletonID;
 
     if (addedBindPoseMeshIDs) addedBindPoseMeshIDs->resize(aiscene->mNumMeshes);
@@ -776,7 +771,6 @@ void LoadMD5Anim(
     {
         *addedAnimSequenceID = animSequenceID;
     }
-    scene->AnimSequenceNameToID.emplace(scene->AnimSequences.back().Name, animSequenceID);
 
     aiReleaseImport(animScene);
 }
