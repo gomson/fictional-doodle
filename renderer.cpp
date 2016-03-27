@@ -26,6 +26,8 @@ void ResizeRenderer(
     int drawableHeight, 
     int numSamples)
 {
+    glFinish();
+
     // Init rendertargets/depthstencils
     glDeleteTextures(1, &renderer->BackbufferColorTexture);
     glGenTextures(1, &renderer->BackbufferColorTexture);
