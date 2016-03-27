@@ -136,7 +136,7 @@ static void LoadMD5Materials(
                         float alpha = glm::clamp(img[i * 4 + 3] / 255.0f, 0.0f, 1.0f);
                         if (isSRGB)
                         {
-                            alpha = glm::clamp(pow(alpha, 1.0f / 2.2f), 0.0f, 1.0f);
+                            alpha = glm::clamp(std::pow(alpha, 1.0f / 2.2f), 0.0f, 1.0f);
                         }
                         img[i * 4 + 0] = stbi_uc(img[i * 4 + 0] * alpha);
                         img[i * 4 + 1] = stbi_uc(img[i * 4 + 1] * alpha);
