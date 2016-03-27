@@ -146,10 +146,13 @@ void InitGL()
     GetProcGL(glEnable, "glEnable");
     GetProcGL(glDisable, "glDisable");
     GetProcGL(glIsEnabled, "glIsEnabled");
+    GetProcGL(glDepthFunc, "glDepthFunc");
+    GetProcGL(glDepthMask, "glDepthMask");
     GetProcGL(glViewport, "glViewport");
     GetProcGL(glScissor, "glScissor");
     GetProcGL(glBlendEquation, "glBlendEquation");
     GetProcGL(glBlendFunc, "glBlendFunc");
+    GetProcGL(glBlendFuncSeparate, "glBlendFuncSeparate");
     GetProcGL(glBlendEquationSeparate, "glBlendEquationSeparate");
     GetProcGL(glGenBuffers, "glGenBuffers");
     GetProcGL(glDeleteBuffers, "glDeleteBuffers");

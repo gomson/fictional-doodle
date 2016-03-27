@@ -85,30 +85,12 @@ static void LoadMD5Materials(
     // load all the unique textures
     for (int textureTypeIdx = 0; textureTypeIdx < numTextureTypes; textureTypeIdx++)
     {
-        for (int textureToLoadIdx = 0; textureToLoadIdx < (int)texturesToLoad.size(); textureToLoadIdx++)
+        for (int textureToLoadIdx = 0; textureToLoadIdx < (int)texturesToLoad[textureTypeIdx].size(); textureToLoadIdx++)
         {
             const std::string& fullpath = assetFolder + texturesToLoad[textureTypeIdx][textureToLoadIdx];
 
-            int req_comp = -1;
-            if (textureTypes[textureTypeIdx] == aiTextureType_DIFFUSE)
-            {
-                req_comp = 4;
-            }
-            else if (textureTypes[textureTypeIdx] == aiTextureType_SPECULAR)
-            {
-                req_comp = 0;
-            }
-            else if (textureTypes[textureTypeIdx] == aiTextureType_NORMALS)
-            {
-                req_comp = 4;
-            }
-            else
-            {
-                fprintf(stderr, "%s: Unhandled texture type %d\n", fullpath.c_str(), textureTypes[textureTypeIdx]);
-                exit(1);
-            }
-
             int width, height, comp;
+            int req_comp = 4;
             stbi_set_flip_vertically_on_load(1); // because GL
             stbi_uc* img = stbi_load(fullpath.c_str(), &width, &height, &comp, req_comp);
             if (!img)
@@ -117,6 +99,28 @@ static void LoadMD5Materials(
             }
             else
             {
+                bool hasTransparency = false;
+                for (int i = 0; i < width * height; i++)
+                {
+                    if (img[i * 4 + 3] != 255)
+                    {
+                        hasTransparency = true;
+                        break;
+                    }
+                }
+
+                // premultiply teh alphas
+                if (hasTransparency)
+                {
+                    for (int i = 0; i < width * height; i++)
+                    {
+                        int alpha = img[i * 4 + 3];
+                        img[i * 4 + 0] = img[i * 4 + 0] * alpha / 255;
+                        img[i * 4 + 1] = img[i * 4 + 1] * alpha / 255;
+                        img[i * 4 + 2] = img[i * 4 + 2] * alpha / 255;
+                    }
+                }
+
                 if (req_comp != 0)
                 {
                     comp = req_comp;
@@ -136,9 +140,7 @@ static void LoadMD5Materials(
                 }
                 else if (textureTypes[textureTypeIdx] == aiTextureType_SPECULAR)
                 {
-                    glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, width, height, 0, srcDataFormat[comp - 1], GL_UNSIGNED_BYTE, img);
-                    GLint swizzleMask[] = { GL_RED, GL_RED, GL_RED, GL_ONE };
-                    glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA, swizzleMask);
+                    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, srcDataFormat[comp - 1], GL_UNSIGNED_BYTE, img);
                 }
                 else if (textureTypes[textureTypeIdx] == aiTextureType_NORMALS)
                 {
@@ -158,6 +160,7 @@ static void LoadMD5Materials(
                 if (textureTypes[textureTypeIdx] == aiTextureType_DIFFUSE)
                 {
                     DiffuseTexture d;
+                    d.HasTransparency = hasTransparency;
                     d.TO = texture;
                     scene->DiffuseTextures.push_back(std::move(d));
                     id = (int)scene->DiffuseTextures.size() - 1;

@@ -12,6 +12,7 @@
 #include <cassert>
 #include <cstdlib>
 #include <cstdio>
+#include <algorithm>
 
 void InitRenderer(Renderer* renderer)
 {
@@ -61,6 +62,69 @@ void PaintRenderer(
     SDL_Window* window, 
     Scene* scene)
 {
+    struct DrawCmd
+    {
+        int HasTransparency;
+        int MaterialID;
+        int NodeID;
+
+        bool operator<(const DrawCmd& other) const
+        {
+            if (HasTransparency < other.HasTransparency) return true;
+            if (other.HasTransparency < HasTransparency) return false;
+
+            if (MaterialID < other.MaterialID) return true;
+            if (other.MaterialID < MaterialID) return false;
+
+            if (NodeID < other.NodeID) return true;
+            if (other.NodeID < NodeID) return false;
+
+            return false;
+        }
+    };
+
+    // Encode draws to sort them
+    std::vector<DrawCmd> draws(scene->SceneNodes.size());
+    for (int nodeID = 0; nodeID < (int)scene->SceneNodes.size(); nodeID++)
+    {
+        const SceneNode& sceneNode = scene->SceneNodes[nodeID];
+
+        DrawCmd cmd;
+
+        if (sceneNode.Type == SCENENODETYPE_SKINNEDMESH)
+        {
+            const SkinnedMeshSceneNode& skinnedMeshSceneNode = sceneNode.AsSkinnedMesh;
+            const SkinnedMesh& skinnedMesh = scene->SkinnedMeshes[skinnedMeshSceneNode.SkinnedMeshID];
+            const BindPoseMesh& bindPoseMesh = scene->BindPoseMeshes[skinnedMesh.BindPoseMeshID];
+
+            int materialID = bindPoseMesh.MaterialID;
+            const Material& material = scene->Materials[materialID];
+
+            int hasTransparency = false;
+            for (int diffuseTextureIdx = 0; diffuseTextureIdx < (int)material.DiffuseTextureIDs.size(); diffuseTextureIdx++)
+            {
+                if (scene->DiffuseTextures[material.DiffuseTextureIDs[diffuseTextureIdx]].HasTransparency)
+                {
+                    hasTransparency = 1;
+                    break;
+                }
+            }
+
+            cmd.HasTransparency = hasTransparency;
+            cmd.MaterialID = materialID;
+            cmd.NodeID = nodeID;
+        }
+        else
+        {
+            fprintf(stderr, "Unknown scene node type %d\n", sceneNode.Type);
+            exit(1);
+        }
+
+        draws[nodeID] = std::move(cmd);
+    }
+
+    std::sort(begin(draws), end(draws));
+
     int drawableWidth, drawableHeight;
     SDL_GL_GetDrawableSize(window, &drawableWidth, &drawableHeight);
 
@@ -91,9 +155,64 @@ void PaintRenderer(
         glUniform1i(scene->SceneSP_NormalTextureLoc, 2);
         glUniform3fv(scene->SceneSP_CameraPositionLoc, 1, glm::value_ptr(scene->CameraPosition));
         
-        for (int nodeIdx = 0; nodeIdx < (int)scene->SceneNodes.size(); nodeIdx++)
+        for (int drawIdx = 0; drawIdx < (int)draws.size(); drawIdx++)
         {
-            const SceneNode& sceneNode = scene->SceneNodes[nodeIdx];
+            DrawCmd cmd = draws[drawIdx];
+
+            if (!cmd.HasTransparency)
+            {
+                glDepthMask(GL_TRUE);
+                glDepthFunc(GL_LESS);
+                glDisable(GL_BLEND);
+                glBlendFuncSeparate(GL_ONE, GL_ZERO, GL_ONE, GL_ZERO);
+                glUniform1i(scene->SceneSP_IlluminationModelLoc, 1);
+            }
+            else
+            {
+                glDepthMask(GL_FALSE);
+                glDepthFunc(GL_LEQUAL);
+                glEnable(GL_BLEND);
+                glBlendFuncSeparate(GL_ONE, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ZERO);
+                glUniform1i(scene->SceneSP_IlluminationModelLoc, 2);
+            }
+
+            int materialID = cmd.MaterialID;
+            const Material& material = scene->Materials[materialID];
+
+            // Set diffuse texture
+            glActiveTexture(GL_TEXTURE0);
+            if (material.DiffuseTextureIDs.size() < 1 || material.DiffuseTextureIDs[0] == -1)
+            {
+                glBindTexture(GL_TEXTURE_2D, 0);
+            }
+            else
+            {
+                glBindTexture(GL_TEXTURE_2D, scene->DiffuseTextures[material.DiffuseTextureIDs[0]].TO);
+            }
+
+            // Set specular texture
+            glActiveTexture(GL_TEXTURE1);
+            if (material.SpecularTextureIDs.size() < 1 || material.SpecularTextureIDs[0] == -1)
+            {
+                glBindTexture(GL_TEXTURE_2D, 0);
+            }
+            else
+            {
+                glBindTexture(GL_TEXTURE_2D, scene->SpecularTextures[material.SpecularTextureIDs[0]].TO);
+            }
+
+            // Set normal map texture
+            glActiveTexture(GL_TEXTURE2);
+            if (material.NormalTextureIDs.size() < 1 || material.NormalTextureIDs[0] == -1)
+            {
+                glBindTexture(GL_TEXTURE_2D, 0);
+            }
+            else
+            {
+                glBindTexture(GL_TEXTURE_2D, scene->NormalTextures[material.NormalTextureIDs[0]].TO);
+            }
+
+            const SceneNode& sceneNode = scene->SceneNodes[cmd.NodeID];
 
             // Draw node
             if (sceneNode.Type == SCENENODETYPE_SKINNEDMESH)
@@ -101,42 +220,6 @@ void PaintRenderer(
                 const SkinnedMeshSceneNode& skinnedMeshSceneNode = sceneNode.AsSkinnedMesh;
                 const SkinnedMesh& skinnedMesh = scene->SkinnedMeshes[skinnedMeshSceneNode.SkinnedMeshID];
                 const BindPoseMesh& bindPoseMesh = scene->BindPoseMeshes[skinnedMesh.BindPoseMeshID];
-
-                int materialID = bindPoseMesh.MaterialID;
-                const Material& material = scene->Materials[materialID];
-
-                // Set diffuse texture
-                glActiveTexture(GL_TEXTURE0);
-                if (material.DiffuseTextureIDs.size() < 1 || material.DiffuseTextureIDs[0] == -1)
-                {
-                    glBindTexture(GL_TEXTURE_2D, 0);
-                }
-                else
-                {
-                    glBindTexture(GL_TEXTURE_2D, scene->DiffuseTextures[material.DiffuseTextureIDs[0]].TO);
-                }
-
-                // Set specular texture
-                glActiveTexture(GL_TEXTURE1);
-                if (material.SpecularTextureIDs.size() < 1 || material.SpecularTextureIDs[0] == -1)
-                {
-                    glBindTexture(GL_TEXTURE_2D, 0);
-                }
-                else
-                {
-                    glBindTexture(GL_TEXTURE_2D, scene->SpecularTextures[material.SpecularTextureIDs[0]].TO);
-                }
-
-                // Set normal map texture
-                glActiveTexture(GL_TEXTURE2);
-                if (material.NormalTextureIDs.size() < 1 || material.NormalTextureIDs[0] == -1)
-                {
-                    glBindTexture(GL_TEXTURE_2D, 0);
-                }
-                else
-                {
-                    glBindTexture(GL_TEXTURE_2D, scene->NormalTextures[material.NormalTextureIDs[0]].TO);
-                }
 
                 glBindVertexArray(skinnedMesh.SkinnedVAO);
 
@@ -157,6 +240,11 @@ void PaintRenderer(
                 exit(1);
             }
         }
+
+        glDepthMask(GL_TRUE);
+        glDepthFunc(GL_LESS);
+        glDisable(GL_BLEND);
+        glBlendFuncSeparate(GL_ONE, GL_ZERO, GL_ONE, GL_ZERO);
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, 0);

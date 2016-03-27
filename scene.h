@@ -165,6 +165,7 @@ struct Ragdoll
 // DiffuseTexture Table
 struct DiffuseTexture
 {
+    bool HasTransparency; // If the alpha of this texture has some values < 1.0
     GLuint TO; // Texture object
 };
 
@@ -262,6 +263,7 @@ struct Scene
     GLint SceneSP_DiffuseTextureLoc;
     GLint SceneSP_SpecularTextureLoc;
     GLint SceneSP_NormalTextureLoc;
+    GLint SceneSP_IlluminationModelLoc;
 
     // true if all shaders in the scene are compiling/linking successfully.
     // Scene updates will stop if not all shaders are working, since it will likely crash.
