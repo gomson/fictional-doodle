@@ -303,7 +303,7 @@ static int LoadMD5SkeletonNode(
     skeleton.BoneInverseBindPoseTransforms.resize(boneCount);
     skeleton.BoneParents = std::move(boneParentIDs);
     skeleton.NumBones = boneCount;
-    skeleton.NumBoneIndices = 2 * boneIndices.size();
+    skeleton.NumBoneIndices = 2 * (int)boneIndices.size();
 
     for (int boneID = 0; boneID < boneCount; boneID++)
     {

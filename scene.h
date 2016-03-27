@@ -46,6 +46,7 @@ enum BoneControlMode
 // Different types of scene nodes need to be rendered slightly differently.
 enum SceneNodeType
 {
+    SCENENODETYPE_TRANSFORM,
     SCENENODETYPE_SKINNEDMESH
 };
 
@@ -197,6 +198,11 @@ struct Material
     std::vector<int> NormalTextureIDs; // Normal textures (if present)
 };
 
+struct TransformSceneNode
+{
+    // Empty node with no purpose other than making nodes relative to it
+};
+
 struct SkinnedMeshSceneNode
 {
     int SkinnedMeshID;
@@ -206,11 +212,15 @@ struct SkinnedMeshSceneNode
 // Each node is associated to one material.
 struct SceneNode
 {
-    glm::mat4 ModelWorldTransform; // The modelworld matrix to place the node in the world.
+    glm::mat4 LocalTransform; // Transform relative to parent (or relative to world if no parent exists)
+    glm::mat4 WorldTransform; // Transform relative to world (updated from RelativeTransform)
+
     SceneNodeType Type; // What type of node this is.
+    int TransformParentNodeID; // The node this node is placed relative to, or -1 if none
 
     union
     {
+        TransformSceneNode AsTransform;
         SkinnedMeshSceneNode AsSkinnedMesh;
     };
 };
@@ -292,6 +302,11 @@ struct Scene
 
     // The current skinning method used to skin all meshes in the scene
     SkinningMethod MeshSkinningMethod;
+    // For debugging skeletal animations
+    bool ShowSkeletons;
+    // Placing the hellknight (for testing)
+    int HellknightTransformNodeID;
+    glm::vec3 HellknightPosition;
 };
 
 void InitScene(Scene* scene);

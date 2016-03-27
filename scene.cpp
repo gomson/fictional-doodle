@@ -21,6 +21,8 @@
 #include <SDL.h>
 
 #include <functional>
+#include <algorithm>
+#include <numeric>
 
 #ifdef __APPLE__
 #include <sys/sysctl.h>
@@ -175,13 +177,24 @@ static int AddRagdoll(
     return (int)scene->Ragdolls.size() - 1;
 }
 
+static int AddTransformSceneNode(
+    Scene* scene)
+{
+    SceneNode sceneNode;
+    sceneNode.Type = SCENENODETYPE_TRANSFORM;
+    sceneNode.TransformParentNodeID = -1;
+
+    scene->SceneNodes.push_back(std::move(sceneNode));
+    return (int)scene->SceneNodes.size() - 1;
+}
+
 static int AddSkinnedMeshSceneNode(
     Scene* scene,
     int skinnedMeshID)
 {
     SceneNode sceneNode;
-    sceneNode.ModelWorldTransform = glm::mat4();
     sceneNode.Type = SCENENODETYPE_SKINNEDMESH;
+    sceneNode.TransformParentNodeID = -1;
     sceneNode.AsSkinnedMesh.SkinnedMeshID = skinnedMeshID;
     
     scene->SceneNodes.push_back(std::move(sceneNode));
@@ -235,15 +248,16 @@ void InitScene(Scene* scene)
     int hellknightInitialAnimSequenceID = hellknightAnimSequenceIDs[0];
     int hellknightAnimatedSkeletonID = AddAnimatedSkeleton(scene, hellknightInitialAnimSequenceID);
 
+    int hellknightTransformNodeID = AddTransformSceneNode(scene);
+    scene->HellknightTransformNodeID = hellknightTransformNodeID;
+
     for (int hellknightMeshIdx = 0; hellknightMeshIdx < (int)hellknightBindPoseMeshIDs.size(); hellknightMeshIdx++)
     {
         int hellknightBindPoseMeshID = hellknightBindPoseMeshIDs[hellknightMeshIdx];
         int hellknightSkinnedMeshID = AddSkinnedMesh(scene, hellknightBindPoseMeshID, hellknightAnimatedSkeletonID);
         int hellknightRagdollID = AddRagdoll(scene, hellknightAnimatedSkeletonID);
-
-        // TODO: How do we stop the tongue and body and etc from falling out of sync in terms of position?
-        // Need a parent node in the scenegraph to keep them all rooted at the same place?
         int hellknightSceneNode = AddSkinnedMeshSceneNode(scene, hellknightSkinnedMeshID);
+        scene->SceneNodes[hellknightSceneNode].TransformParentNodeID = hellknightTransformNodeID;
     }
 
     scene->AllShadersOK = false;
@@ -437,6 +451,14 @@ static void ShowToolboxGUI(Scene* scene, SDL_Window* window)
                 {
                     scene->MeshSkinningMethod = SKINNING_LBS;
                     ReloadShaders(scene);
+                }
+
+                ImGui::Checkbox("Show Skeletons", &scene->ShowSkeletons);
+
+                ImGui::Text("Hellknight Position");
+                if (ImGui::SliderFloat3("##hellknightposition", value_ptr(scene->HellknightPosition), -100.0f, 100.0f))
+                {
+                    scene->SceneNodes[scene->HellknightTransformNodeID].LocalTransform = translate(glm::mat4(), scene->HellknightPosition);
                 }
 
                 ImGui::PopItemWidth();
@@ -661,6 +683,31 @@ void UpdateScene(Scene* scene, SDL_Window* window, uint32_t dt_ms)
 
     UpdateAnimatedSkeletons(scene, dt_ms);
     UpdateSkinnedGeometry(scene, dt_ms);
+
+    // Update world transforms from local transforms
+    {
+        // Partial sort nodes according to parent relationship
+        std::vector<int> parentSortedNodes(scene->SceneNodes.size());
+        std::iota(begin(parentSortedNodes), end(parentSortedNodes), 0);
+        std::make_heap(begin(parentSortedNodes), end(parentSortedNodes),
+            [&scene](int n0, int n1) {
+            return scene->SceneNodes[n0].TransformParentNodeID > scene->SceneNodes[n1].TransformParentNodeID;
+        });
+
+        for (int nodeID : parentSortedNodes)
+        {
+            if (scene->SceneNodes[nodeID].TransformParentNodeID == -1)
+            {
+                scene->SceneNodes[nodeID].WorldTransform = scene->SceneNodes[nodeID].LocalTransform;
+            }
+            else
+            {
+                int parentNodeID = scene->SceneNodes[nodeID].TransformParentNodeID;
+                glm::mat4 parentWorldTransform = scene->SceneNodes[parentNodeID].WorldTransform;
+                scene->SceneNodes[nodeID].WorldTransform = scene->SceneNodes[nodeID].LocalTransform * parentWorldTransform;
+            }
+        }
+    }
 
 #if 0
     UpdateDynamics(scene, dt_ms);

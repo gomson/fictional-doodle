@@ -62,9 +62,12 @@ void PaintRenderer(
     SDL_Window* window, 
     Scene* scene)
 {
+    glm::mat4 worldView = glm::translate(glm::mat4(scene->CameraRotation), -scene->CameraPosition);
+
     struct DrawCmd
     {
         int HasTransparency;
+        float ViewDepth;
         int MaterialID;
         int NodeID;
 
@@ -72,6 +75,12 @@ void PaintRenderer(
         {
             if (HasTransparency < other.HasTransparency) return true;
             if (other.HasTransparency < HasTransparency) return false;
+
+            // Nearer objects are drawn first, since they hide further objects
+            // Recall that GL view depth is along the negative Z direction,
+            // so nearer objects have a greater Z.
+            if (ViewDepth > other.ViewDepth) return true;
+            if (other.ViewDepth > ViewDepth) return false;
 
             if (MaterialID < other.MaterialID) return true;
             if (other.MaterialID < MaterialID) return false;
@@ -83,15 +92,17 @@ void PaintRenderer(
         }
     };
 
-    // Encode draws to sort them
-    std::vector<DrawCmd> draws(scene->SceneNodes.size());
+    // Produce list of draws to sort them in a good order
+    std::vector<DrawCmd> draws;
     for (int nodeID = 0; nodeID < (int)scene->SceneNodes.size(); nodeID++)
     {
         const SceneNode& sceneNode = scene->SceneNodes[nodeID];
 
-        DrawCmd cmd;
-
-        if (sceneNode.Type == SCENENODETYPE_SKINNEDMESH)
+        if (sceneNode.Type == SCENENODETYPE_TRANSFORM)
+        {
+            // These nodes don't draw anything
+        }
+        else if (sceneNode.Type == SCENENODETYPE_SKINNEDMESH)
         {
             const SkinnedMeshSceneNode& skinnedMeshSceneNode = sceneNode.AsSkinnedMesh;
             const SkinnedMesh& skinnedMesh = scene->SkinnedMeshes[skinnedMeshSceneNode.SkinnedMeshID];
@@ -110,17 +121,20 @@ void PaintRenderer(
                 }
             }
 
+            float viewDepth = (worldView * sceneNode.WorldTransform * glm::vec4(0,0,0,1)).z;
+
+            DrawCmd cmd;
             cmd.HasTransparency = hasTransparency;
+            cmd.ViewDepth = viewDepth;
             cmd.MaterialID = materialID;
             cmd.NodeID = nodeID;
+            draws.push_back(cmd);
         }
         else
         {
             fprintf(stderr, "Unknown scene node type %d\n", sceneNode.Type);
             exit(1);
         }
-
-        draws[nodeID] = std::move(cmd);
     }
 
     std::sort(begin(draws), end(draws));
@@ -131,7 +145,6 @@ void PaintRenderer(
     int windowWidth, windowHeight;
     SDL_GetWindowSize(window, &windowWidth, &windowHeight);
     glm::mat4 projection = glm::perspective(70.0f, (float)drawableWidth / drawableHeight, 0.01f, 1000.0f);
-    glm::mat4 worldView = glm::translate(glm::mat4(scene->CameraRotation), -scene->CameraPosition);
     glm::mat4 worldViewProjection = projection * worldView;
 
     // Scene rendering
@@ -146,18 +159,19 @@ void PaintRenderer(
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         glEnable(GL_FRAMEBUFFER_SRGB);
-        glEnable(GL_DEPTH_TEST);
 
-        glUseProgram(scene->SceneSP.Handle);
-        glUniformMatrix4fv(scene->SceneSP_WorldViewLoc, 1, GL_FALSE, glm::value_ptr(worldView));
-        glUniform1i(scene->SceneSP_DiffuseTextureLoc, 0);
-        glUniform1i(scene->SceneSP_SpecularTextureLoc, 1);
-        glUniform1i(scene->SceneSP_NormalTextureLoc, 2);
-        glUniform3fv(scene->SceneSP_CameraPositionLoc, 1, glm::value_ptr(scene->CameraPosition));
-        
         for (int drawIdx = 0; drawIdx < (int)draws.size(); drawIdx++)
         {
             DrawCmd cmd = draws[drawIdx];
+
+            glUseProgram(scene->SceneSP.Handle);
+            glUniformMatrix4fv(scene->SceneSP_WorldViewLoc, 1, GL_FALSE, glm::value_ptr(worldView));
+            glUniform1i(scene->SceneSP_DiffuseTextureLoc, 0);
+            glUniform1i(scene->SceneSP_SpecularTextureLoc, 1);
+            glUniform1i(scene->SceneSP_NormalTextureLoc, 2);
+            glUniform3fv(scene->SceneSP_CameraPositionLoc, 1, glm::value_ptr(scene->CameraPosition));
+
+            glEnable(GL_DEPTH_TEST);
 
             if (!cmd.HasTransparency)
             {
@@ -223,7 +237,7 @@ void PaintRenderer(
 
                 glBindVertexArray(skinnedMesh.SkinnedVAO);
 
-                glm::mat4 modelWorld = sceneNode.ModelWorldTransform;
+                glm::mat4 modelWorld = sceneNode.WorldTransform;
                 glm::mat4 modelView = worldView * modelWorld;
                 glm::mat4 modelViewProjection = worldViewProjection * modelWorld;
 
@@ -233,6 +247,34 @@ void PaintRenderer(
                 glUniformMatrix4fv(scene->SceneSP_ModelViewProjectionLoc, 1, GL_FALSE, value_ptr(modelViewProjection));
                 
                 glDrawElements(GL_TRIANGLES, bindPoseMesh.NumIndices, GL_UNSIGNED_INT, NULL);
+
+                // Render skeleton
+                if (scene->ShowSkeletons)
+                {
+                    const AnimatedSkeleton& animatedSkeleton = scene->AnimatedSkeletons[skinnedMesh.AnimatedSkeletonID];
+                    const AnimSequence& animSequence = scene->AnimSequences[animatedSkeleton.CurrAnimSequenceID];
+                    const Skeleton& skeleton = scene->Skeletons[animSequence.SkeletonID];
+
+                    glUseProgram(scene->SkeletonSP.Handle);
+                    glPointSize(3.0f); // Make rendered joints visible
+                    glDisable(GL_DEPTH_TEST);
+
+                    glBindVertexArray(animatedSkeleton.SkeletonVAO);
+                    
+                    glUniformMatrix4fv(scene->SkeletonSP_ModelViewProjectionLoc, 1, GL_FALSE, value_ptr(modelViewProjection));
+
+                    // Draw white bones
+                    glUniform3fv(scene->SkeletonSP_ColorLoc, 1, value_ptr(glm::vec3(1.0f, 1.0f, 1.0f)));
+                    glDrawElements(GL_LINES, skeleton.NumBoneIndices, GL_UNSIGNED_INT, NULL);
+
+                    // Draw green points at joints
+                    glUniform3fv(scene->SkeletonSP_ColorLoc, 1, value_ptr(glm::vec3(0.0f, 1.0f, 0.0f)));
+                    glDrawArrays(GL_POINTS, 0, skeleton.NumBones);
+
+                    glBindVertexArray(0);
+                    glPointSize(1.0f);
+                    glUseProgram(0);
+                }
             }
             else
             {
@@ -241,6 +283,7 @@ void PaintRenderer(
             }
         }
 
+        // Restore default state
         glDepthMask(GL_TRUE);
         glDepthFunc(GL_LESS);
         glDisable(GL_BLEND);
@@ -254,39 +297,6 @@ void PaintRenderer(
         glBindTexture(GL_TEXTURE_2D, 0);
 
         glDisable(GL_FRAMEBUFFER_SRGB);
-
-        // Overlay spooky skeletons
-        glClear(GL_DEPTH_BUFFER_BIT);
-
-        glUseProgram(scene->SkeletonSP.Handle);
-        glPointSize(3.0); // Make rendered joints visible
-
-        for (const SceneNode& sceneNode : scene->SceneNodes)
-        {
-            if (sceneNode.Type == SCENENODETYPE_SKINNEDMESH)
-            {
-                const SkinnedMeshSceneNode skinnedMeshSceneNode = sceneNode.AsSkinnedMesh;
-                const SkinnedMesh& skinnedMesh = scene->SkinnedMeshes[skinnedMeshSceneNode.SkinnedMeshID];
-                const AnimatedSkeleton& animatedSkeleton = scene->AnimatedSkeletons[skinnedMesh.AnimatedSkeletonID];
-                const AnimSequence& animSequence = scene->AnimSequences[animatedSkeleton.CurrAnimSequenceID];
-                const Skeleton& skeleton = scene->Skeletons[animSequence.SkeletonID];
-
-                glBindVertexArray(animatedSkeleton.SkeletonVAO);
-
-                const glm::mat4& modelWorld = sceneNode.ModelWorldTransform;
-                glm::mat4 modelViewProjection = worldViewProjection * modelWorld;
-
-                glUniformMatrix4fv(scene->SkeletonSP_ModelViewProjectionLoc, 1, GL_FALSE, value_ptr(modelViewProjection));
-
-                // Draw white bones
-                glUniform3fv(scene->SkeletonSP_ColorLoc, 1, value_ptr(glm::vec3(1.0f, 1.0f, 1.0f)));
-                glDrawElements(GL_LINES, skeleton.NumBoneIndices, GL_UNSIGNED_INT, NULL);
-
-                // Draw green points at joints
-                glUniform3fv(scene->SkeletonSP_ColorLoc, 1, value_ptr(glm::vec3(0.0f, 1.0f, 0.0f)));
-                glDrawArrays(GL_POINTS, 0, skeleton.NumBones);
-            }
-        }
 
         glBindVertexArray(0);
         glUseProgram(0);
