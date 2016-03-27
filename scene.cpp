@@ -33,7 +33,7 @@ static int AddAnimatedSkeleton(
     int initialAnimSequenceID)
 {
     AnimatedSkeleton animatedSkeleton;
-    
+
     const AnimSequence& animSequence = scene->AnimSequences[initialAnimSequenceID];
     Skeleton& skeleton = scene->Skeletons[animSequence.SkeletonID];
 
@@ -118,7 +118,7 @@ static int AddSkinnedMesh(
 
     glGenVertexArrays(1, &skinnedMesh.SkinnedVAO);
     glBindVertexArray(skinnedMesh.SkinnedVAO);
-    
+
     glBindBuffer(GL_ARRAY_BUFFER, skinnedMesh.PositionTFBO);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(PositionVertex), (GLvoid*)offsetof(PositionVertex, Position));
     glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -196,7 +196,7 @@ static int AddSkinnedMeshSceneNode(
     sceneNode.Type = SCENENODETYPE_SKINNEDMESH;
     sceneNode.TransformParentNodeID = -1;
     sceneNode.AsSkinnedMesh.SkinnedMeshID = skinnedMeshID;
-    
+
     scene->SceneNodes.push_back(std::move(sceneNode));
     return (int)scene->SceneNodes.size() - 1;
 }
@@ -227,18 +227,18 @@ void InitScene(Scene* scene)
     std::vector<int> hellknightBindPoseMeshIDs;
     int hellknightSkeletonID;
     LoadMD5Mesh(
-        scene, 
+        scene,
         assetFolder.c_str(), hellknight_modelFolder.c_str(),
         hellknight_meshFile.c_str(),
         NULL, &hellknightSkeletonID, &hellknightBindPoseMeshIDs);
-    
+
     std::vector<int> hellknightAnimSequenceIDs;
     for (const std::string& animFile : hellknight_animFiles)
     {
         int animSequenceID;
         LoadMD5Anim(
-            scene, 
-            hellknightSkeletonID, 
+            scene,
+            hellknightSkeletonID,
             assetFolder.c_str(), hellknight_modelFolder.c_str(),
             animFile.c_str(),
             &animSequenceID);
@@ -328,7 +328,7 @@ static void ReloadShaders(Scene* scene)
             getUOpt(&scene->SceneSP_CameraPositionLoc, "CameraPosition") ||
             getUOpt(&scene->SceneSP_DiffuseTextureLoc, "DiffuseTexture") ||
             getUOpt(&scene->SceneSP_SpecularTextureLoc, "SpecularTexture") ||
-            getUOpt(&scene->SceneSP_NormalTextureLoc, "NormalTexture") || 
+            getUOpt(&scene->SceneSP_NormalTextureLoc, "NormalTexture") ||
             getUOpt(&scene->SceneSP_IlluminationModelLoc, "IlluminationModel"))
         {
             return;
@@ -461,6 +461,34 @@ static void ShowToolboxGUI(Scene* scene, SDL_Window* window)
                     scene->SceneNodes[scene->HellknightTransformNodeID].LocalTransform = translate(glm::mat4(), scene->HellknightPosition);
                 }
 
+                ImGui::Text("Bone Control");
+                if (ImGui::RadioButton("Skeletal Animation", animatedSkeleton.BoneControls[0] == BONECONTROL_ANIMATION))
+                {
+                    std::fill(begin(animatedSkeleton.BoneControls), end(animatedSkeleton.BoneControls), BONECONTROL_ANIMATION);
+                }
+                if (ImGui::RadioButton("Ragdoll Physics", animatedSkeleton.BoneControls[0] == BONECONTROL_DYNAMICS))
+                {
+                    std::fill(begin(animatedSkeleton.BoneControls), end(animatedSkeleton.BoneControls), BONECONTROL_DYNAMICS);
+                    for (int ragdollIdx = 0; ragdollIdx < (int)scene->Ragdolls.size(); ragdollIdx++)
+                    {
+                        Ragdoll& ragdoll = scene->Ragdolls[ragdollIdx];
+                        if (ragdoll.AnimatedSkeletonID != currSelectedAnimatedSkeleton)
+                        {
+                            continue;
+                        }
+
+                        for (int boneIdx = 0; boneIdx < (int)ragdoll.BoneVelocities[ragdoll.OldBufferIndex].size(); boneIdx++)
+                        {
+                            ragdoll.BonePositions[ragdoll.OldBufferIndex][boneIdx] = animatedSkeleton.BoneVertices[boneIdx];
+                        }
+
+                        for (int boneIdx = 0; boneIdx < (int)ragdoll.BoneVelocities[ragdoll.OldBufferIndex].size(); boneIdx++)
+                        {
+                            ragdoll.BoneVelocities[ragdoll.OldBufferIndex][boneIdx] = glm::vec3(0.0f);
+                        }
+                    }
+                }
+
                 ImGui::PopItemWidth();
             }
         }
@@ -487,6 +515,11 @@ static void UpdateAnimatedSkeletons(Scene* scene, uint32_t dt_ms)
         // Calculate skinning transformations and bone vertices
         for (int boneIdx = 0; boneIdx < skeleton.NumBones; boneIdx++)
         {
+            if (animSkeleton.BoneControls[boneIdx] != BONECONTROL_ANIMATION)
+            {
+                continue;
+            }
+
             glm::mat4 translation = translate(frame[boneIdx].T);
             glm::mat4 orientation = mat4_cast(frame[boneIdx].Q);
             glm::mat4 boneTransform = skeleton.Transform * translation * orientation * skeleton.BoneInverseBindPoseTransforms[boneIdx];
@@ -569,18 +602,13 @@ static void UpdateSkinnedGeometry(Scene* scene, uint32_t dt_ms)
     glUseProgram(0);
 }
 
-#if 0
 static void UpdateDynamics(Scene* scene, uint32_t dt_ms)
 {
     static PFNSIMULATEDYNAMICSPROC pfnSimulateDynamics = NULL;
 
 #ifdef _MSC_VER
-    static RuntimeCpp runtimeSimulateDynamics(
-        L"SimulateDynamics.dll",
-        { "SimulateDynamics" }
-    );
-    if (PollDLLs(&runtimeSimulateDynamics))
-    {
+    static RuntimeCpp runtimeSimulateDynamics(L"SimulateDynamics.dll", { "SimulateDynamics" });
+    if (PollDLLs(&runtimeSimulateDynamics)) {
         runtimeSimulateDynamics.GetProc(pfnSimulateDynamics, "SimulateDynamics");
     }
 #else
@@ -592,57 +620,84 @@ static void UpdateDynamics(Scene* scene, uint32_t dt_ms)
         return;
     }
 
-    // read from frontbuffer
-    const std::vector<glm::vec3>& oldPositions = scene->BoneDynamicsPositions[(scene->BoneDynamicsBackBufferIndex + 1) % Scene::NUM_BONE_DYNAMICS_BUFFERS];
-    const std::vector<glm::vec3>& oldVelocities = scene->BoneDynamicsVelocities[(scene->BoneDynamicsBackBufferIndex + 1) % Scene::NUM_BONE_DYNAMICS_BUFFERS];
-
-    // write to backbuffer
-    std::vector<glm::vec3>& newPositions = scene->BoneDynamicsPositions[scene->BoneDynamicsBackBufferIndex];
-    std::vector<glm::vec3>& newVelocities = scene->BoneDynamicsVelocities[scene->BoneDynamicsBackBufferIndex];
-
-    int numParticles = (int)oldPositions.size();
-
-    // unit masses for now
-    std::vector<float> masses(numParticles, 1.0f);
-
-    // just gravity for now
-    std::vector<glm::vec3> externalForces(numParticles);
-    for (int i = 0; i < numParticles; i++)
-    {
-        externalForces[i] = glm::vec3(0.0f, -9.8f, 0.0f) * masses[i];
-    }
-
-    // no constraints yet
-    std::vector<Constraint> constraints;
-    int numConstraints = (int)constraints.size();
-
     float dt_s = dt_ms / 1000.0f;
-    pfnSimulateDynamics(
-        dt_s,
-        (float*)data(oldPositions),
-        (float*)data(oldVelocities),
-        (float*)data(masses),
-        (float*)data(externalForces),
-        numParticles, DEFAULT_DYNAMICS_NUM_ITERATIONS,
-        data(constraints), numConstraints,
-        (float*)data(newPositions),
-        (float*)data(newVelocities));
 
-    // swap buffers
-    scene->BoneDynamicsBackBufferIndex = (scene->BoneDynamicsBackBufferIndex + 1) % Scene::NUM_BONE_DYNAMICS_BUFFERS;
-
-    // Update select bones based on dynamics
-    for (int b = 0; b < (int)scene->BoneSkinningTransforms.size(); b++)
+    for (int ragdollIdx = 0; ragdollIdx < (int)scene->Ragdolls.size(); ragdollIdx++)
     {
-        if (scene->BoneControls[b] != BONECONTROL_DYNAMICS)
+        Ragdoll& ragdoll = scene->Ragdolls[ragdollIdx];
+        AnimatedSkeleton& animatedSkeleton = scene->AnimatedSkeletons[ragdoll.AnimatedSkeletonID];
+        int numBones = (int)ragdoll.BonePositions[0].size();
+
+        if (ragdoll.OldBufferIndex == -1) // First update? initialize from animation
         {
-            continue;
+            ragdoll.OldBufferIndex = 0;
+            ragdoll.BonePositions[0] = animatedSkeleton.BoneVertices;
+            // FIXME: Velocity should actually be based on how much the skeleton moved since the last frame of animation
+            std::fill(begin(ragdoll.BoneVelocities[0]), end(ragdoll.BoneVelocities[0]), glm::vec3(0.0f, 0.0f, 0.0f));
+        }
+        else // update bones that the animation controls
+        {
+            for (int boneIdx = 0; boneIdx < numBones; boneIdx++)
+            {
+                if (animatedSkeleton.BoneControls[boneIdx] == BONECONTROL_DYNAMICS)
+                {
+                    continue;
+                }
+
+                ragdoll.BoneVelocities[ragdoll.OldBufferIndex][boneIdx] = (animatedSkeleton.BoneVertices[boneIdx] - ragdoll.BonePositions[ragdoll.OldBufferIndex][boneIdx]) / dt_s;
+                ragdoll.BonePositions[ragdoll.OldBufferIndex][boneIdx] = animatedSkeleton.BoneVertices[boneIdx];
+            }
         }
 
-        // TODO: Update bone transform
+        // read from frontbuffer
+        const std::vector<glm::vec3>& oldPositions = ragdoll.BonePositions[ragdoll.OldBufferIndex];
+        const std::vector<glm::vec3>& oldVelocities = ragdoll.BoneVelocities[ragdoll.OldBufferIndex];
+
+        // write to backbuffer
+        std::vector<glm::vec3>& newPositions = ragdoll.BonePositions[(ragdoll.OldBufferIndex + 1) % 2];
+        std::vector<glm::vec3>& newVelocities = ragdoll.BoneVelocities[(ragdoll.OldBufferIndex + 1) % 2];
+        
+        // all unit masses for now
+        std::vector<float> masses(numBones, 1.0f);
+
+        // just gravity for now
+        std::vector<glm::vec3> externalForces(numBones);
+        for (int i = 0; i < numBones; i++)
+        {
+            externalForces[i] = glm::vec3(0.0f, -9.8f, 0.0f) * masses[i];
+        }
+
+        // no constraints yet
+        std::vector<Constraint> constraints;
+        int numConstraints = (int)constraints.size();
+
+        // do the dynamics dance
+        pfnSimulateDynamics(
+            dt_s,
+            (float*)data(oldPositions),
+            (float*)data(oldVelocities),
+            (float*)data(masses),
+            (float*)data(externalForces),
+            numBones, DEFAULT_DYNAMICS_NUM_ITERATIONS,
+            data(constraints), numConstraints,
+            (float*)data(newPositions),
+            (float*)data(newVelocities));
+
+        // swap buffers
+        ragdoll.OldBufferIndex = (ragdoll.OldBufferIndex + 1) % 2;
+
+        // Update select bones based on dynamics
+        for (int boneIdx = 0; boneIdx < numBones; boneIdx++)
+        {
+            if (animatedSkeleton.BoneControls[boneIdx] != BONECONTROL_DYNAMICS)
+            {
+                continue;
+            }
+
+            animatedSkeleton.BoneVertices[boneIdx] = newPositions[boneIdx];
+        }
     }
 }
-#endif
 
 void UpdateScene(Scene* scene, SDL_Window* window, uint32_t dt_ms)
 {
@@ -682,6 +737,9 @@ void UpdateScene(Scene* scene, SDL_Window* window, uint32_t dt_ms)
     }
 
     UpdateAnimatedSkeletons(scene, dt_ms);
+
+    UpdateDynamics(scene, dt_ms);
+
     UpdateSkinnedGeometry(scene, dt_ms);
 
     // Update world transforms from local transforms
@@ -708,8 +766,4 @@ void UpdateScene(Scene* scene, SDL_Window* window, uint32_t dt_ms)
             }
         }
     }
-
-#if 0
-    UpdateDynamics(scene, dt_ms);
-#endif
 }
