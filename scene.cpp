@@ -626,6 +626,9 @@ static void UpdateDynamics(Scene* scene, uint32_t dt_ms)
     {
         Ragdoll& ragdoll = scene->Ragdolls[ragdollIdx];
         AnimatedSkeleton& animatedSkeleton = scene->AnimatedSkeletons[ragdoll.AnimatedSkeletonID];
+        AnimSequence& animSequence = scene->AnimSequences[animatedSkeleton.CurrAnimSequenceID];
+        Skeleton& skeleton = scene->Skeletons[animSequence.SkeletonID];
+
         int numBones = (int)ragdoll.BonePositions[0].size();
 
         if (ragdoll.OldBufferIndex == -1) // First update? initialize from animation
@@ -667,8 +670,33 @@ static void UpdateDynamics(Scene* scene, uint32_t dt_ms)
             externalForces[i] = glm::vec3(0.0f, -9.8f, 0.0f) * masses[i];
         }
 
-        // no constraints yet
-        std::vector<Constraint> constraints;
+        // Constraints for all the bones
+        // FIXME: Actually do want the number of bones here. Not joints.
+        int numJoints = numBones;
+        std::vector<Constraint> constraints(numJoints - 1);
+        std::vector<glm::ivec2> constraintParticles(numJoints - 1);
+        // ignore root joint since it doesn't link back to a parent
+        for (int jointIdx = 1; jointIdx < numJoints; jointIdx++)
+        {
+            int parentJointIdx = skeleton.BoneParents[jointIdx];
+
+            glm::ivec2& particles = constraintParticles[jointIdx - 1];
+            particles = glm::ivec2(jointIdx, parentJointIdx);
+
+            Constraint& constraint = constraints[jointIdx - 1];
+            constraint.Func = CONSTRAINTFUNC_DISTANCE;
+            constraint.NumParticles = 2;
+            constraint.ParticleIDs = value_ptr(particles);
+            constraint.Stiffness = 1.0f; // ??
+            constraint.Type = CONSTRAINTTYPE_EQUALITY;
+            // TODO: get rest length from bind pose instead
+            // this probably has a feedback effect
+            constraint.Distance = length(
+                animatedSkeleton.BoneVertices[jointIdx] -
+                animatedSkeleton.BoneVertices[parentJointIdx]
+            );
+        }
+
         int numConstraints = (int)constraints.size();
 
         // do the dynamics dance

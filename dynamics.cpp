@@ -93,13 +93,13 @@ static void projectConstraint(
     const float* ws, int np,
     vec3* ps)
 {
-    if (c->Func == CONSTRAINT_FUNC_DISTANCE)
+    if (c->Func == CONSTRAINTFUNC_DISTANCE)
     {
         assert(c->NumParticles == 2);
         int i0 = c->ParticleIDs[0];
         int i1 = c->ParticleIDs[1];
 
-        if (c->Type == CONSTRAINT_TYPE_EQUALITY)
+        if (c->Type == CONSTRAINTTYPE_EQUALITY)
         {
             // C(p1, p2) = length(p1 - p2) - d = 0
             float w0 = ws[i0];

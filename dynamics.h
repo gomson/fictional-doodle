@@ -4,13 +4,13 @@
 
 typedef enum ConstraintFunc
 {
-    CONSTRAINT_FUNC_DISTANCE
+    CONSTRAINTFUNC_DISTANCE
 } ConstraintFunc;
 
 typedef enum ConstraintType
 {
-    CONSTRAINT_TYPE_EQUALITY,
-    CONSTRAINT_TYPE_INEQUALITY
+    CONSTRAINTTYPE_EQUALITY,
+    CONSTRAINTTYPE_INEQUALITY
 } ConstraintType;
 
 typedef struct Constraint
