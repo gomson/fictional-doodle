@@ -43,19 +43,19 @@ void main()
         mat3 tangentModelMatrix = mat3(tangent, bitangent, normal);
         vec3 modelNormal = tangentModelMatrix * normalMap;
 
-        float a = 4;
-        float kA = 0.08;
-        float kD = 1.0;
-        float kS = 0.5;
+        float a = 30;
+        float kA = 0.03;
+        float kD = 0.5;
+        float kS = 0.7;
 
-        vec3 N = modelNormal; // normal    
+        vec3 N = normalize(modelNormal); // normal
         float G = max(0, dot(N, L)); // geometric term
-        vec3 R = reflect(L, N); // reflection direction
+        vec3 R = reflect(-L, N); // reflection direction
         float S = pow(max(0, dot(R, V)), a); // specular coefficient
 
         vec4 ambient = diffuseMap * kA;
         vec4 diffuse = G * diffuseMap * kD;
-        vec4 specular = G * S * specularMap * kS;
+        vec4 specular = S * specularMap * kS;
 
         FragColor = vec4(ambient.rgb + diffuse.rgb + specular.rgb, 1.0);
     }
