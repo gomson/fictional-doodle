@@ -109,15 +109,38 @@ static void LoadMD5Materials(
                     }
                 }
 
+                bool isSRGB = false;
+                if (textureTypes[textureTypeIdx] == aiTextureType_DIFFUSE)
+                {
+                    isSRGB = true;
+                }
+                else if (textureTypes[textureTypeIdx] == aiTextureType_SPECULAR)
+                {
+                    isSRGB = false;
+                }
+                else if (textureTypes[textureTypeIdx] == aiTextureType_NORMALS)
+                {
+                    isSRGB = false;
+                }
+                else
+                {
+                    fprintf(stderr, "%s: Unhandled texture type %d\n", fullpath.c_str(), textureTypes[textureTypeIdx]);
+                    exit(1);
+                }
+
                 // premultiply teh alphas
                 if (hasTransparency)
                 {
                     for (int i = 0; i < width * height; i++)
                     {
-                        int alpha = img[i * 4 + 3];
-                        img[i * 4 + 0] = img[i * 4 + 0] * alpha / 255;
-                        img[i * 4 + 1] = img[i * 4 + 1] * alpha / 255;
-                        img[i * 4 + 2] = img[i * 4 + 2] * alpha / 255;
+                        float alpha = glm::clamp(img[i * 4 + 3] / 255.0f, 0.0f, 1.0f);
+                        if (isSRGB)
+                        {
+                            alpha = glm::clamp(pow(alpha, 1.0f / 2.2f), 0.0f, 1.0f);
+                        }
+                        img[i * 4 + 0] = stbi_uc(img[i * 4 + 0] * alpha);
+                        img[i * 4 + 1] = stbi_uc(img[i * 4 + 1] * alpha);
+                        img[i * 4 + 2] = stbi_uc(img[i * 4 + 2] * alpha);
                     }
                 }
 
