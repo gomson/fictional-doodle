@@ -173,6 +173,31 @@ static int AddRagdoll(
         boneVelocities.resize(skeleton.NumBones);
     }
 
+    // Constraints for all the bones
+    // FIXME: Actually do want the number of bones here. Not joints.
+    int numJoints = skeleton.NumBones;
+    // ignore root joint since it doesn't link back to a parent
+    ragdoll.BoneConstraints.resize(numJoints - 1);
+    ragdoll.BoneConstraintParticleIDs.resize(numJoints - 1);
+    for (int jointIdx = 1; jointIdx < numJoints; jointIdx++)
+    {
+        int parentJointIdx = skeleton.BoneParents[jointIdx];
+
+        glm::ivec2& particles = ragdoll.BoneConstraintParticleIDs[jointIdx - 1];
+        particles = glm::ivec2(jointIdx, parentJointIdx);
+
+        Constraint& constraint = ragdoll.BoneConstraints[jointIdx - 1];
+        constraint.Func = CONSTRAINTFUNC_DISTANCE;
+        constraint.NumParticles = 2;
+        constraint.ParticleIDs = value_ptr(particles);
+        constraint.Stiffness = 1.0f; // ??
+        constraint.Type = CONSTRAINTTYPE_EQUALITY;
+        constraint.Distance =
+            length(glm::vec3(inverse(skeleton.BoneInverseBindPoseTransforms[jointIdx])[3] -
+                inverse(skeleton.BoneInverseBindPoseTransforms[parentJointIdx])[3]));
+        printf("constraint.Distance: %f\n", constraint.Distance);
+    }
+
     scene->Ragdolls.push_back(std::move(ragdoll));
     return (int)scene->Ragdolls.size() - 1;
 }
@@ -477,6 +502,8 @@ static void ShowToolboxGUI(Scene* scene, SDL_Window* window)
                             continue;
                         }
 
+                        ragdoll.OldBufferIndex = 0;
+
                         for (int boneIdx = 0; boneIdx < (int)ragdoll.BoneVelocities[ragdoll.OldBufferIndex].size(); boneIdx++)
                         {
                             ragdoll.BonePositions[ragdoll.OldBufferIndex][boneIdx] = animatedSkeleton.BoneVertices[boneIdx];
@@ -670,35 +697,6 @@ static void UpdateDynamics(Scene* scene, uint32_t dt_ms)
             externalForces[i] = glm::vec3(0.0f, -9.8f, 0.0f) * masses[i];
         }
 
-        // Constraints for all the bones
-        // FIXME: Actually do want the number of bones here. Not joints.
-        int numJoints = numBones;
-        std::vector<Constraint> constraints(numJoints - 1);
-        std::vector<glm::ivec2> constraintParticles(numJoints - 1);
-        // ignore root joint since it doesn't link back to a parent
-        for (int jointIdx = 1; jointIdx < numJoints; jointIdx++)
-        {
-            int parentJointIdx = skeleton.BoneParents[jointIdx];
-
-            glm::ivec2& particles = constraintParticles[jointIdx - 1];
-            particles = glm::ivec2(jointIdx, parentJointIdx);
-
-            Constraint& constraint = constraints[jointIdx - 1];
-            constraint.Func = CONSTRAINTFUNC_DISTANCE;
-            constraint.NumParticles = 2;
-            constraint.ParticleIDs = value_ptr(particles);
-            constraint.Stiffness = 1.0f; // ??
-            constraint.Type = CONSTRAINTTYPE_EQUALITY;
-            // TODO: get rest length from bind pose instead
-            // this probably has a feedback effect
-            constraint.Distance = length(
-                animatedSkeleton.BoneVertices[jointIdx] -
-                animatedSkeleton.BoneVertices[parentJointIdx]
-            );
-        }
-
-        int numConstraints = (int)constraints.size();
-
         // do the dynamics dance
         pfnSimulateDynamics(
             dt_s,
@@ -707,7 +705,7 @@ static void UpdateDynamics(Scene* scene, uint32_t dt_ms)
             (float*)data(masses),
             (float*)data(externalForces),
             numBones, DEFAULT_DYNAMICS_NUM_ITERATIONS,
-            data(constraints), numConstraints,
+            data(ragdoll.BoneConstraints), (int)ragdoll.BoneConstraints.size(),
             (float*)data(newPositions),
             (float*)data(newVelocities));
 

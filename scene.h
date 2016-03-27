@@ -2,6 +2,7 @@
 
 #include "opengl.h"
 #include "shaderreloader.h"
+#include "dynamics.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/type_precision.hpp>
@@ -166,6 +167,8 @@ struct Ragdoll
     int OldBufferIndex; // Which of the 2 buffers contains old data
     std::vector<glm::vec3> BonePositions[2]; // Old and new positions of the bone
     std::vector<glm::vec3> BoneVelocities[2]; // Old and new velocities of the bone
+    std::vector<Constraint> BoneConstraints;
+    std::vector<glm::ivec2> BoneConstraintParticleIDs;
 };
 
 // DiffuseTexture Table

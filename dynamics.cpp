@@ -104,13 +104,22 @@ static void projectConstraint(
             // C(p1, p2) = length(p1 - p2) - d = 0
             float w0 = ws[i0];
             float w1 = ws[i1];
-            vec3 p1_to_p0 = ps[i1] - ps[i0];
+            vec3 p1_to_p0 = ps[i0] - ps[i1];
             float p1_to_p0_len = length(p1_to_p0);
             vec3 p1_to_p0_dir = p1_to_p0_len > 0.0f ? p1_to_p0 / p1_to_p0_len : vec3(0.0f);
             vec3 dp0 = -(w0 / (w0 + w1)) * (p1_to_p0 - c->Distance * p1_to_p0_dir);
             vec3 dp1 = +(w1 / (w0 + w1)) * (p1_to_p0 - c->Distance * p1_to_p0_dir);
             ps[i0] += dp0;
             ps[i1] += dp1;
+            /*if (i0 == 1)
+            {
+                if (!isnan(ps[0].x))
+                {
+                    printf("c->Distance: %f\n", c->Distance);
+                    printf("p1_to_p0_dir: {%f,%f,%f}\n", p1_to_p0_dir.x, p1_to_p0_dir.y, p1_to_p0_dir.z);
+                    printf("ps[0] = {%f,%f,%f}\n", ps[0].x, ps[1].y, ps[2].z);
+                }
+            }*/
         }
         else
         {
@@ -222,7 +231,7 @@ void SimulateDynamics(
     }
 
     for (int i = 0; i < np; i++)
-    {
+    { 
         vs[i] = (ps[i] - xs[i]) / dtsec;
         xs[i] = ps[i];
     }
