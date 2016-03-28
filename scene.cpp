@@ -190,7 +190,7 @@ static int AddRagdoll(
         constraint.Func = CONSTRAINTFUNC_DISTANCE;
         constraint.NumParticles = 2;
         constraint.ParticleIDs = value_ptr(particles);
-        constraint.Stiffness = 0.1f;
+        constraint.Stiffness = scene->RagdollBoneStiffness;
         constraint.Type = CONSTRAINTTYPE_EQUALITY;
         constraint.Distance.Distance = skeleton.BoneLengths[jointIdx];
     }
@@ -238,6 +238,23 @@ static int AddSkinnedMeshSceneNode(
 
 void InitScene(Scene* scene)
 {
+    // Initial values
+    scene->AllShadersOK = false;
+    scene->CameraPosition = glm::vec3(85.9077225f, 200.844162f, 140.049072f);
+    scene->CameraQuaternion = glm::vec4(-0.351835f, 0.231701f, 0.090335f, 0.902411f);
+    scene->EnableCamera = true;
+    scene->MeshSkinningMethod = SKINNING_DLB;
+    scene->IsPlaying = true;
+    scene->ShouldStep = false;
+    scene->BackgroundColor = glm::vec3(
+        std::pow(100.0f / 255.0f, 2.2f),
+        std::pow(149.0f / 255.0f, 2.2f),
+        std::pow(237.0f / 255.0f, 2.2f));
+    scene->ShowBindPoses = false;
+    scene->ShowSkeletons = false;
+    scene->RagdollDampingK = 0.5f;
+    scene->RagdollBoneStiffness = 0.5f;
+
     std::string assetFolder = "assets/";
 
     std::string hellknight_modelFolder = "hellknight/";
@@ -304,23 +321,6 @@ void InitScene(Scene* scene)
         int floorSceneNode = AddStaticMeshSceneNode(scene, floorStaticMeshIDs[floorMeshIdx]);
         scene->SceneNodes[floorSceneNode].TransformParentNodeID = floorTransformNodeID;
     }
-
-    scene->AllShadersOK = false;
-
-    // initial camera position
-    scene->CameraPosition = glm::vec3(85.9077225f, 200.844162f, 140.049072f);
-    scene->CameraQuaternion = glm::vec4(-0.351835f, 0.231701f, 0.090335f, 0.902411f);
-    scene->EnableCamera = true;
-    scene->MeshSkinningMethod = SKINNING_DLB;
-    scene->IsPlaying = true;
-    scene->ShouldStep = false;
-    scene->BackgroundColor = glm::vec3(
-            std::pow(100.0f / 255.0f, 2.2f),
-            std::pow(149.0f / 255.0f, 2.2f),
-            std::pow(237.0f / 255.0f, 2.2f));
-    scene->ShowBindPoses = false;
-    scene->ShowSkeletons = false;
-    scene->RagdollDampingK = 0.5f;
 }
 
 static void ReloadShaders(Scene* scene)
@@ -519,6 +519,18 @@ static void ShowToolboxGUI(Scene* scene, SDL_Window* window)
 
                 ImGui::Text("Ragdoll Damping (1.0 = rigid)");
                 ImGui::SliderFloat("##ragdolldamping", &scene->RagdollDampingK, 0.0f, 1.0f);
+
+                ImGui::Text("Ragdoll Bone Stiffness");
+                if (ImGui::SliderFloat("##bonestiffness", &scene->RagdollBoneStiffness, 0.0f, 1.0f))
+                {
+                    for (int ragdollIdx = 0; ragdollIdx < (int)scene->Ragdolls.size(); ragdollIdx++)
+                    {
+                        for (Constraint& c : scene->Ragdolls[ragdollIdx].BoneConstraints)
+                        {
+                            c.Stiffness = scene->RagdollBoneStiffness;
+                        }
+                    }
+                }
 
                 ImGui::Text("Bone Control");
                 if (ImGui::RadioButton("Skeletal Animation", animatedSkeleton.BoneControls[0] == BONECONTROL_ANIMATION))

@@ -344,6 +344,7 @@ struct Scene
 
     // Damping coefficient for ragdolls
     // 1.0 = rigid body
+    float RagdollBoneStiffness;
     float RagdollDampingK;
 };
 

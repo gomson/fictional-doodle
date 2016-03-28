@@ -18,7 +18,6 @@ struct ParticleCollision
 {
     int pidx;
     vec3 normal;
-    float dist;
 };
 
 // Velocities are dampened before used for prediction of new positions.
@@ -94,8 +93,8 @@ static void generateCollisionConstraints(
         // * Assuming the plane is normalized
         // * Can generalize this to convex objects by having a list of planes
         vec4 testPlane = kGroundPlane;
-        bool x_in = dot(testPlane, vec4(x, 1.0f)) <= 0.0f;
-        bool p_in = dot(testPlane, vec4(p, 1.0f)) <= 0.0f;
+        bool x_in = dot(testPlane, vec4(x, 1.0f)) < 0.0f;
+        bool p_in = dot(testPlane, vec4(p, 1.0f)) < 0.0f;
         if (p_in && !x_in)
         {
             // Compute intersection of x->p with plane
@@ -106,7 +105,6 @@ static void generateCollisionConstraints(
             ParticleCollision pc;
             pc.pidx = i;
             pc.normal = vec3(testPlane);
-            pc.dist = dot(testPlane, vec4(p, 1.0f));
             pcs.push_back(pc);
 
             Constraint c;
@@ -130,7 +128,6 @@ static void generateCollisionConstraints(
             ParticleCollision pc;
             pc.pidx = i;
             pc.normal = vec3(testPlane);
-            pc.dist = dot(testPlane, vec4(p, 1.0f));
             pcs.push_back(pc);
 
             Constraint c;
@@ -255,7 +252,7 @@ static void velocityUpdate(
         // Dampen perpendicular to collision normal
         vec3 normalpart = dot(vs[pidx], pcs[i].normal) * pcs[i].normal;
         vec3 nonnormalpart = vs[pidx] - normalpart;
-        vs[pidx] = normalpart + nonnormalpart * 0.9f;
+        vs[pidx] = normalpart + nonnormalpart * 0.99f;
 
         lastpidx = pidx;
     }
@@ -302,7 +299,7 @@ void SimulateDynamics(
 
     for (int i = 0; i < np; i++)
     {
-        vs[i] = vs[i] + dtsec  * ws[i] * fexts[i];
+        vs[i] = vs[i] + dtsec * ws[i] * fexts[i];
     }
      
     dampVelocities(&xs[0], &ms[0], kdamping, np, &vs[0]);
@@ -335,7 +332,7 @@ void SimulateDynamics(
         }
         for (int i = 0; i < (int)coll_cs.size(); i++)
         {
-            projectConstraint(&coll_cs[0], &ws[0], np, &ps[0]);
+            projectConstraint(&coll_cs[i], &ws[0], np, &ps[0]);
         }
     }
 
