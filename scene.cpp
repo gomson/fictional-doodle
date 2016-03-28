@@ -320,6 +320,7 @@ void InitScene(Scene* scene)
             std::pow(237.0f / 255.0f, 2.2f));
     scene->ShowBindPoses = false;
     scene->ShowSkeletons = false;
+    scene->RagdollDampingK = 0.5f;
 }
 
 static void ReloadShaders(Scene* scene)
@@ -442,7 +443,7 @@ static void ShowToolboxGUI(Scene* scene, SDL_Window* window)
     int w = int(io.DisplaySize.x / io.DisplayFramebufferScale.x);
     int h = int(io.DisplaySize.y / io.DisplayFramebufferScale.y);
 
-    int toolboxW = 300, toolboxH = 400;
+    int toolboxW = 300, toolboxH = 600;
 
     ImGui::SetNextWindowSize(ImVec2((float)toolboxW, (float)toolboxH), ImGuiSetCond_Always);
     ImGui::SetNextWindowPos(ImVec2((float)w - toolboxW, 0), ImGuiSetCond_Always);
@@ -516,11 +517,15 @@ static void ShowToolboxGUI(Scene* scene, SDL_Window* window)
                     ReloadShaders(scene);
                 }
 
+                ImGui::Text("Ragdoll Damping (1.0 = rigid)");
+                ImGui::SliderFloat("##ragdolldamping", &scene->RagdollDampingK, 0.0f, 1.0f);
+
                 ImGui::Text("Bone Control");
                 if (ImGui::RadioButton("Skeletal Animation", animatedSkeleton.BoneControls[0] == BONECONTROL_ANIMATION))
                 {
                     std::fill(begin(animatedSkeleton.BoneControls), end(animatedSkeleton.BoneControls), BONECONTROL_ANIMATION);
                 }
+
                 if (ImGui::RadioButton("Ragdoll Physics", animatedSkeleton.BoneControls[0] == BONECONTROL_DYNAMICS))
                 {
                     std::fill(begin(animatedSkeleton.BoneControls), end(animatedSkeleton.BoneControls), BONECONTROL_DYNAMICS);
@@ -786,11 +791,9 @@ static void UpdateDynamics(Scene* scene, uint32_t dt_ms)
         std::vector<glm::vec3> externalForces(numBones);
         for (int i = 0; i < numBones; i++)
         {
-            externalForces[i] = glm::vec3(0.0f, -9.8f*100.0f, 0.0f) * masses[i];
+            externalForces[i] = glm::vec3(0.0f, -9.8f * 100.0f, 0.0f) * masses[i];
         }
 
-        // TODO: Remove if we want to use the rest length for bone constraints and make sure
-        // they're set at creation of the ragdoll
         for (int boneIdx = 0; boneIdx < numBones - 1; boneIdx++)
         {
             ragdoll.BoneConstraints[boneIdx].Distance.Distance = skeleton.BoneLengths[boneIdx + 1];
@@ -805,6 +808,7 @@ static void UpdateDynamics(Scene* scene, uint32_t dt_ms)
             (float*)data(externalForces),
             numBones, DEFAULT_DYNAMICS_NUM_ITERATIONS,
             data(ragdoll.BoneConstraints), (int)ragdoll.BoneConstraints.size(),
+            scene->RagdollDampingK,
             (float*)data(newPositions),
             (float*)data(newVelocities));
 
@@ -819,7 +823,14 @@ static void UpdateDynamics(Scene* scene, uint32_t dt_ms)
                 continue;
             }
 
-            animatedSkeleton.BoneVertices[boneIdx] = newPositions[boneIdx];
+            glm::vec3 oldPosition = animatedSkeleton.BoneVertices[boneIdx];
+            glm::vec3 newPosition = newPositions[boneIdx];
+            animatedSkeleton.BoneVertices[boneIdx] = newPosition;
+            
+            glm::vec3 deltaPosition = newPosition - oldPosition;
+            animatedSkeleton.BoneTransformMatrices[boneIdx][0][3] += deltaPosition.x;
+            animatedSkeleton.BoneTransformMatrices[boneIdx][1][3] += deltaPosition.y;
+            animatedSkeleton.BoneTransformMatrices[boneIdx][2][3] += deltaPosition.z;
         }
     }
 }

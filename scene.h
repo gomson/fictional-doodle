@@ -341,6 +341,10 @@ struct Scene
 
     bool IsPlaying;
     bool ShouldStep;
+
+    // Damping coefficient for ragdolls
+    // 1.0 = rigid body
+    float RagdollDampingK;
 };
 
 void InitScene(Scene* scene);

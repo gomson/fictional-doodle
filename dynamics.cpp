@@ -249,7 +249,7 @@ static void velocityUpdate(
 
         if (dot(vs[pidx], pcs[i].normal) < 0.0f)
         {
-            vs[pidx] = reflect(vs[pidx], pcs[i].normal) * 10.0f;
+            vs[pidx] = reflect(vs[pidx], pcs[i].normal);
         }
 
         // Dampen perpendicular to collision normal
@@ -268,10 +268,9 @@ void SimulateDynamics(
     const float* fexts_f,
     int np, int ni,
     const Constraint* cs, int nc,
+    float kdamping,
     float* xs_f, float* vs_f)
 {
-    ni = 1;
-
     if (np == 0)
     {
         return;
@@ -306,9 +305,6 @@ void SimulateDynamics(
         vs[i] = vs[i] + dtsec  * ws[i] * fexts[i];
     }
      
-    // TODO: Is damping different per particle or object or simulation?
-    // kdamping = 1.0 means rigid body.
-    float kdamping = 0.5f;
     dampVelocities(&xs[0], &ms[0], kdamping, np, &vs[0]);
 
     for (int i = 0; i < np; i++)

@@ -69,6 +69,7 @@ void SimulateDynamics(
     const float* particleExternalForceXYZs,
     int numParticles, int numIterations,
     const Constraint* constraints, int numConstraints,
+    float kdamping,
     float* particleNewPositionXYZs,
     float* particleNewVelocityXYZs);
 
