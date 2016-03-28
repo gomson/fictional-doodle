@@ -68,7 +68,7 @@ static std::string ShaderStringFromFile(const char* filename)
         std::istreambuf_iterator<char>{fs},
         std::istreambuf_iterator<char>{});
 
-    return std::move(s);
+    return s;
 }
 
 void ReloadProgram(

@@ -18,6 +18,10 @@
 #include <string>
 #include <functional>
 
+// Anisotropic filtering
+#define GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT 0x84FF
+#define GL_TEXTURE_MAX_ANISOTROPY_EXT     0x84FE
+
 static void LoadMD5Materials(
     Scene* scene,
     const char* assetFolder, const char* modelFolder,
@@ -159,6 +163,9 @@ static void LoadMD5Materials(
 
                 if (textureTypes[textureTypeIdx] == aiTextureType_DIFFUSE)
                 {
+                    float anisotropy;
+                    glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &anisotropy);
+                    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, anisotropy);
                     glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8_ALPHA8, width, height, 0, srcDataFormat[comp - 1], GL_UNSIGNED_BYTE, img);
                 }
                 else if (textureTypes[textureTypeIdx] == aiTextureType_SPECULAR)
@@ -327,6 +334,7 @@ static int LoadMD5SkeletonNode(
     Skeleton skeleton;
     skeleton.BoneNames.resize(boneCount);
     skeleton.BoneInverseBindPoseTransforms.resize(boneCount);
+    skeleton.BoneLengths.resize(boneCount);
     skeleton.BoneParents = std::move(boneParentIDs);
     skeleton.NumBones = boneCount;
     skeleton.NumBoneIndices = 2 * (int)boneIndices.size();
@@ -336,6 +344,8 @@ static int LoadMD5SkeletonNode(
         skeleton.BoneNames[boneID] = boneNodes[boneID]->mName.C_Str();
         skeleton.BoneNameToID.emplace(skeleton.BoneNames[boneID], boneID);
 
+        int parentBoneID = skeleton.BoneParents[boneID];
+
         // Unused bones won't have an inverse bind pose transform to use
         auto it = invBindPoseTransforms.find(skeleton.BoneNames[boneID]);
         if (it != invBindPoseTransforms.end())
@@ -344,7 +354,33 @@ static int LoadMD5SkeletonNode(
         }
         else
         {
-            fprintf(stderr, "Bone %s has no inverse bind pose transform\n", skeleton.BoneNames[boneID].c_str());
+            // Missing inverse bind pose implies no local transformation
+            printf("Bone %s has no inverse bind pose transform, assigning from ", skeleton.BoneNames[boneID].c_str());
+            if (parentBoneID >= 0)
+            {
+                // Same absolute transform as parent
+                printf("%s\n", skeleton.BoneNames[parentBoneID].c_str());
+                skeleton.BoneInverseBindPoseTransforms[boneID] = skeleton.BoneInverseBindPoseTransforms[parentBoneID];
+            }
+            else
+            {
+                // No absolute transform
+                printf("identity\n");
+                skeleton.BoneInverseBindPoseTransforms[boneID] = glm::mat4(1.0);
+            }
+        }
+
+        if (parentBoneID != -1)
+        {
+            glm::mat4 childInvBindPose = skeleton.BoneInverseBindPoseTransforms[boneID];
+            glm::mat4 childBindPose = inverse(childInvBindPose);
+            glm::vec3 childPosition = glm::vec3(childBindPose[3]);
+
+            glm::mat4 parentInvBindPose = skeleton.BoneInverseBindPoseTransforms[parentBoneID];
+            glm::mat4 parentBindPose = inverse(parentInvBindPose);
+            glm::vec3 parentPosition = glm::vec3(parentBindPose[3]);
+
+            skeleton.BoneLengths[boneID] = length(childPosition - parentPosition);
         }
     }
 
