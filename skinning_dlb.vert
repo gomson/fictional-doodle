@@ -23,17 +23,38 @@ vec3 QuatRotate(in vec4 q, in vec3 v)
 
 void main()
 {
+    vec4 reals[4];
+    vec4 duals[4];
+
+    // Read dual quaternion real and dual components from texture buffer
+    for (int i = 0; i < 4; i++)
+    {
+        reals[i] = texelFetch(BoneTransforms, int(BoneIDs[i]) * 2 + 0);
+        duals[i] = texelFetch(BoneTransforms, int(BoneIDs[i]) * 2 + 1);
+    }
+
+    // Reflect dual quaternions so that the dot products of the real components
+    // are positive to ensure consistent interpolation
+    for (int i = 1; i < 4; i++)
+    {
+        // Extract sign bit and map to -1 or 1 for reflection
+        uint bits = floatBitsToUint(dot(reals[0], reals[i]));
+        int s = 1 - int((bits & 0x80000000u) >> 30);
+        reals[i] *= s;
+        duals[i] *= s;
+    }
+
     vec4 real = vec4(0.0);
     vec4 dual = vec4(0.0);
 
     // Blend dual quaternions
     for (int i = 0; i < 4; i++)
     {
-        real += Weights[i] * texelFetch(BoneTransforms, int(BoneIDs[i]) * 2 + 0);
-        dual += Weights[i] * texelFetch(BoneTransforms, int(BoneIDs[i]) * 2 + 1);
+        real += Weights[i] * reals[i];
+        dual += Weights[i] * duals[i];
     }
 
-    // Normalize dual quaternion to represent a rigid transformation
+    // Normalize
     float len = length(real);
     real /= len;
     dual /= len;
