@@ -14,6 +14,7 @@ out vec4 FragColor;
 
 uniform mat4 WorldModel;
 uniform vec3 CameraPosition;
+uniform vec3 BackgroundColor;
 uniform int IlluminationModel;
 uniform int HasNormalMap;
 
@@ -77,4 +78,13 @@ void main()
         vec4 specularMap = texture(SpecularTexture, fTexCoord) * kS;
         FragColor = vec4(diffuseMap.rgb + specularMap.rgb, diffuseMap.a* fTexCoord.x * fTexCoord.y);
     }
+
+    float kSceneViewRadius = 400.0;
+    float kCameraViewRadius = 600.0;
+    float sceneViewDistance  = max(length(fPosition) - kSceneViewRadius, 0.0);
+    float cameraViewDistance = max(length(fPosition - modelCameraPos) - kCameraViewRadius, 0.0);
+    float falloffDistance = max(sceneViewDistance, cameraViewDistance);
+    float falloff = clamp(falloffDistance/ kSceneViewRadius, 0.0, 1.0);
+
+    FragColor = mix(FragColor, vec4(BackgroundColor, 1.0), falloff);
 }

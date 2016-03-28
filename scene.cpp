@@ -314,6 +314,10 @@ void InitScene(Scene* scene)
     scene->MeshSkinningMethod = SKINNING_DLB;
     scene->IsPlaying = false;
     scene->ShouldStep = false;
+    scene->BackgroundColor = glm::vec3(
+            std::pow(100.0f / 255.0f, 2.2f),
+            std::pow(149.0f / 255.0f, 2.2f),
+            std::pow(237.0f / 255.0f, 2.2f));
 }
 
 static void ReloadShaders(Scene* scene)
@@ -377,7 +381,8 @@ static void ReloadShaders(Scene* scene)
             getUOpt(&scene->SceneSP_SpecularTextureLoc, "SpecularTexture") ||
             getUOpt(&scene->SceneSP_NormalTextureLoc, "NormalTexture") ||
             getUOpt(&scene->SceneSP_IlluminationModelLoc, "IlluminationModel") ||
-            getUOpt(&scene->SceneSP_HasNormalMapLoc, "HasNormalMap"))
+            getUOpt(&scene->SceneSP_HasNormalMapLoc, "HasNormalMap") ||
+            getUOpt(&scene->SceneSP_BackgroundColorLoc, "BackgroundColor"))
         {
             return;
         }

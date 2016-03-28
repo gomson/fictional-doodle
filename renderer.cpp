@@ -171,10 +171,9 @@ void PaintRenderer(
         glViewport(0, 0, drawableWidth, drawableHeight);
 
         // Clear color is already SRGB encoded, so don't enable GL_FRAMEBUFFER_SRGB before it.
-        glClearColor(100.0f / 255.0f, 149.0f / 255.0f, 237.0f / 255.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
         glEnable(GL_FRAMEBUFFER_SRGB);
+        glClearColor(scene->BackgroundColor.r, scene->BackgroundColor.g, scene->BackgroundColor.b, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         for (int drawIdx = 0; drawIdx < (int)draws.size(); drawIdx++)
         {
@@ -185,11 +184,12 @@ void PaintRenderer(
             if (sceneNode.Type == SCENENODETYPE_STATICMESH || sceneNode.Type == SCENENODETYPE_SKINNEDMESH)
             {
                 glUseProgram(scene->SceneSP.Handle);
-                glUniformMatrix4fv(scene->SceneSP_WorldViewLoc, 1, GL_FALSE, glm::value_ptr(worldView));
+                glUniformMatrix4fv(scene->SceneSP_WorldViewLoc, 1, GL_FALSE, value_ptr(worldView));
                 glUniform1i(scene->SceneSP_DiffuseTextureLoc, 0);
                 glUniform1i(scene->SceneSP_SpecularTextureLoc, 1);
                 glUniform1i(scene->SceneSP_NormalTextureLoc, 2);
-                glUniform3fv(scene->SceneSP_CameraPositionLoc, 1, glm::value_ptr(scene->CameraPosition));
+                glUniform3fv(scene->SceneSP_CameraPositionLoc, 1, value_ptr(scene->CameraPosition));
+                glUniform3fv(scene->SceneSP_BackgroundColorLoc, 1, value_ptr(scene->BackgroundColor));
 
                 glEnable(GL_DEPTH_TEST);
 

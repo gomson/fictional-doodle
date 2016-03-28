@@ -304,6 +304,7 @@ struct Scene
     GLint SceneSP_NormalTextureLoc;
     GLint SceneSP_IlluminationModelLoc;
     GLint SceneSP_HasNormalMapLoc;
+    GLint SceneSP_BackgroundColorLoc;
 
     // Skeleton shader program used to render bones.
     ReloadableShader SkeletonVS{ "skeleton.vert" };
@@ -320,6 +321,8 @@ struct Scene
     glm::vec3 CameraPosition;
     glm::vec4 CameraQuaternion;
     glm::mat3 CameraRotation; // updated from quaternion every frame
+
+    glm::vec3 BackgroundColor;
 
     // The camera only reads user input when it is enabled.
     // Needed to implement menu navigation without the camera moving due to mouse/keyboard action.
