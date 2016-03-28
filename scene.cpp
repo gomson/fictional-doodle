@@ -161,7 +161,7 @@ static int AddRagdoll(
     int animSequenceID = animatedSkeleton.CurrAnimSequenceID;
     const AnimSequence& animSequence = scene->AnimSequences[animSequenceID];
     int skeletonID = animSequence.SkeletonID;
-    Skeleton& skeleton = scene->Skeletons[skeletonID];
+    const Skeleton& skeleton = scene->Skeletons[skeletonID];
 
     for (std::vector<glm::vec3>& bonePositions : ragdoll.BonePositions)
     {
@@ -192,10 +192,7 @@ static int AddRagdoll(
         constraint.ParticleIDs = value_ptr(particles);
         constraint.Stiffness = 1.0f; // ??
         constraint.Type = CONSTRAINTTYPE_EQUALITY;
-        constraint.Distance =
-            length(glm::vec3(inverse(skeleton.BoneInverseBindPoseTransforms[jointIdx])[3] -
-                inverse(skeleton.BoneInverseBindPoseTransforms[parentJointIdx])[3]));
-        printf("constraint.Distance: %f\n", constraint.Distance);
+        constraint.Distance = skeleton.BoneLengths[jointIdx];
     }
 
     scene->Ragdolls.push_back(std::move(ragdoll));
@@ -315,6 +312,8 @@ void InitScene(Scene* scene)
     scene->CameraQuaternion = glm::vec4(-0.351835f, 0.231701f, 0.090335f, 0.902411f);
     scene->EnableCamera = true;
     scene->MeshSkinningMethod = SKINNING_DLB;
+    scene->IsPlaying = false;
+    scene->ShouldStep = false;
 }
 
 static void ReloadShaders(Scene* scene)
@@ -539,6 +538,27 @@ static void ShowToolboxGUI(Scene* scene, SDL_Window* window)
                     }
                 }
 
+                if (scene->IsPlaying)
+                {
+                    if (ImGui::Button("Pause"))
+                    {
+                        scene->IsPlaying = false;
+                        scene->ShouldStep = false;
+                    }
+                }
+                else
+                {
+                    if (ImGui::Button("Play"))
+                    {
+                        scene->IsPlaying = true;
+                    }
+
+                    if (ImGui::Button("Step"))
+                    {
+                        scene->ShouldStep = true;
+                    }
+                }
+
                 ImGui::PopItemWidth();
             }
         }
@@ -588,6 +608,15 @@ static void UpdateAnimatedSkeletons(Scene* scene, uint32_t dt_ms)
             }
 
             animSkeleton.BoneVertices[boneIdx] = glm::vec3(skeleton.Transform * glm::vec4(frame[boneIdx].T, 1.0));
+
+            /* TODO: Remove if we continue using bone rest lengths for the dynamic constraints.
+             * Set the bone lengths to their current length in the current animation frame.
+            int parentBoneIdx = skeleton.BoneParents[boneIdx];
+            if (parentBoneIdx != -1)
+            {
+                skeleton.BoneLengths[boneIdx] = length(frame[boneIdx].T - frame[parentBoneIdx].T);
+            }
+            */
         }
 
         // Upload skeleton bones
@@ -785,11 +814,16 @@ void UpdateScene(Scene* scene, SDL_Window* window, uint32_t dt_ms)
             !scene->EnableCamera ? 0 : keyboardState[SDL_SCANCODE_LCTRL] || keyboardState[SDL_SCANCODE_LSHIFT]);
     }
 
-    UpdateAnimatedSkeletons(scene, dt_ms);
+    if (scene->IsPlaying || scene->ShouldStep)
+    {
+        UpdateAnimatedSkeletons(scene, dt_ms);
 
-    UpdateDynamics(scene, dt_ms);
+        UpdateDynamics(scene, dt_ms);
 
-    UpdateSkinnedGeometry(scene, dt_ms);
+        UpdateSkinnedGeometry(scene, dt_ms);
+
+        scene->ShouldStep = false;
+    }
 
     // Update world transforms from local transforms
     {

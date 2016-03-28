@@ -104,6 +104,7 @@ struct Skeleton
     std::unordered_map<std::string, int> BoneNameToID; // Bone ID lookup from name
     std::vector<glm::mat4> BoneInverseBindPoseTransforms; // Transforms a vertex from model space to bone space
     std::vector<int> BoneParents; // Bone parent index, or -1 if root
+    std::vector<float> BoneLengths; // Length of each bone
     int NumBones; // Number of bones in the skeleton
     int NumBoneIndices; // Number of indices for rendering the skeleton as a line mesh
 };
@@ -331,6 +332,9 @@ struct Scene
     // Placing the hellknight (for testing)
     int HellknightTransformNodeID;
     glm::vec3 HellknightPosition;
+
+    bool IsPlaying;
+    bool ShouldStep;
 };
 
 void InitScene(Scene* scene);
