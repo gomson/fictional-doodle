@@ -18,10 +18,6 @@
 #include <string>
 #include <functional>
 
-// Anisotropic filtering
-#define GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT 0x84FF
-#define GL_TEXTURE_MAX_ANISOTROPY_EXT     0x84FE
-
 static void LoadMD5Materials(
     Scene* scene,
     const char* assetFolder, const char* modelFolder,

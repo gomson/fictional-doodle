@@ -2,6 +2,10 @@
 
 #include <GL/glcorearb.h>
 
+// Anisotropic filtering
+#define GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT 0x84FF
+#define GL_TEXTURE_MAX_ANISOTROPY_EXT     0x84FE
+
 void InitGL();
 void GetProcGL(void** proc, const char* name);
 void CheckErrorGL(const char* description);
