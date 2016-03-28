@@ -18,6 +18,10 @@
 #include <string>
 #include <functional>
 
+// Anisotropic filtering
+#define GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT 0x84FF
+#define GL_TEXTURE_MAX_ANISOTROPY_EXT     0x84FE
+
 static void LoadMD5Materials(
     Scene* scene,
     const char* assetFolder, const char* modelFolder,
@@ -159,6 +163,9 @@ static void LoadMD5Materials(
 
                 if (textureTypes[textureTypeIdx] == aiTextureType_DIFFUSE)
                 {
+                    float anisotropy;
+                    glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &anisotropy);
+                    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, anisotropy);
                     glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8_ALPHA8, width, height, 0, srcDataFormat[comp - 1], GL_UNSIGNED_BYTE, img);
                 }
                 else if (textureTypes[textureTypeIdx] == aiTextureType_SPECULAR)

@@ -138,6 +138,7 @@ void APIENTRY DebugCallbackGL(GLenum source, GLenum type, GLuint id, GLenum seve
 
 void InitGL()
 {
+    GetProcGL(glGetFloatv, "glGetFloatv");
     GetProcGL(glGetIntegerv, "glGetIntegerv");
     GetProcGL(glGetStringi, "glGetStringi");
     GetProcGL(glGetString, "glGetString");
@@ -193,6 +194,7 @@ void InitGL()
     GetProcGL(glTexBuffer, "glTexBuffer");
     GetProcGL(glTexImage2D, "glTexImage2D");
     GetProcGL(glTexImage2DMultisample, "glTexImage2DMultisample");
+    GetProcGL(glTexParameterf, "glTexParameterf");
     GetProcGL(glTexParameteri, "glTexParameteri");
     GetProcGL(glTexParameteriv, "glTexParameteriv");
     GetProcGL(glGenerateMipmap, "glGenerateMipmap");
