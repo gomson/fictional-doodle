@@ -263,6 +263,7 @@ void SimulateDynamics(
     const float* x0s_f, const float* v0s_f,
     const float* ms,
     const float* fexts_f,
+    const Hull* hs,
     int np, int ni,
     const Constraint* cs, int nc,
     float kdamping,
@@ -309,10 +310,7 @@ void SimulateDynamics(
         ps[i] = xs[i] + dtsec * vs[i];
     }
 
-    for (int i = 0; i < np; i++)
-    {
-        generateCollisionConstraints(&xs[0], &ps[0], np, pcs, coll_cs);
-    }
+    generateCollisionConstraints(&xs[0], &ps[0], np, pcs, coll_cs);
 
     // hack: since generateCollisionConstraints pushes onto vectors,
     // we can't keep any pointers to inside it while building it.

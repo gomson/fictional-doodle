@@ -46,3 +46,6 @@ imgui.ini
 
 # Makefile build directory
 .build
+
+# Temporary files
+*.tmp

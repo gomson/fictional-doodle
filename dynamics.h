@@ -2,7 +2,7 @@
 
 #define DEFAULT_DYNAMICS_NUM_ITERATIONS 10
 
-typedef enum ConstraintFunc
+enum ConstraintFunc
 {
     // Maintains a distance between two points
     // C(P0, P1) = |P1 - P0| - Distance
@@ -15,13 +15,13 @@ typedef enum ConstraintFunc
     // Resolves by projecting P onto the plane (Ns, Qs)
     // C(P) = (P - Qs) . Ns
     CONSTRAINTFUNC_PROJECTION
-} ConstraintFunc;
+};
 
-typedef enum ConstraintType
+enum ConstraintType
 {
     CONSTRAINTTYPE_EQUALITY,
     CONSTRAINTTYPE_INEQUALITY
-} ConstraintType;
+};
 
 struct DistanceConstraint
 {
@@ -40,7 +40,7 @@ struct ProjectionConstraint
     float Ns[3];
 };
 
-typedef struct Constraint
+struct Constraint
 {
     ConstraintFunc Func;
     int NumParticles;
@@ -54,8 +54,33 @@ typedef struct Constraint
         IntersectionConstraint Intersection;
         ProjectionConstraint Projection;
     };
+};
 
-} Constraint;
+enum HullType
+{
+    HULLTYPE_POINT,
+    HULLTYPE_SPHERE
+};
+
+struct PointHull
+{
+    // nothing!
+};
+
+struct SphereHull
+{
+    float Radius;
+};
+
+struct Hull
+{
+    HullType Type;
+    union
+    {
+        PointHull Point;
+        SphereHull Sphere;
+    };
+};
 
 #ifdef _MSC_VER
 extern "C"
@@ -67,6 +92,7 @@ void SimulateDynamics(
     const float* particleOldVelocityXYZs,
     const float* particleMasses,
     const float* particleExternalForceXYZs,
+    const Hull* particleHulls,
     int numParticles, int numIterations,
     const Constraint* constraints, int numConstraints,
     float kdamping,

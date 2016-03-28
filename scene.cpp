@@ -824,6 +824,7 @@ static void UpdateDynamics(Scene* scene, uint32_t dt_ms)
             (float*)data(oldVelocities),
             (float*)data(masses),
             (float*)data(externalForces),
+            NULL, // TODO: Hulls
             numBones, DEFAULT_DYNAMICS_NUM_ITERATIONS,
             data(ragdoll.BoneConstraints), (int)ragdoll.BoneConstraints.size(),
             scene->RagdollDampingK,
