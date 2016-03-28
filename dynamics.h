@@ -4,7 +4,17 @@
 
 typedef enum ConstraintFunc
 {
-    CONSTRAINTFUNC_DISTANCE
+    // Maintains a distance between two points
+    // C(P0, P1) = |P1 - P0| - Distance
+    CONSTRAINTFUNC_DISTANCE,
+    // Maintains a direction (Nc) of a vector (P - Qc) from a point (Qc)
+    // Resolves by intersecting the ray (Qc, P - Qc) with the plane
+    // C(P) = (P - Qc) . Nc
+    CONSTRAINTFUNC_INTERSECTION,
+    // Maintains a direction (Ns) of a vector (P - Qs) from a point (Qs)
+    // Resolves by projecting P onto the plane (Ns, Qs)
+    // C(P) = (P - Qs) . Ns
+    CONSTRAINTFUNC_PROJECTION
 } ConstraintFunc;
 
 typedef enum ConstraintType
@@ -12,6 +22,23 @@ typedef enum ConstraintType
     CONSTRAINTTYPE_EQUALITY,
     CONSTRAINTTYPE_INEQUALITY
 } ConstraintType;
+
+struct DistanceConstraint
+{
+    float Distance;
+};
+
+struct IntersectionConstraint
+{
+    float Qc[3];
+    float Nc[3];
+};
+
+struct ProjectionConstraint
+{
+    float Qs[3];
+    float Ns[3];
+};
 
 typedef struct Constraint
 {
@@ -21,8 +48,13 @@ typedef struct Constraint
     float Stiffness;
     ConstraintType Type;
 
-    // Rest length for distance constraints
-    float Distance;
+    union
+    {
+        DistanceConstraint Distance;
+        IntersectionConstraint Intersection;
+        ProjectionConstraint Projection;
+    };
+
 } Constraint;
 
 #ifdef _MSC_VER
