@@ -268,18 +268,18 @@ void InitScene(Scene* scene)
     std::vector<std::string> hellknight_animFiles{
         "idle2.md5anim",
         "attack3.md5anim",
+        "leftslash.md5anim",
+        "range_attack2.md5anim",
+        "turret_attack.md5anim",
+        "roar1.md5anim",
+        "walk7.md5anim",
+        "walk7_left.md5anim",
+        "stand.md5anim",
         "chest.md5anim",
         "headpain.md5anim",
-        "leftslash.md5anim",
         "pain_luparm.md5anim",
         "pain_ruparm.md5anim",
         "pain1.md5anim",
-        "range_attack2.md5anim",
-        "roar1.md5anim",
-        "stand.md5anim",
-        "turret_attack.md5anim",
-        "walk7.md5anim",
-        "walk7_left.md5anim"
     };
 
     std::vector<int> hellknightBindPoseMeshIDs;

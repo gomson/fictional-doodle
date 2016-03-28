@@ -20,7 +20,7 @@ uniform int HasNormalMap;
 
 void main()
 {
-    vec3 worldLightPosition = vec3(500, 400, 0);
+    vec3 worldLightPosition = vec3(0, 100, 300);
     vec3 modelLightPosition = (WorldModel * vec4(worldLightPosition, 1)).xyz;
     
     vec3 modelCameraPos = (WorldModel * vec4(CameraPosition, 1)).xyz;
