@@ -18,6 +18,7 @@ struct ParticleCollision
 {
     int pidx;
     vec3 normal;
+    float dist;
 };
 
 // Velocities are dampened before used for prediction of new positions.
@@ -68,7 +69,7 @@ static void dampVelocities(
 // if the ray enters an object:
 //     1. Calculate entry point q and normal n there.
 //     2. Add inequality constraint:
-//        C(p) = (p-q) . n, k = 1
+//        C(p) = (p - q) . n, k = 1
 // if the ray is completely inside an object:
 //     1. Compute surface point q (and normal n) closest to p
 //     2. Add inequality constraint:
@@ -105,6 +106,7 @@ static void generateCollisionConstraints(
             ParticleCollision pc;
             pc.pidx = i;
             pc.normal = vec3(testPlane);
+            pc.dist = dot(testPlane, vec4(p, 1.0f));
             pcs.push_back(pc);
 
             Constraint c;
@@ -128,6 +130,7 @@ static void generateCollisionConstraints(
             ParticleCollision pc;
             pc.pidx = i;
             pc.normal = vec3(testPlane);
+            pc.dist = dot(testPlane, vec4(p, 1.0f));
             pcs.push_back(pc);
 
             Constraint c;
@@ -174,8 +177,8 @@ static void projectConstraint(
             vec3 p1_to_p0_dir = p1_to_p0_len > 0.0f ? p1_to_p0 / p1_to_p0_len : vec3(0.0f);
             vec3 dp0 = -(w0 / (w0 + w1)) * (p1_to_p0 - distance * p1_to_p0_dir);
             vec3 dp1 = +(w1 / (w0 + w1)) * (p1_to_p0 - distance * p1_to_p0_dir);
-            ps[i0] += dp0;
-            ps[i1] += dp1;
+            ps[i0] += dp0 * c->Stiffness;
+            ps[i1] += dp1 * c->Stiffness;
         }
         else
         {
@@ -195,8 +198,7 @@ static void projectConstraint(
             vec3 to_intersect = qc - ps[i];
             if (dot(nc, to_intersect) >= 0.0f)
             {
-                vec3 dp = c->Stiffness * to_intersect;
-                ps[i] += dp;
+                ps[i] += c->Stiffness * to_intersect;
             }
         }
         else
@@ -215,11 +217,7 @@ static void projectConstraint(
         if (c->Type == CONSTRAINTTYPE_INEQUALITY)
         {
             vec3 to_intersect = qs - ps[i];
-            if (dot(ns, to_intersect) >= 0.0f)
-            {
-                vec3 dp = c->Stiffness * to_intersect;
-                ps[i] += dp;
-            }
+            ps[i] += c->Stiffness * to_intersect;
         }
         else
         {
@@ -249,12 +247,15 @@ static void velocityUpdate(
 
         int pidx = pcs[i].pidx;
 
-        // TODO: dampen perpendicular to collision normal
-
         if (dot(vs[pidx], pcs[i].normal) < 0.0f)
         {
-            vs[pidx] = reflect(vs[pidx], pcs[i].normal);
+            vs[pidx] = reflect(vs[pidx], pcs[i].normal) * 10.0f;
         }
+
+        // Dampen perpendicular to collision normal
+        vec3 normalpart = dot(vs[pidx], pcs[i].normal) * pcs[i].normal;
+        vec3 nonnormalpart = vs[pidx] - normalpart;
+        vs[pidx] = normalpart + nonnormalpart * 0.9f;
 
         lastpidx = pidx;
     }
@@ -269,6 +270,8 @@ void SimulateDynamics(
     const Constraint* cs, int nc,
     float* xs_f, float* vs_f)
 {
+    ni = 1;
+
     if (np == 0)
     {
         return;
@@ -305,7 +308,7 @@ void SimulateDynamics(
      
     // TODO: Is damping different per particle or object or simulation?
     // kdamping = 1.0 means rigid body.
-    float kdamping = 1.0f;
+    float kdamping = 0.5f;
     dampVelocities(&xs[0], &ms[0], kdamping, np, &vs[0]);
 
     for (int i = 0; i < np; i++)

@@ -190,9 +190,9 @@ static int AddRagdoll(
         constraint.Func = CONSTRAINTFUNC_DISTANCE;
         constraint.NumParticles = 2;
         constraint.ParticleIDs = value_ptr(particles);
-        constraint.Stiffness = 1.0f; // ??
+        constraint.Stiffness = 0.1f;
         constraint.Type = CONSTRAINTTYPE_EQUALITY;
-        constraint.Distance = skeleton.BoneLengths[jointIdx];
+        constraint.Distance.Distance = skeleton.BoneLengths[jointIdx];
     }
 
     scene->Ragdolls.push_back(std::move(ragdoll));
@@ -751,7 +751,7 @@ static void UpdateDynamics(Scene* scene, uint32_t dt_ms)
         std::vector<glm::vec3> externalForces(numBones);
         for (int i = 0; i < numBones; i++)
         {
-            externalForces[i] = glm::vec3(0.0f, -9.8f, 0.0f) * masses[i];
+            externalForces[i] = glm::vec3(0.0f, -9.8f*100.0f, 0.0f) * masses[i];
         }
 
         // do the dynamics dance
@@ -823,7 +823,7 @@ void UpdateScene(Scene* scene, SDL_Window* window, uint32_t dt_ms)
     {
         UpdateAnimatedSkeletons(scene, dt_ms);
 
-        UpdateDynamics(scene, dt_ms);
+        UpdateDynamics(scene, 1000/60);
 
         UpdateSkinnedGeometry(scene, dt_ms);
 
