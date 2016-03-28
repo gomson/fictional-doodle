@@ -93,8 +93,8 @@ static void generateCollisionConstraints(
         // * Assuming the plane is normalized
         // * Can generalize this to convex objects by having a list of planes
         vec4 testPlane = kGroundPlane;
-        bool x_in = dot(testPlane, vec4(x, 1.0f)) < 0.0f;
-        bool p_in = dot(testPlane, vec4(p, 1.0f)) < 0.0f;
+        bool x_in = dot(testPlane, vec4(x, 1.0f)) <= 0.0f;
+        bool p_in = dot(testPlane, vec4(p, 1.0f)) <= 0.0f;
         if (p_in && !x_in)
         {
             // Compute intersection of x->p with plane
@@ -123,7 +123,7 @@ static void generateCollisionConstraints(
         else if (p_in && x_in)
         {
             // find surface point closest to p
-            vec3 qs = p - vec3(testPlane) * (dot(vec3(testPlane), p) - testPlane.w);
+            vec3 qs = p - vec3(testPlane) * dot(testPlane, vec4(p, 1.0f));
 
             ParticleCollision pc;
             pc.pidx = i;
@@ -192,7 +192,12 @@ static void projectConstraint(
 
         if (c->Type == CONSTRAINTTYPE_INEQUALITY)
         {
-            // TODO
+            vec3 to_intersect = qc - ps[i];
+            if (dot(nc, to_intersect) >= 0.0f)
+            {
+                vec3 dp = c->Stiffness * to_intersect;
+                ps[i] += dp;
+            }
         }
         else
         {
@@ -209,7 +214,12 @@ static void projectConstraint(
 
         if (c->Type == CONSTRAINTTYPE_INEQUALITY)
         {
-            // TODO
+            vec3 to_intersect = qs - ps[i];
+            if (dot(ns, to_intersect) >= 0.0f)
+            {
+                vec3 dp = c->Stiffness * to_intersect;
+                ps[i] += dp;
+            }
         }
         else
         {

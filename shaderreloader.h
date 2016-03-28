@@ -2,7 +2,6 @@
 
 #include "opengl.h"
 
-#include <unordered_map>
 #include <cstring>
 #include <cstdlib>
 #include <vector>

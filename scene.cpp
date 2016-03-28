@@ -195,7 +195,6 @@ static int AddRagdoll(
         constraint.Distance.Distance =
             length(glm::vec3(inverse(skeleton.BoneInverseBindPoseTransforms[jointIdx])[3] -
                 inverse(skeleton.BoneInverseBindPoseTransforms[parentJointIdx])[3]));
-        printf("constraint.Distance: %f\n", constraint.Distance.Distance);
     }
 
     scene->Ragdolls.push_back(std::move(ragdoll));

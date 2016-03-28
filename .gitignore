@@ -40,5 +40,9 @@ Thumbs.db
 # ImGui
 imgui.ini
 
+# incremental link
+*.iobj
+*.ipdb
+
 # Makefile build directory
 .build

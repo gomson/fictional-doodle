@@ -1,6 +1,6 @@
 #pragma once
 
-#define DEFAULT_DYNAMICS_NUM_ITERATIONS 10
+#define DEFAULT_DYNAMICS_NUM_ITERATIONS 50
 
 typedef enum ConstraintFunc
 {
