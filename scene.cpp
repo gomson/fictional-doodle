@@ -246,10 +246,16 @@ void InitScene(Scene* scene)
     scene->MeshSkinningMethod = SKINNING_DLB;
     scene->IsPlaying = true;
     scene->ShouldStep = false;
-    scene->BackgroundColor = glm::vec3(
+    // Cornflower blue
+    /*scene->BackgroundColor = glm::vec3(
         std::pow(100.0f / 255.0f, 2.2f),
         std::pow(149.0f / 255.0f, 2.2f),
-        std::pow(237.0f / 255.0f, 2.2f));
+        std::pow(237.0f / 255.0f, 2.2f));*/
+    // Dark grey
+    scene->BackgroundColor = glm::vec3(
+        std::pow(25.0f / 255.0f, 2.2f),
+        std::pow(25.0f / 255.0f, 2.2f),
+        std::pow(25.0f / 255.0f, 2.2f));
     scene->ShowBindPoses = false;
     scene->ShowSkeletons = false;
     scene->RagdollDampingK = 0.5f;
