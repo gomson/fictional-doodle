@@ -318,6 +318,8 @@ void InitScene(Scene* scene)
             std::pow(100.0f / 255.0f, 2.2f),
             std::pow(149.0f / 255.0f, 2.2f),
             std::pow(237.0f / 255.0f, 2.2f));
+    scene->ShowBindPoses = false;
+    scene->ShowSkeletons = false;
 }
 
 static void ReloadShaders(Scene* scene)
@@ -482,8 +484,9 @@ static void ShowToolboxGUI(Scene* scene, SDL_Window* window)
                 // Right-align items to increase width of text
                 ImGui::PushItemWidth(-1.0f);
 
-                ImGui::Checkbox("Interpolate Frames", &animatedSkeleton.InterpolateFrames);
+                ImGui::Checkbox("Show Bind Poses", &scene->ShowBindPoses);
                 ImGui::Checkbox("Show Skeletons", &scene->ShowSkeletons);
+                ImGui::Checkbox("Interpolate Frames", &animatedSkeleton.InterpolateFrames);
 
                 ImGui::Text("Animation Sequence");
                 if (ImGui::Combo("##animsequences", &currAnimSequenceIndexInCombo, animSequenceNames.data(), (int)animSequenceNames.size()))
@@ -543,6 +546,8 @@ static void ShowToolboxGUI(Scene* scene, SDL_Window* window)
                     }
                 }
 
+                ImGui::PopItemWidth();
+
                 if (scene->IsPlaying)
                 {
                     if (ImGui::Button("Pause"))
@@ -557,14 +562,12 @@ static void ShowToolboxGUI(Scene* scene, SDL_Window* window)
                     {
                         scene->IsPlaying = true;
                     }
-
+                    ImGui::SameLine();
                     if (ImGui::Button("Step"))
                     {
                         scene->ShouldStep = true;
                     }
                 }
-
-                ImGui::PopItemWidth();
             }
         }
     }
@@ -579,25 +582,68 @@ static void UpdateAnimatedSkeletons(Scene* scene, uint32_t dt_ms)
     for (int animSkeletonIdx = 0; animSkeletonIdx < (int)scene->AnimatedSkeletons.size(); animSkeletonIdx++)
     {
         AnimatedSkeleton& animSkeleton = scene->AnimatedSkeletons[animSkeletonIdx];
-        animSkeleton.CurrTimeMillisecond += (uint32_t)(animSkeleton.TimeMultiplier * dt_ms);
+
+        // Pause the animation if viewing in bind pose
+        if (!scene->ShowBindPoses)
+        {
+            animSkeleton.CurrTimeMillisecond += (uint32_t)(animSkeleton.TimeMultiplier * dt_ms);
+        }
 
         // Get new animation frame
         GetFrameAtTime(scene, animSkeleton.CurrAnimSequenceID, animSkeleton.CurrTimeMillisecond, animSkeleton.InterpolateFrames, frame);
 
         const AnimSequence& animSequence = scene->AnimSequences[animSkeleton.CurrAnimSequenceID];
-        const Skeleton& skeleton = scene->Skeletons[animSequence.SkeletonID];
+        Skeleton& skeleton = scene->Skeletons[animSequence.SkeletonID];
 
         // Calculate skinning transformations and bone vertices
         for (int boneIdx = 0; boneIdx < skeleton.NumBones; boneIdx++)
         {
-            if (animSkeleton.BoneControls[boneIdx] != BONECONTROL_ANIMATION)
+            if (!scene->ShowBindPoses && animSkeleton.BoneControls[boneIdx] != BONECONTROL_ANIMATION)
             {
                 continue;
             }
 
-            glm::mat4 translation = translate(frame[boneIdx].T);
-            glm::mat4 orientation = mat4_cast(frame[boneIdx].Q);
-            glm::mat4 boneTransform = skeleton.Transform * translation * orientation * skeleton.BoneInverseBindPoseTransforms[boneIdx];
+            // Final joint transformation
+            glm::mat4 boneTransform = skeleton.Transform;
+
+            // TODO: Remove if we continue using bone rest lengths for the dynamic constraints.
+            // Set the bone lengths to their current length in the current animation frame.
+            // See inner conditions below for usage.
+            int parentBoneIdx = skeleton.BoneParents[boneIdx];
+
+            if (scene->ShowBindPoses)
+            {
+                glm::mat4 bindPose = skeleton.Transform * inverse(skeleton.BoneInverseBindPoseTransforms[boneIdx]);
+                glm::vec3 bindPosePos = glm::vec3(bindPose[3]);
+
+                // Bind pose joint position
+                animSkeleton.BoneVertices[boneIdx] = bindPosePos;
+
+                if (parentBoneIdx != -1)
+                {
+                    glm::mat4 parentBindPose = skeleton.Transform * inverse(skeleton.BoneInverseBindPoseTransforms[parentBoneIdx]);
+                    glm::vec3 parentBindPosePos = glm::vec3(parentBindPose[3]);
+
+                    skeleton.BoneLengths[boneIdx] = length(bindPosePos - parentBindPosePos);
+                }
+            }
+            else
+            {
+                // Add animation frame transformation to final joint transformation
+                glm::mat4 translation = translate(frame[boneIdx].T);
+                glm::mat4 orientation = mat4_cast(frame[boneIdx].Q);
+                boneTransform *= translation * orientation * skeleton.BoneInverseBindPoseTransforms[boneIdx];
+
+                // Animation frame joint position
+                animSkeleton.BoneVertices[boneIdx] = glm::vec3(skeleton.Transform * glm::vec4(frame[boneIdx].T, 1.0));
+
+                if (parentBoneIdx != -1)
+                {
+                    skeleton.BoneLengths[boneIdx] = length(frame[boneIdx].T - frame[parentBoneIdx].T);
+                }
+            }
+
+            // Discard bottom row as it contains no pertinent transformation data, then store as columns
             glm::mat3x4 boneTransformRowsAsCols = transpose(glm::mat4x3(boneTransform));
 
             switch (scene->MeshSkinningMethod)
@@ -611,17 +657,6 @@ static void UpdateAnimatedSkeletons(Scene* scene, uint32_t dt_ms)
                 animSkeleton.BoneTransformMatrices[boneIdx] = boneTransformRowsAsCols;
                 break;
             }
-
-            animSkeleton.BoneVertices[boneIdx] = glm::vec3(skeleton.Transform * glm::vec4(frame[boneIdx].T, 1.0));
-
-            /* TODO: Remove if we continue using bone rest lengths for the dynamic constraints.
-             * Set the bone lengths to their current length in the current animation frame.
-            int parentBoneIdx = skeleton.BoneParents[boneIdx];
-            if (parentBoneIdx != -1)
-            {
-                skeleton.BoneLengths[boneIdx] = length(frame[boneIdx].T - frame[parentBoneIdx].T);
-            }
-            */
         }
 
         // Upload skeleton bones
@@ -754,6 +789,13 @@ static void UpdateDynamics(Scene* scene, uint32_t dt_ms)
             externalForces[i] = glm::vec3(0.0f, -9.8f*100.0f, 0.0f) * masses[i];
         }
 
+        // TODO: Remove if we want to use the rest length for bone constraints and make sure
+        // they're set at creation of the ragdoll
+        for (int boneIdx = 0; boneIdx < numBones - 1; boneIdx++)
+        {
+            ragdoll.BoneConstraints[boneIdx].Distance = skeleton.BoneLengths[boneIdx + 1];
+        }
+
         // do the dynamics dance
         pfnSimulateDynamics(
             dt_s,
@@ -823,7 +865,10 @@ void UpdateScene(Scene* scene, SDL_Window* window, uint32_t dt_ms)
     {
         UpdateAnimatedSkeletons(scene, dt_ms);
 
-        UpdateDynamics(scene, 1000/60);
+        if (!scene->ShowBindPoses)
+        {
+            UpdateDynamics(scene, 1000 / 60);
+        }
 
         UpdateSkinnedGeometry(scene, dt_ms);
 

@@ -330,8 +330,11 @@ struct Scene
 
     // The current skinning method used to skin all meshes in the scene
     SkinningMethod MeshSkinningMethod;
+
     // For debugging skeletal animations
+    bool ShowBindPoses;
     bool ShowSkeletons;
+
     // Placing the hellknight (for testing)
     int HellknightTransformNodeID;
     glm::vec3 HellknightPosition;
