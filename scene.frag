@@ -76,7 +76,7 @@ void main()
         float kS = 0.1;
         vec4 diffuseMap = texture(DiffuseTexture, fTexCoord) * kD;
         vec4 specularMap = texture(SpecularTexture, fTexCoord) * kS;
-        FragColor = vec4(diffuseMap.rgb + specularMap.rgb, diffuseMap.a* fTexCoord.x * fTexCoord.y);
+        FragColor = vec4(diffuseMap.rgb + specularMap.rgb, diffuseMap.a)* fTexCoord.x * fTexCoord.y;
     }
 
     float kSceneViewRadius = 400.0;
