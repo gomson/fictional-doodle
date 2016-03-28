@@ -312,7 +312,7 @@ void InitScene(Scene* scene)
     scene->CameraQuaternion = glm::vec4(-0.351835f, 0.231701f, 0.090335f, 0.902411f);
     scene->EnableCamera = true;
     scene->MeshSkinningMethod = SKINNING_DLB;
-    scene->IsPlaying = false;
+    scene->IsPlaying = true;
     scene->ShouldStep = false;
     scene->BackgroundColor = glm::vec3(
             std::pow(100.0f / 255.0f, 2.2f),

@@ -9,7 +9,7 @@ EXECUTABLE = fictional-doodle.out
 LIBRARIES = assimp sdl2
 
 CXX = clang++
-CXXFLAGS = -g -std=c++1z -Wall
+CXXFLAGS = -O3 -std=c++1z -Wall
 
 # Create a hidden build directory for object and dependency files.
 BUILDDIR = .build
@@ -22,7 +22,7 @@ DEPENDENCIES = $(SOURCES:%.cpp=$(BUILDDIR)/%.d)
 
 # Compile flags to generate dependency files.
 DEPFLAGS = -MMD -MP -MF $(BUILDDIR)/$*.Td
-CPPFLAGS = -D_DEBUG -Iinclude $(shell pkg-config --cflags $(LIBRARIES))
+CPPFLAGS = -Iinclude $(shell pkg-config --cflags $(LIBRARIES))
 LDFLAGS = $(shell pkg-config --libs-only-L $(LIBRARIES))
 LDLIBS = $(shell pkg-config --libs-only-l $(LIBRARIES))
 
