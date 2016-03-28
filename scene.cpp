@@ -793,7 +793,7 @@ static void UpdateDynamics(Scene* scene, uint32_t dt_ms)
         // they're set at creation of the ragdoll
         for (int boneIdx = 0; boneIdx < numBones - 1; boneIdx++)
         {
-            ragdoll.BoneConstraints[boneIdx].Distance = skeleton.BoneLengths[boneIdx + 1];
+            ragdoll.BoneConstraints[boneIdx].Distance.Distance = skeleton.BoneLengths[boneIdx + 1];
         }
 
         // do the dynamics dance
