@@ -76,7 +76,8 @@ static int AddAnimatedSkeleton(
     animatedSkeleton.BoneTransformDualQuats.resize(skeleton.NumBones);
     animatedSkeleton.BoneTransformMatrices.resize(skeleton.NumBones);
     animatedSkeleton.BoneControls.resize(skeleton.NumBones, BONECONTROL_ANIMATION);
-    animatedSkeleton.BoneVertices.resize(skeleton.NumBones);
+    animatedSkeleton.JointPositions.resize(skeleton.NumBones);
+    animatedSkeleton.JointVelocities.resize(skeleton.NumBones);
 
     scene->AnimatedSkeletons.push_back(std::move(animatedSkeleton));
     return (int)scene->AnimatedSkeletons.size() - 1;
@@ -154,25 +155,14 @@ static int AddRagdoll(
     int* bindPoseMeshIDs, int numBindPoseMeshes, // a skeleton is applied to >= 1 bind pose mesh
     int animatedSkeletonID)
 {
+    Ragdoll ragdoll;
+    ragdoll.AnimatedSkeletonID = animatedSkeletonID;
+
     const AnimatedSkeleton& animatedSkeleton = scene->AnimatedSkeletons[animatedSkeletonID];
     int animSequenceID = animatedSkeleton.CurrAnimSequenceID;
     const AnimSequence& animSequence = scene->AnimSequences[animSequenceID];
     int skeletonID = animSequence.SkeletonID;
     const Skeleton& skeleton = scene->Skeletons[skeletonID];
-
-    Ragdoll ragdoll;
-    ragdoll.AnimatedSkeletonID = animatedSkeletonID;
-    ragdoll.OldBufferIndex = -1;
-
-    for (std::vector<glm::vec3>& bonePositions : ragdoll.BonePositions)
-    {
-        bonePositions.resize(skeleton.NumBones);
-    }
-
-    for (std::vector<glm::vec3>& boneVelocities : ragdoll.BoneVelocities)
-    {
-        boneVelocities.resize(skeleton.NumBones);
-    }
 
     // Constraints for all the bones
     // FIXME: Actually do want the number of bones here. Not joints.
@@ -616,26 +606,6 @@ static void ShowToolboxGUI(Scene* scene, SDL_Window* window)
                 if (ImGui::RadioButton("Ragdoll Physics", animatedSkeleton.BoneControls[0] == BONECONTROL_DYNAMICS))
                 {
                     std::fill(begin(animatedSkeleton.BoneControls), end(animatedSkeleton.BoneControls), BONECONTROL_DYNAMICS);
-                    for (int ragdollIdx = 0; ragdollIdx < (int)scene->Ragdolls.size(); ragdollIdx++)
-                    {
-                        Ragdoll& ragdoll = scene->Ragdolls[ragdollIdx];
-                        if (ragdoll.AnimatedSkeletonID != currSelectedAnimatedSkeleton)
-                        {
-                            continue;
-                        }
-
-                        ragdoll.OldBufferIndex = 0;
-
-                        for (int boneIdx = 0; boneIdx < (int)ragdoll.BoneVelocities[ragdoll.OldBufferIndex].size(); boneIdx++)
-                        {
-                            ragdoll.BonePositions[ragdoll.OldBufferIndex][boneIdx] = animatedSkeleton.BoneVertices[boneIdx];
-                        }
-
-                        for (int boneIdx = 0; boneIdx < (int)ragdoll.BoneVelocities[ragdoll.OldBufferIndex].size(); boneIdx++)
-                        {
-                            ragdoll.BoneVelocities[ragdoll.OldBufferIndex][boneIdx] = glm::vec3(0.0f);
-                        }
-                    }
                 }
 
                 ImGui::PopItemWidth();
@@ -695,7 +665,7 @@ static void UpdateAnimatedSkeletons(Scene* scene, uint32_t dt_ms)
                 continue;
             }
 
-            // Final joint transformation
+            // Storage to accumulate joint transform
             glm::mat4 boneTransform = skeleton.Transform;
 
             // TODO: Remove if we continue using bone rest lengths for the dynamic constraints.
@@ -703,13 +673,15 @@ static void UpdateAnimatedSkeletons(Scene* scene, uint32_t dt_ms)
             // See inner conditions below for usage.
             int parentBoneIdx = skeleton.BoneParents[boneIdx];
 
+            glm::vec3 newJointPosition;
+
             if (scene->ShowBindPoses)
             {
                 glm::mat4 bindPose = skeleton.Transform * inverse(skeleton.BoneInverseBindPoseTransforms[boneIdx]);
                 glm::vec3 bindPosePos = glm::vec3(bindPose[3]);
 
                 // Bind pose joint position
-                animSkeleton.BoneVertices[boneIdx] = bindPosePos;
+                newJointPosition = bindPosePos;
 
                 if (parentBoneIdx != -1)
                 {
@@ -727,7 +699,7 @@ static void UpdateAnimatedSkeletons(Scene* scene, uint32_t dt_ms)
                 boneTransform *= translation * orientation * skeleton.BoneInverseBindPoseTransforms[boneIdx];
 
                 // Animation frame joint position
-                animSkeleton.BoneVertices[boneIdx] = glm::vec3(skeleton.Transform * glm::vec4(frame[boneIdx].T, 1.0));
+                newJointPosition = glm::vec3(skeleton.Transform * glm::vec4(frame[boneIdx].T, 1.0));
 
                 if (parentBoneIdx != -1)
                 {
@@ -735,49 +707,55 @@ static void UpdateAnimatedSkeletons(Scene* scene, uint32_t dt_ms)
                 }
             }
 
-            // Discard bottom row as it contains no pertinent transformation data, then store as columns
+            // Calculate joint velocity (in units per second) and update position
+            float dt_s = 0.0001f * dt_ms;
+            animSkeleton.JointVelocities[boneIdx] = (newJointPosition - animSkeleton.JointPositions[boneIdx]) / dt_s;
+            animSkeleton.JointPositions[boneIdx] = newJointPosition;
+
+             // Discard bottom row as it contains no pertinent transformation data, then store as columns
             glm::mat3x4 boneTransformRowsAsCols = transpose(glm::mat4x3(boneTransform));
-
-            switch (scene->MeshSkinningMethod)
-            {
-            case SKINNING_DLB:
-                // Convert transform to a dual quaterion for the DLB shader
-                animSkeleton.BoneTransformDualQuats[boneIdx] = glm::dualquat(boneTransformRowsAsCols);
-                break;
-            case SKINNING_LBS:
-                // Use upper 3 rows as columns, so the LBS shader can extract each row as a texel
-                animSkeleton.BoneTransformMatrices[boneIdx] = boneTransformRowsAsCols;
-                break;
-            }
+            animSkeleton.BoneTransformMatrices[boneIdx] = boneTransformRowsAsCols;
+            animSkeleton.BoneTransformDualQuats[boneIdx] = glm::dualquat(boneTransformRowsAsCols);
         }
+    }
+}
 
-        // Upload skeleton bones
-        glBindBuffer(GL_ARRAY_BUFFER, animSkeleton.SkeletonVBO);
-        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(animSkeleton.BoneVertices[0]) * animSkeleton.BoneVertices.size(), animSkeleton.BoneVertices.data());
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
+static void UpdateTransformations(Scene* scene, uint32_t dt_ms)
+{
+    for (AnimatedSkeleton& animSkeleton : scene->AnimatedSkeletons)
+    {
+        // Upload joint transformations for skinning
 
-        GLvoid *boneTransformsData;
-        GLsizeiptr boneTransformsSize;
+        GLsizeiptr jointTransformsSize;
+        GLvoid*    jointTransformsData;
 
-        switch (scene->MeshSkinningMethod)
+        switch(scene->MeshSkinningMethod)
         {
         case SKINNING_DLB:
-            boneTransformsData = animSkeleton.BoneTransformDualQuats.data();
-            boneTransformsSize = sizeof(glm::dualquat) * skeleton.NumBones;
+            jointTransformsData = animSkeleton.BoneTransformDualQuats.data();
+            jointTransformsSize = animSkeleton.BoneTransformDualQuats.size() * sizeof(animSkeleton.BoneTransformDualQuats[0]);
             break;
         case SKINNING_LBS:
-            boneTransformsData = animSkeleton.BoneTransformMatrices.data();
-            boneTransformsSize = sizeof(glm::mat3x4) * skeleton.NumBones;
+            jointTransformsData = animSkeleton.BoneTransformMatrices.data();
+            jointTransformsSize = animSkeleton.BoneTransformMatrices.size() * sizeof(animSkeleton.BoneTransformMatrices[0]);
             break;
         default:
-            boneTransformsData = NULL;
-            boneTransformsSize = 0;
+            jointTransformsData = NULL;
+            jointTransformsSize = 0;
         }
 
-        // Upload skinning transformations
         glBindBuffer(GL_TEXTURE_BUFFER, animSkeleton.BoneTransformTBO);
-        glBufferSubData(GL_TEXTURE_BUFFER, 0, boneTransformsSize, boneTransformsData);
+        glBufferSubData(GL_TEXTURE_BUFFER, 0, jointTransformsSize, jointTransformsData);
         glBindBuffer(GL_TEXTURE_BUFFER, 0);
+
+        // Upload joint positions for rendering skeletons
+
+        GLsizeiptr jointPositionsSize = animSkeleton.JointPositions.size() * sizeof(animSkeleton.JointPositions[0]);
+        GLvoid*    jointPositionsData = animSkeleton.JointPositions.data();
+
+        glBindBuffer(GL_ARRAY_BUFFER, animSkeleton.SkeletonVBO);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, jointPositionsSize, jointPositionsData);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
     }
 }
 
@@ -831,7 +809,7 @@ static void UpdateDynamics(Scene* scene, uint32_t dt_ms)
         return;
     }
 
-    float dt_s = dt_ms / 1000.0f;
+    float dt_s = dt_ms * 0.001f;
 
     for (int ragdollIdx = 0; ragdollIdx < (int)scene->Ragdolls.size(); ragdollIdx++)
     {
@@ -840,48 +818,25 @@ static void UpdateDynamics(Scene* scene, uint32_t dt_ms)
         AnimSequence& animSequence = scene->AnimSequences[animatedSkeleton.CurrAnimSequenceID];
         Skeleton& skeleton = scene->Skeletons[animSequence.SkeletonID];
 
-        int numBones = (int)ragdoll.BonePositions[0].size();
+        // Read from old buffer
+        const std::vector<glm::vec3>& oldPositions = animatedSkeleton.JointPositions;
+        const std::vector<glm::vec3>& oldVelocities = animatedSkeleton.JointVelocities;
 
-        if (ragdoll.OldBufferIndex == -1) // First update? initialize from animation
-        {
-            ragdoll.OldBufferIndex = 0;
-            ragdoll.BonePositions[0] = animatedSkeleton.BoneVertices;
-            // FIXME: Velocity should actually be based on how much the skeleton moved since the last frame of animation
-            std::fill(begin(ragdoll.BoneVelocities[0]), end(ragdoll.BoneVelocities[0]), glm::vec3(0.0f, 0.0f, 0.0f));
-        }
-        else // update bones that the animation controls
-        {
-            for (int boneIdx = 0; boneIdx < numBones; boneIdx++)
-            {
-                if (animatedSkeleton.BoneControls[boneIdx] == BONECONTROL_DYNAMICS)
-                {
-                    continue;
-                }
+        // Write to new buffer
+        std::vector<glm::vec3> newPositions(skeleton.NumBones);
+        std::vector<glm::vec3> newVelocities(skeleton.NumBones);
 
-                ragdoll.BoneVelocities[ragdoll.OldBufferIndex][boneIdx] = (animatedSkeleton.BoneVertices[boneIdx] - ragdoll.BonePositions[ragdoll.OldBufferIndex][boneIdx]) / dt_s;
-                ragdoll.BonePositions[ragdoll.OldBufferIndex][boneIdx] = animatedSkeleton.BoneVertices[boneIdx];
-            }
-        }
-
-        // read from frontbuffer
-        const std::vector<glm::vec3>& oldPositions = ragdoll.BonePositions[ragdoll.OldBufferIndex];
-        const std::vector<glm::vec3>& oldVelocities = ragdoll.BoneVelocities[ragdoll.OldBufferIndex];
-
-        // write to backbuffer
-        std::vector<glm::vec3>& newPositions = ragdoll.BonePositions[(ragdoll.OldBufferIndex + 1) % 2];
-        std::vector<glm::vec3>& newVelocities = ragdoll.BoneVelocities[(ragdoll.OldBufferIndex + 1) % 2];
-        
         // all unit masses for now
-        std::vector<float> masses(numBones, 1.0f);
+        std::vector<float> masses(skeleton.NumBones, 1.0f);
 
         // just gravity for now
-        std::vector<glm::vec3> externalForces(numBones);
-        for (int i = 0; i < numBones; i++)
+        std::vector<glm::vec3> externalForces(skeleton.NumBones);
+        for (int i = 0; i < skeleton.NumBones; i++)
         {
             externalForces[i] = glm::vec3(0.0f, -9.8f * 100.0f, 0.0f) * masses[i];
         }
 
-        for (int boneIdx = 0; boneIdx < numBones - 1; boneIdx++)
+        for (int boneIdx = 0; boneIdx < skeleton.NumBones - 1; boneIdx++)
         {
             ragdoll.BoneConstraints[boneIdx].Distance.Distance = skeleton.BoneLengths[boneIdx + 1];
         }
@@ -894,31 +849,30 @@ static void UpdateDynamics(Scene* scene, uint32_t dt_ms)
             (float*)data(masses),
             (float*)data(externalForces),
             data(ragdoll.JointHulls),
-            numBones, DEFAULT_DYNAMICS_NUM_ITERATIONS,
+            skeleton.NumBones, DEFAULT_DYNAMICS_NUM_ITERATIONS,
             data(ragdoll.BoneConstraints), (int)ragdoll.BoneConstraints.size(),
             scene->RagdollDampingK,
             (float*)data(newPositions),
             (float*)data(newVelocities));
 
-        // swap buffers
-        ragdoll.OldBufferIndex = (ragdoll.OldBufferIndex + 1) % 2;
-
         // Update select bones based on dynamics
-        for (int boneIdx = 0; boneIdx < numBones; boneIdx++)
+        for (int boneIdx = 0; boneIdx < skeleton.NumBones; boneIdx++)
         {
             if (animatedSkeleton.BoneControls[boneIdx] != BONECONTROL_DYNAMICS)
             {
                 continue;
             }
 
-            glm::vec3 oldPosition = animatedSkeleton.BoneVertices[boneIdx];
-            glm::vec3 newPosition = newPositions[boneIdx];
-            animatedSkeleton.BoneVertices[boneIdx] = newPosition;
-            
-            glm::vec3 deltaPosition = newPosition - oldPosition;
+            // Update skinning transformations
+            glm::vec3 deltaPosition = newPositions[boneIdx] - oldPositions[boneIdx];
             animatedSkeleton.BoneTransformMatrices[boneIdx][0][3] += deltaPosition.x;
             animatedSkeleton.BoneTransformMatrices[boneIdx][1][3] += deltaPosition.y;
             animatedSkeleton.BoneTransformMatrices[boneIdx][2][3] += deltaPosition.z;
+            animatedSkeleton.BoneTransformDualQuats[boneIdx] = dualquat_cast(animatedSkeleton.BoneTransformMatrices[boneIdx]);
+
+            // Update physical properties
+            animatedSkeleton.JointPositions[boneIdx] = newPositions[boneIdx];
+            animatedSkeleton.JointVelocities[boneIdx] = newVelocities[boneIdx];
         }
     }
 }
@@ -964,11 +918,13 @@ void UpdateScene(Scene* scene, SDL_Window* window, uint32_t dt_ms)
     {
         UpdateAnimatedSkeletons(scene, dt_ms);
 
+        // TODO: Remove this bind pose ugliness from everywhere
         if (!scene->ShowBindPoses)
         {
             UpdateDynamics(scene, 1000 / 60);
         }
 
+        UpdateTransformations(scene, dt_ms);
         UpdateSkinnedGeometry(scene, dt_ms);
 
         scene->ShouldStep = false;

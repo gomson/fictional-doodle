@@ -157,7 +157,10 @@ struct AnimatedSkeleton
     std::vector<glm::dualquat> BoneTransformDualQuats; // Skinning palette for DLB
     std::vector<glm::mat3x4> BoneTransformMatrices; // Skinning palette for LBS
     std::vector<BoneControlMode> BoneControls; // How each bone is animated
-    std::vector<glm::vec3> BoneVertices; // Vertices of the animated skeleton
+
+    // Joint physical properties
+    std::vector<glm::vec3> JointPositions;
+    std::vector<glm::vec3> JointVelocities;
 };
 
 // SkinnedMesh Table
@@ -180,9 +183,6 @@ struct SkinnedMesh
 struct Ragdoll
 {
     int AnimatedSkeletonID; // The animated skeleton that is being animated physically
-    int OldBufferIndex; // Which of the 2 buffers contains old data
-    std::vector<glm::vec3> BonePositions[2]; // Old and new positions of the bone
-    std::vector<glm::vec3> BoneVelocities[2]; // Old and new velocities of the bone
     std::vector<Constraint> BoneConstraints;
     std::vector<glm::ivec2> BoneConstraintParticleIDs;
     std::vector<Hull> JointHulls;
