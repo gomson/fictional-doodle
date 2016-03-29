@@ -28,6 +28,17 @@
 #include <sys/sysctl.h>
 #endif
 
+// Hacks and Tweaks
+// ========
+// The hulls for joints. Pick one.
+// #define USE_CAPSULE_HULLS_FOR_JOINTS
+#define USE_SPHERE_HULLS_FOR_JOINTS
+// --
+// Applying the dynamics transformation to the matrices. Pick one
+#define ADD_DYNAMICS_DELTAPOS_TO_MATRIX
+// #define MULTIPLY_DYNAMICS_DELTAPOS_TRANSFORM_TO_MATRIX
+// --
+
 static int AddAnimatedSkeleton(
     Scene* scene,
     int initialAnimSequenceID)
@@ -150,6 +161,87 @@ static int AddSkinnedMesh(
     return (int)scene->SkinnedMeshes.size() - 1;
 }
 
+static void ReinitRagdollConstraintsToPose(
+    Scene* scene,
+    Ragdoll& ragdoll,
+    const AnimatedSkeleton& animatedSkeleton)
+{
+    int currAnimSequenceID = animatedSkeleton.CurrAnimSequenceID;
+    const AnimSequence& animSequence = scene->AnimSequences[currAnimSequenceID];
+    int skeletonID = animSequence.SkeletonID;
+    const Skeleton& skeleton = scene->Skeletons[skeletonID];
+
+    int numJoints = skeleton.NumBones;
+
+    ragdoll.BoneConstraints.resize(numJoints - 2);
+    ragdoll.BoneConstraintParticleIDs.resize(numJoints - 2);
+    for (int jointIdx = 2; jointIdx < numJoints; jointIdx++)
+    {
+        int parentJointIdx = skeleton.BoneParents[jointIdx];
+
+        glm::ivec2& particles = ragdoll.BoneConstraintParticleIDs[jointIdx - 2];
+        particles = glm::ivec2(jointIdx, parentJointIdx);
+
+        Constraint& constraint = ragdoll.BoneConstraints[jointIdx - 2];
+        constraint.Func = CONSTRAINTFUNC_DISTANCE;
+        constraint.NumParticles = 2;
+        constraint.ParticleIDs = value_ptr(particles);
+        constraint.Stiffness = scene->RagdollBoneStiffness;
+        constraint.Type = CONSTRAINTTYPE_EQUALITY;
+        constraint.Distance.Distance = length(animatedSkeleton.JointPositions[jointIdx] - animatedSkeleton.JointPositions[parentJointIdx]);
+    }
+
+    ragdoll.BoneConstraints.resize(ragdoll.BoneConstraints.size() - ragdoll.JointConstraintParticleIDs.size());
+    ragdoll.JointConstraintParticleIDs.clear();
+
+    // Grab current angles for angle constraints
+    // Angular constraints for the joints
+    int numAngularJointsAdded = 0;
+    for (int jointIdx = 2; jointIdx < numJoints; jointIdx++)
+    {
+        int parentJointIdx = skeleton.BoneParents[jointIdx];
+        if (parentJointIdx == -1)
+        {
+            continue;
+        }
+
+        int parentParentJointIdx = skeleton.BoneParents[parentJointIdx];
+        if (parentParentJointIdx == -1)
+        {
+            continue;
+        }
+
+        glm::vec3 bonePos = animatedSkeleton.JointPositions[jointIdx];
+        glm::vec3 parentBonePos = animatedSkeleton.JointPositions[parentJointIdx];
+        glm::vec3 parentParentBonePos = animatedSkeleton.JointPositions[parentParentJointIdx];
+
+        float angle = std::acos(dot(normalize(bonePos - parentBonePos), normalize(parentParentBonePos - parentBonePos)));
+        if (isnan(angle)) { printf("NaN angle: %f\n", angle); }
+
+        glm::ivec3 particles(parentJointIdx, jointIdx, parentParentJointIdx);
+        ragdoll.JointConstraintParticleIDs.push_back(particles);
+
+        Constraint constraint;
+        constraint.Func = CONSTRAINTFUNC_ANGULAR;
+        constraint.NumParticles = 3;
+        constraint.ParticleIDs = NULL; // hack: will be set after
+        constraint.Stiffness = scene->RagdollJointStiffness;
+        constraint.Type = CONSTRAINTTYPE_EQUALITY;
+        constraint.Angle.Angle = angle;
+        ragdoll.BoneConstraints.push_back(constraint);
+
+        numAngularJointsAdded++;
+    }
+
+    // patch in all the pointers (starting to dislike this design)
+    for (int constraintToFix = 0; constraintToFix < numAngularJointsAdded; constraintToFix++)
+    {
+        int i = (int)ragdoll.BoneConstraints.size() - numAngularJointsAdded + constraintToFix;
+        int j = (int)ragdoll.JointConstraintParticleIDs.size() - numAngularJointsAdded + constraintToFix;
+        ragdoll.BoneConstraints[i].ParticleIDs = &ragdoll.JointConstraintParticleIDs[j][0];
+    }
+}
+
 static int AddRagdoll(
     Scene* scene,
     int* bindPoseMeshIDs, int numBindPoseMeshes, // a skeleton is applied to >= 1 bind pose mesh
@@ -167,68 +259,9 @@ static int AddRagdoll(
     // Constraints for all the bones
     // FIXME: Actually do want the number of bones here. Not joints.
     int numJoints = skeleton.NumBones;
-    // ignore root joint since it doesn't link back to a parent
-    ragdoll.BoneConstraints.resize(numJoints - 2);
-    ragdoll.BoneConstraintParticleIDs.resize(numJoints - 2);
-    for (int jointIdx = 2; jointIdx < numJoints; jointIdx++)
-    {
-        int parentJointIdx = skeleton.BoneParents[jointIdx];
-
-        glm::ivec2& particles = ragdoll.BoneConstraintParticleIDs[jointIdx - 2];
-        particles = glm::ivec2(jointIdx, parentJointIdx);
-
-        Constraint& constraint = ragdoll.BoneConstraints[jointIdx - 2];
-        constraint.Func = CONSTRAINTFUNC_DISTANCE;
-        constraint.NumParticles = 2;
-        constraint.ParticleIDs = value_ptr(particles);
-        constraint.Stiffness = scene->RagdollBoneStiffness;
-        constraint.Type = CONSTRAINTTYPE_EQUALITY;
-        constraint.Distance.Distance = skeleton.BoneLengths[jointIdx];
-    }
-
-    // Angular constraints for the joints
-    int numAngularJointsAdded = 0;
-    for (int jointIdx = 2; jointIdx < numJoints; jointIdx++)
-    {
-        int parentJointIdx = skeleton.BoneParents[jointIdx];
-        if (parentJointIdx == -1)
-        {
-            continue;
-        }
-
-        int parentParentJointIdx = skeleton.BoneParents[parentJointIdx];
-        if (parentParentJointIdx == -1)
-        {
-            continue;
-        }
-
-        glm::vec3 bonePos = glm::vec3(inverse(skeleton.BoneInverseBindPoseTransforms[jointIdx])[3]);
-        glm::vec3 parentBonePos = glm::vec3(inverse(skeleton.BoneInverseBindPoseTransforms[parentJointIdx])[3]);
-        glm::vec3 parentParentBonePos = glm::vec3(inverse(skeleton.BoneInverseBindPoseTransforms[parentParentJointIdx])[3]);
-
-        float angle = std::acos(dot(normalize(bonePos - parentBonePos), normalize(parentParentBonePos - parentBonePos)));
-
-        glm::ivec3 particles(parentJointIdx, jointIdx, parentParentJointIdx);
-        ragdoll.JointConstraintParticleIDs.push_back(particles);
-        
-        Constraint constraint;
-        constraint.Func = CONSTRAINTFUNC_ANGULAR;
-        constraint.NumParticles = 3;
-        constraint.ParticleIDs = NULL; // hack: will be set after
-        constraint.Stiffness = scene->RagdollJointStiffness;
-        constraint.Type = CONSTRAINTTYPE_EQUALITY;
-        constraint.Angle.Angle = angle;
-        ragdoll.BoneConstraints.push_back(constraint);
-
-        numAngularJointsAdded++;
-    }
-    // patch in all the pointers (starting to dislike this design)
-    for (int constraintToFix = 0; constraintToFix < numAngularJointsAdded; constraintToFix++)
-    {
-        int i = (int)ragdoll.BoneConstraints.size() - numAngularJointsAdded + constraintToFix;
-        int j = (int)ragdoll.JointConstraintParticleIDs.size() - numAngularJointsAdded + constraintToFix;
-        ragdoll.BoneConstraints[i].ParticleIDs = &ragdoll.JointConstraintParticleIDs[j][0];
-    }
+    
+    // Can't reinit here since the animated skeleton hasn't been animated to the first frame
+    // ReinitRagdollConstraintsToPose(scene, ragdoll, animatedSkeleton);
 
     // The radius of vertices influenced by the joint
     std::vector<float> jointRadiuses(numJoints, 0.0f);
@@ -276,12 +309,21 @@ static int AddRagdoll(
     if (ragdoll.JointHulls.size() >= 1) ragdoll.JointHulls[0].Type = HULLTYPE_NULL;
     if (ragdoll.JointHulls.size() >= 2) ragdoll.JointHulls[1].Type = HULLTYPE_NULL;
     // other joints
+#if defined(USE_CAPSULE_HULLS_FOR_JOINTS)
     for (int jointIdx = 2; jointIdx < numJoints; jointIdx++)
     {
         ragdoll.JointHulls[jointIdx].Type = HULLTYPE_CAPSULE;
         ragdoll.JointHulls[jointIdx].Capsule.OtherParticleID = skeleton.BoneParents[jointIdx];
         ragdoll.JointHulls[jointIdx].Capsule.Radius = jointRadiuses[jointIdx];
     }
+#elif defined(USE_SPHERE_HULLS_FOR_JOINTS)
+    // Try sphere joints
+    for (int jointIdx = 2; jointIdx < numJoints; jointIdx++)
+    {
+        ragdoll.JointHulls[jointIdx].Type = HULLTYPE_SPHERE;
+        ragdoll.JointHulls[jointIdx].Sphere.Radius = jointRadiuses[jointIdx];
+    }
+#endif
 
     scene->Ragdolls.push_back(std::move(ragdoll));
     return (int)scene->Ragdolls.size() - 1;
@@ -346,9 +388,10 @@ void InitScene(Scene* scene)
         std::pow(25.0f / 255.0f, 2.2f));
     scene->ShowBindPoses = false;
     scene->ShowSkeletons = false;
-    scene->RagdollDampingK = 0.264f;
-    scene->RagdollBoneStiffness = 0.193f;
-    scene->RagdollJointStiffness = 0.1f;
+    scene->RagdollDampingK = 0.652f;
+    scene->RagdollBoneStiffness = 0.279f;
+    scene->RagdollJointStiffness = 0.01f;
+    scene->Gravity = -981.0f;
 
     std::string assetFolder = "assets/";
 
@@ -570,6 +613,21 @@ static void ShowToolboxGUI(Scene* scene, SDL_Window* window)
             int currAnimSequenceID = animatedSkeleton.CurrAnimSequenceID;
             const AnimSequence& animSequence = scene->AnimSequences[currAnimSequenceID];
             int skeletonID = animSequence.SkeletonID;
+            const Skeleton& skeleton = scene->Skeletons[skeletonID];
+
+            int ragdollID = -1;
+            for (int ragdollIdx = 0; ragdollIdx < (int)scene->Ragdolls.size(); ragdollIdx++)
+            {
+                if (scene->Ragdolls[ragdollIdx].AnimatedSkeletonID == currSelectedAnimatedSkeleton)
+                {
+                    ragdollID = ragdollIdx;
+                    break;
+                }
+            }
+
+            assert(ragdollID != -1);
+
+            Ragdoll& ragdoll = scene->Ragdolls[ragdollID];
 
             // find all animations compatible with the skeleton
             std::vector<const char*> animSequenceNames;
@@ -669,7 +727,24 @@ static void ShowToolboxGUI(Scene* scene, SDL_Window* window)
                 if (ImGui::RadioButton("Ragdoll Physics", animatedSkeleton.BoneControls[0] == BONECONTROL_DYNAMICS))
                 {
                     std::fill(begin(animatedSkeleton.BoneControls), end(animatedSkeleton.BoneControls), BONECONTROL_DYNAMICS);
+
+                    int ragdollID = -1;
+                    for (int ragdollIdx = 0; ragdollIdx < (int)scene->Ragdolls.size(); ragdollIdx++)
+                    {
+                        if (scene->Ragdolls[ragdollIdx].AnimatedSkeletonID == currSelectedAnimatedSkeleton)
+                        {
+                            ragdollID = ragdollIdx;
+                            break;
+                        }
+                    }
+
+                    assert(ragdollID != -1);
+
+                    ReinitRagdollConstraintsToPose(scene, scene->Ragdolls[ragdollID], animatedSkeleton);
                 }
+
+                ImGui::Text("Gravity (cm/s^2)");
+                ImGui::SliderFloat("##gravity", &scene->Gravity, -2000.0f, 2000.0f);
 
                 ImGui::PopItemWidth();
 
@@ -896,12 +971,7 @@ static void UpdateDynamics(Scene* scene, uint32_t dt_ms)
         std::vector<glm::vec3> externalForces(skeleton.NumBones);
         for (int i = 0; i < skeleton.NumBones; i++)
         {
-            externalForces[i] = glm::vec3(0.0f, -9.8f * 100.0f, 0.0f) * masses[i];
-        }
-
-        for (int boneIdx = 0; boneIdx < skeleton.NumBones - 1; boneIdx++)
-        {
-            ragdoll.BoneConstraints[boneIdx].Distance.Distance = skeleton.BoneLengths[boneIdx + 1];
+            externalForces[i] = glm::vec3(0.0f, scene->Gravity, 0.0f) * masses[i];
         }
 
         // do the dynamics dance
@@ -928,9 +998,16 @@ static void UpdateDynamics(Scene* scene, uint32_t dt_ms)
 
             // Update skinning transformations
             glm::vec3 deltaPosition = newPositions[boneIdx] - oldPositions[boneIdx];
+#if defined(ADD_DYNAMICS_DELTAPOS_TO_MATRIX)
             animatedSkeleton.BoneTransformMatrices[boneIdx][0][3] += deltaPosition.x;
             animatedSkeleton.BoneTransformMatrices[boneIdx][1][3] += deltaPosition.y;
             animatedSkeleton.BoneTransformMatrices[boneIdx][2][3] += deltaPosition.z;
+#elif defined(MULTIPLY_DYNAMICS_DELTAPOS_TRANSFORM_TO_MATRIX)
+            // try doing it through matrix multiplication instead
+            glm::mat4x4 tmpTransform = glm::mat4(transpose(animatedSkeleton.BoneTransformMatrices[boneIdx]));
+            tmpTransform = translate(tmpTransform, deltaPosition);
+            animatedSkeleton.BoneTransformMatrices[boneIdx] = glm::mat3x4(transpose(tmpTransform));
+#endif
             animatedSkeleton.BoneTransformDualQuats[boneIdx] = dualquat_cast(animatedSkeleton.BoneTransformMatrices[boneIdx]);
 
             // Update physical properties

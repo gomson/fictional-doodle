@@ -358,6 +358,8 @@ struct Scene
     float RagdollBoneStiffness;
     float RagdollJointStiffness;
     float RagdollDampingK;
+
+    float Gravity;
 };
 
 void InitScene(Scene* scene);
