@@ -64,7 +64,7 @@ void main()
         }
 
         float a = 30;
-        float kA = 0.03;
+        float kA = 0.15;
         float kD = 0.5;
         float kS = 0.7;
 
