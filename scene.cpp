@@ -450,8 +450,8 @@ static void ReloadShaders(Scene* scene)
 
     if (reload(&scene->SkeletonSP))
     {
-        if (getUOpt(&scene->SkeletonSP_ColorLoc, "Color") ||
-            getUOpt(&scene->ShadowSP_ModelLightProjectionLoc, "ModelLightProjection"))
+        if (getU(&scene->SkeletonSP_ColorLoc, "Color") ||
+            getU(&scene->SkeletonSP_ModelViewProjectionLoc, "ModelViewProjection"))
         {
             return;
         }
