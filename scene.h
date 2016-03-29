@@ -185,6 +185,7 @@ struct Ragdoll
     std::vector<glm::vec3> BoneVelocities[2]; // Old and new velocities of the bone
     std::vector<Constraint> BoneConstraints;
     std::vector<glm::ivec2> BoneConstraintParticleIDs;
+    std::vector<Hull> JointHulls;
 };
 
 // DiffuseTexture Table

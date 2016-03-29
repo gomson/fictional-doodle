@@ -161,6 +161,8 @@ void InitGL()
     GetProcGL(glBindBufferBase, "glBindBufferBase");
     GetProcGL(glBufferData, "glBufferData");
     GetProcGL(glBufferSubData, "glBufferSubData");
+    GetProcGL(glMapBuffer, "glMapBuffer");
+    GetProcGL(glUnmapBuffer, "glUnmapBuffer");
     GetProcGL(glGenVertexArrays, "glGenVertexArrays");
     GetProcGL(glDeleteVertexArrays, "glDeleteVertexArrays");
     GetProcGL(glBindVertexArray, "glBindVertexArray");

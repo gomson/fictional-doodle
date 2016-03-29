@@ -151,17 +151,18 @@ static int AddSkinnedMesh(
 
 static int AddRagdoll(
     Scene* scene,
+    int* bindPoseMeshIDs, int numBindPoseMeshes, // a skeleton is applied to >= 1 bind pose mesh
     int animatedSkeletonID)
 {
-    Ragdoll ragdoll;
-    ragdoll.AnimatedSkeletonID = animatedSkeletonID;
-    ragdoll.OldBufferIndex = -1;
-
     const AnimatedSkeleton& animatedSkeleton = scene->AnimatedSkeletons[animatedSkeletonID];
     int animSequenceID = animatedSkeleton.CurrAnimSequenceID;
     const AnimSequence& animSequence = scene->AnimSequences[animSequenceID];
     int skeletonID = animSequence.SkeletonID;
     const Skeleton& skeleton = scene->Skeletons[skeletonID];
+
+    Ragdoll ragdoll;
+    ragdoll.AnimatedSkeletonID = animatedSkeletonID;
+    ragdoll.OldBufferIndex = -1;
 
     for (std::vector<glm::vec3>& bonePositions : ragdoll.BonePositions)
     {
@@ -193,6 +194,59 @@ static int AddRagdoll(
         constraint.Stiffness = scene->RagdollBoneStiffness;
         constraint.Type = CONSTRAINTTYPE_EQUALITY;
         constraint.Distance.Distance = skeleton.BoneLengths[jointIdx];
+    }
+
+    // The radius of vertices influenced by the joint
+    std::vector<float> jointRadiuses(numJoints, 0.0f);
+    for (int bindPoseMeshIdx = 0; bindPoseMeshIdx < numBindPoseMeshes; bindPoseMeshIdx++)
+    {
+        const BindPoseMesh& bindPoseMesh = scene->BindPoseMeshes[bindPoseMeshIDs[bindPoseMeshIdx]];
+        glBindBuffer(GL_ARRAY_BUFFER, bindPoseMesh.PositionVBO);
+        PositionVertex* ps = (PositionVertex*)glMapBuffer(GL_ARRAY_BUFFER, GL_READ_ONLY);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+        glBindBuffer(GL_ARRAY_BUFFER, bindPoseMesh.BoneVBO);
+        BoneWeightVertex* bws = (BoneWeightVertex*)glMapBuffer(GL_ARRAY_BUFFER, GL_READ_ONLY);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+        for (int vertexIdx = 0; vertexIdx < bindPoseMesh.NumVertices; vertexIdx++)
+        {
+            for (int jointOffset = 0; jointOffset < 4; jointOffset++)
+            {
+                int boneID = bws[vertexIdx].BoneIDs[jointOffset];
+                float weight = bws[vertexIdx].Weights[jointOffset];
+                if (weight == 0.0f)
+                {
+                    continue;
+                }
+                glm::vec3 bonePos = glm::vec3(inverse(skeleton.BoneInverseBindPoseTransforms[boneID])[3]);
+                float radius = length(bonePos - ps[vertexIdx].Position);
+                if (jointRadiuses[boneID] < radius)
+                {
+                    jointRadiuses[boneID] = radius;
+                }
+            }
+        }
+
+        glBindBuffer(GL_ARRAY_BUFFER, bindPoseMesh.PositionVBO);
+        glUnmapBuffer(GL_ARRAY_BUFFER);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+        glBindBuffer(GL_ARRAY_BUFFER, bindPoseMesh.BoneVBO);
+        glUnmapBuffer(GL_ARRAY_BUFFER);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+    }
+
+    ragdoll.JointHulls.resize(numJoints);
+    // origin joint and the joint after it
+    if (ragdoll.JointHulls.size() >= 1) ragdoll.JointHulls[0].Type = HULLTYPE_NULL;
+    if (ragdoll.JointHulls.size() >= 2) ragdoll.JointHulls[1].Type = HULLTYPE_NULL;
+    // other joints
+    for (int jointIdx = 2; jointIdx < numJoints; jointIdx++)
+    {
+        ragdoll.JointHulls[jointIdx].Type = HULLTYPE_CAPSULE;
+        ragdoll.JointHulls[jointIdx].Capsule.OtherParticleID = skeleton.BoneParents[jointIdx];
+        ragdoll.JointHulls[jointIdx].Capsule.Radius = jointRadiuses[jointIdx];
     }
 
     scene->Ragdolls.push_back(std::move(ragdoll));
@@ -313,10 +367,14 @@ void InitScene(Scene* scene)
     {
         int hellknightBindPoseMeshID = hellknightBindPoseMeshIDs[hellknightMeshIdx];
         int hellknightSkinnedMeshID = AddSkinnedMesh(scene, hellknightBindPoseMeshID, hellknightAnimatedSkeletonID);
-        int hellknightRagdollID = AddRagdoll(scene, hellknightAnimatedSkeletonID);
         int hellknightSceneNode = AddSkinnedMeshSceneNode(scene, hellknightSkinnedMeshID);
         scene->SceneNodes[hellknightSceneNode].TransformParentNodeID = hellknightTransformNodeID;
     }
+
+    int hellknightRagdollID = AddRagdoll(
+        scene, 
+        hellknightBindPoseMeshIDs.data(), (int)hellknightBindPoseMeshIDs.size(), 
+        hellknightAnimatedSkeletonID);
 
     std::vector<int> floorStaticMeshIDs;
     LoadOBJMesh(scene, assetFolder.c_str(), "floor/", "floor.obj", NULL, &floorStaticMeshIDs);
@@ -824,7 +882,7 @@ static void UpdateDynamics(Scene* scene, uint32_t dt_ms)
             (float*)data(oldVelocities),
             (float*)data(masses),
             (float*)data(externalForces),
-            NULL, // TODO: Hulls
+            data(ragdoll.JointHulls),
             numBones, DEFAULT_DYNAMICS_NUM_ITERATIONS,
             data(ragdoll.BoneConstraints), (int)ragdoll.BoneConstraints.size(),
             scene->RagdollDampingK,

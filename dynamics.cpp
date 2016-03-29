@@ -79,32 +79,27 @@ static void dampVelocities(
 //     * Note that the four vertices are represented by rays xi->pi
 //       Therefore intersect a moving point with a moving triangle.
 static void generateCollisionConstraints(
-    const vec3* xs, const vec3* ps, int np,
+    const vec3* xs, const vec3* ps, const Hull* hs, int np,
     std::vector<ParticleCollision>& pcs,
     std::vector<Constraint>& coll_cs)
 {
-    for (int i = 0; i < np; i++)
+    auto sphereVSplane = [&pcs, &coll_cs](vec4 plane, int pidx, vec3 x, vec3 p, float r)
     {
-        vec3 x = xs[i];
-        vec3 p = ps[i];
+        // offset plane in direction of radius
+        plane.w -= r;
 
-        const vec4 kGroundPlane = vec4(0.0f, 1.0f, 0.0f, 0.0f);
-
-        // * Assuming the plane is normalized
-        // * Can generalize this to convex objects by having a list of planes
-        vec4 testPlane = kGroundPlane;
-        bool x_in = dot(testPlane, vec4(x, 1.0f)) < 0.0f;
-        bool p_in = dot(testPlane, vec4(p, 1.0f)) < 0.0f;
+        bool x_in = dot(plane, vec4(x, 1.0f)) < 0.0f;
+        bool p_in = dot(plane, vec4(p, 1.0f)) < 0.0f;
         if (p_in && !x_in)
         {
             // Compute intersection of x->p with plane
-            float t = (testPlane.w - dot(vec3(testPlane), x))
-                / dot(vec3(testPlane), (p - x));
+            float t = (plane.w - dot(vec3(plane), x))
+                / dot(vec3(plane), (p - x));
             vec3 q = x + t * (p - x);
 
             ParticleCollision pc;
-            pc.pidx = i;
-            pc.normal = vec3(testPlane);
+            pc.pidx = pidx;
+            pc.normal = vec3(plane);
             pcs.push_back(pc);
 
             Constraint c;
@@ -117,17 +112,17 @@ static void generateCollisionConstraints(
             c.Stiffness = 1.0f;
             c.Type = CONSTRAINTTYPE_INEQUALITY;
             *(vec3*)&c.Intersection.Qc = q;
-            *(vec3*)&c.Intersection.Nc = vec3(testPlane);
+            *(vec3*)&c.Intersection.Nc = vec3(plane);
             coll_cs.push_back(c);
         }
         else if (p_in && x_in)
         {
             // find surface point closest to p
-            vec3 qs = p - vec3(testPlane) * dot(testPlane, vec4(p, 1.0f));
+            vec3 qs = p - vec3(plane) * dot(plane, vec4(p, 1.0f));
 
             ParticleCollision pc;
-            pc.pidx = i;
-            pc.normal = vec3(testPlane);
+            pc.pidx = pidx;
+            pc.normal = vec3(plane);
             pcs.push_back(pc);
 
             Constraint c;
@@ -140,8 +135,37 @@ static void generateCollisionConstraints(
             c.Stiffness = 1.0f;
             c.Type = CONSTRAINTTYPE_INEQUALITY;
             *(vec3*)&c.Projection.Qs = qs;
-            *(vec3*)&c.Projection.Ns = vec3(testPlane);
+            *(vec3*)&c.Projection.Ns = vec3(plane);
             coll_cs.push_back(c);
+        }
+    };
+
+    for (int i = 0; i < np; i++)
+    {
+        vec3 x = xs[i];
+        vec3 p = ps[i];
+        const Hull& h = hs[i];
+
+        const vec4 kGroundPlane = vec4(0.0f, 1.0f, 0.0f, 0.0f);
+
+        if (h.Type == HULLTYPE_NULL)
+        {
+            // No collisions happen if there's no hull
+        }
+        else if (h.Type == HULLTYPE_SPHERE)
+        {
+            sphereVSplane(kGroundPlane, i, x, p, h.Sphere.Radius);
+        }
+        else if (h.Type == HULLTYPE_CAPSULE)
+        {
+            vec3 x_other = xs[h.Capsule.OtherParticleID];
+            vec3 p_other = xs[h.Capsule.OtherParticleID];
+            sphereVSplane(kGroundPlane, i,                         x,       p,       h.Capsule.Radius);
+            sphereVSplane(kGroundPlane, h.Capsule.OtherParticleID, x_other, p_other, h.Capsule.Radius);
+        }
+        else
+        {
+            assert(false && "Unhandled hull type");
         }
     }
 }
@@ -310,7 +334,7 @@ void SimulateDynamics(
         ps[i] = xs[i] + dtsec * vs[i];
     }
 
-    generateCollisionConstraints(&xs[0], &ps[0], np, pcs, coll_cs);
+    generateCollisionConstraints(&xs[0], &ps[0], &hs[0], np, pcs, coll_cs);
 
     // hack: since generateCollisionConstraints pushes onto vectors,
     // we can't keep any pointers to inside it while building it.

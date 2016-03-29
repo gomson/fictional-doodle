@@ -58,11 +58,12 @@ struct Constraint
 
 enum HullType
 {
-    HULLTYPE_POINT,
-    HULLTYPE_SPHERE
+    HULLTYPE_NULL,
+    HULLTYPE_SPHERE,
+    HULLTYPE_CAPSULE
 };
 
-struct PointHull
+struct NullHull
 {
     // nothing!
 };
@@ -72,13 +73,28 @@ struct SphereHull
     float Radius;
 };
 
+struct CapsuleHull
+{
+    float Radius;
+    // Consider the capsule below, with endpoints a and b:
+    //     ------------------
+    // (  a                 b  )
+    //     -----------------
+    // The particle with this hull is particle a
+    // The other particle is the ID of particle b (can have a null hull)
+    // To maintain the distance between the two points,
+    // you must also add a distance constraint between the two particles.
+    int OtherParticleID;
+};
+
 struct Hull
 {
     HullType Type;
     union
     {
-        PointHull Point;
+        NullHull Null;
         SphereHull Sphere;
+        CapsuleHull Capsule;
     };
 };
 
