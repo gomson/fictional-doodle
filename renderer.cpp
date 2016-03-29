@@ -16,6 +16,30 @@
 
 void InitRenderer(Renderer* renderer)
 {
+    renderer->ShadowMapSize = 2048;
+
+    glGenTextures(1, &renderer->ShadowMapTexture);
+    glBindTexture(GL_TEXTURE_2D, renderer->ShadowMapTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, renderer->ShadowMapSize, renderer->ShadowMapSize, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+    GLfloat shadowBorderColor[] = { INFINITY, INFINITY, INFINITY, INFINITY };
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, shadowBorderColor);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    glGenFramebuffers(1, &renderer->ShadowMapFBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, renderer->ShadowMapFBO);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, renderer->ShadowMapTexture, 0);
+    GLenum fboStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    if (fboStatus != GL_FRAMEBUFFER_COMPLETE)
+    {
+        fprintf(stderr, "Shadow map status error: %s\n", FramebufferStatusToStringGL(fboStatus));
+        exit(1);
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 void ResizeRenderer(
@@ -66,6 +90,11 @@ void PaintRenderer(
 {
     glm::mat4 worldView = glm::translate(glm::mat4(scene->CameraRotation), -scene->CameraPosition);
 
+    glm::vec3 lightPosition = glm::vec3(0.0f, 300.0f, 100.0f);
+    glm::mat4 worldLight = glm::lookAt(lightPosition, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    glm::mat4 lightProjection = glm::ortho(-300.0f, 300.0f, -300.0f, 300.0f, 0.0f, 500.0f);
+    glm::mat4 worldLightProjection = lightProjection * worldLight;
+
     struct DrawCmd
     {
         int HasTransparency;
@@ -96,6 +125,7 @@ void PaintRenderer(
 
     // Produce list of draws to sort them in a good order
     std::vector<DrawCmd> draws;
+    std::vector<DrawCmd> shadowDraws;
     for (int nodeID = 0; nodeID < (int)scene->SceneNodes.size(); nodeID++)
     {
         const SceneNode& sceneNode = scene->SceneNodes[nodeID];
@@ -145,6 +175,18 @@ void PaintRenderer(
             cmd.MaterialID = materialID;
             cmd.NodeID = nodeID;
             draws.push_back(cmd);
+
+            if (!hasTransparency)
+            {
+                float lightDepth = (worldLight * sceneNode.WorldTransform * glm::vec4(0, 0, 0, 1)).z;
+                
+                DrawCmd shadowCmd;
+                shadowCmd.HasTransparency = false;
+                shadowCmd.ViewDepth = lightDepth;
+                shadowCmd.MaterialID = materialID;
+                shadowCmd.NodeID = nodeID;
+                shadowDraws.push_back(shadowCmd);
+            }
         }
         else
         {
@@ -154,23 +196,88 @@ void PaintRenderer(
     }
 
     std::sort(begin(draws), end(draws));
+    std::sort(begin(shadowDraws), end(shadowDraws));
 
     int drawableWidth, drawableHeight;
     SDL_GL_GetDrawableSize(window, &drawableWidth, &drawableHeight);
 
     int windowWidth, windowHeight;
     SDL_GetWindowSize(window, &windowWidth, &windowHeight);
-    glm::mat4 projection = glm::perspective(70.0f, (float)drawableWidth / drawableHeight, 0.01f, 1000.0f);
-    glm::mat4 worldViewProjection = projection * worldView;
+
+    // Shadow rendering
+    if (scene->AllShadersOK)
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, renderer->ShadowMapFBO);
+        glViewport(0, 0, renderer->ShadowMapSize, renderer->ShadowMapSize);
+        glClear(GL_DEPTH_BUFFER_BIT);
+        glEnable(GL_DEPTH_TEST);
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(10.0f, 5.0f);
+        glUseProgram(scene->ShadowSP.Handle);
+
+        for (int drawIdx = 0; drawIdx < (int)shadowDraws.size(); drawIdx++)
+        {
+            const DrawCmd& cmd = shadowDraws[drawIdx];
+
+            const SceneNode& sceneNode = scene->SceneNodes[cmd.NodeID];
+
+            // Draw node
+            if (sceneNode.Type == SCENENODETYPE_STATICMESH || sceneNode.Type == SCENENODETYPE_SKINNEDMESH)
+            {
+                GLuint vao;
+                int numIndices;
+
+                if (sceneNode.Type == SCENENODETYPE_STATICMESH)
+                {
+                    const StaticMesh& staticMesh = scene->StaticMeshes[sceneNode.AsStaticMesh.StaticMeshID];
+                    vao = staticMesh.MeshVAO;
+                    numIndices = staticMesh.NumIndices;
+                }
+                else if (sceneNode.Type == SCENENODETYPE_SKINNEDMESH)
+                {
+                    const SkinnedMeshSceneNode& skinnedMeshSceneNode = sceneNode.AsSkinnedMesh;
+                    const SkinnedMesh& skinnedMesh = scene->SkinnedMeshes[skinnedMeshSceneNode.SkinnedMeshID];
+                    const BindPoseMesh& bindPoseMesh = scene->BindPoseMeshes[skinnedMesh.BindPoseMeshID];
+                    vao = skinnedMesh.SkinnedVAO;
+                    numIndices = bindPoseMesh.NumIndices;
+                }
+                else
+                {
+                    fprintf(stderr, "Unhandled scene node type %d\n", sceneNode.Type);
+                    exit(1);
+                }
+
+                glBindVertexArray(vao);
+
+                glm::mat4 modelWorld = sceneNode.WorldTransform;
+                glm::mat4 modelView = worldView * modelWorld;
+                glm::mat4 modelViewProjection = worldLightProjection * modelWorld;
+
+                glUniformMatrix4fv(scene->ShadowSP_ModelLightProjectionLoc, 1, GL_FALSE, value_ptr(modelViewProjection));
+
+                glDrawElements(GL_TRIANGLES, numIndices, GL_UNSIGNED_INT, NULL);
+
+                glBindVertexArray(0);
+            }
+        }
+
+        glUseProgram(0);
+        glPolygonOffset(0.0f, 0.0f);
+        glDisable(GL_POLYGON_OFFSET_FILL);
+        glDisable(GL_DEPTH_TEST);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    }
 
     // Scene rendering
     if (scene->AllShadersOK)
     {
+        glm::mat4 projection = glm::perspective(70.0f, (float)drawableWidth / drawableHeight, 0.01f, 1000.0f);
+        glm::mat4 worldViewProjection = projection * worldView;
+
         glBindFramebuffer(GL_FRAMEBUFFER, renderer->BackbufferFBO);
 
         glViewport(0, 0, drawableWidth, drawableHeight);
 
-        // Clear color is already SRGB encoded, so don't enable GL_FRAMEBUFFER_SRGB before it.
         glEnable(GL_FRAMEBUFFER_SRGB);
         glClearColor(scene->BackgroundColor.r, scene->BackgroundColor.g, scene->BackgroundColor.b, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -188,7 +295,9 @@ void PaintRenderer(
                 glUniform1i(scene->SceneSP_DiffuseTextureLoc, 0);
                 glUniform1i(scene->SceneSP_SpecularTextureLoc, 1);
                 glUniform1i(scene->SceneSP_NormalTextureLoc, 2);
+                glUniform1i(scene->SceneSP_ShadowMapTextureLoc, 3);
                 glUniform3fv(scene->SceneSP_CameraPositionLoc, 1, value_ptr(scene->CameraPosition));
+                glUniform3fv(scene->SceneSP_LightPositionLoc, 1, value_ptr(lightPosition));
                 glUniform3fv(scene->SceneSP_BackgroundColorLoc, 1, value_ptr(scene->BackgroundColor));
 
                 glEnable(GL_DEPTH_TEST);
@@ -248,6 +357,10 @@ void PaintRenderer(
                     glUniform1i(scene->SceneSP_HasNormalMapLoc, 1);
                 }
 
+                // Set shadow map texture
+                glActiveTexture(GL_TEXTURE3);
+                glBindTexture(GL_TEXTURE_2D, renderer->ShadowMapTexture);
+
                 GLuint vao;
                 int numIndices;
 
@@ -281,8 +394,12 @@ void PaintRenderer(
                 glUniformMatrix4fv(scene->SceneSP_WorldModelLoc, 1, GL_FALSE, value_ptr(glm::inverse(modelWorld)));
                 glUniformMatrix4fv(scene->SceneSP_ModelViewLoc, 1, GL_FALSE, value_ptr(modelView));
                 glUniformMatrix4fv(scene->SceneSP_ModelViewProjectionLoc, 1, GL_FALSE, value_ptr(modelViewProjection));
+                glUniformMatrix4fv(scene->SceneSP_WorldLightProjectionLoc, 1, GL_FALSE, value_ptr(worldLightProjection));
 
                 glDrawElements(GL_TRIANGLES, numIndices, GL_UNSIGNED_INT, NULL);
+
+                glBindVertexArray(0);
+                glUseProgram(0);
 
                 if (sceneNode.Type == SCENENODETYPE_SKINNEDMESH && scene->ShowSkeletons)
                 {

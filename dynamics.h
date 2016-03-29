@@ -14,7 +14,10 @@ enum ConstraintFunc
     // Maintains a direction (Ns) of a vector (P - Qs) from a point (Qs)
     // Resolves by projecting P onto the plane (Ns, Qs)
     // C(P) = (P - Qs) . Ns
-    CONSTRAINTFUNC_PROJECTION
+    CONSTRAINTFUNC_PROJECTION,
+    // Maintains a minimum angle at a joint between two points
+    // Resolves by rotating the points away from each other
+    CONSTRAINTFUNC_ANGULAR
 };
 
 enum ConstraintType

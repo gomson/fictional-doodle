@@ -25,6 +25,8 @@
     <None Include="..\scene.frag" />
     <None Include="..\scene.vert" />
     <None Include="..\skinning.vert" />
+    <None Include="..\shadow.frag" />
+    <None Include="..\shadow.vert" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="imgui">

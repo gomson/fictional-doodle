@@ -9,18 +9,22 @@ in vec3 fBitangent;
 uniform sampler2D DiffuseTexture;
 uniform sampler2D SpecularTexture;
 uniform sampler2D NormalTexture;
+uniform sampler2DShadow ShadowMapTexture;
 
 out vec4 FragColor;
 
+uniform mat4 ModelWorld;
 uniform mat4 WorldModel;
 uniform vec3 CameraPosition;
+uniform vec3 LightPosition;
+uniform mat4 WorldLightProjection;
 uniform vec3 BackgroundColor;
 uniform int IlluminationModel;
 uniform int HasNormalMap;
 
 void main()
 {
-    vec3 worldLightPosition = vec3(0, 100, 300);
+    vec3 worldLightPosition = LightPosition;
     vec3 modelLightPosition = (WorldModel * vec4(worldLightPosition, 1)).xyz;
     
     vec3 modelCameraPos = (WorldModel * vec4(CameraPosition, 1)).xyz;
@@ -28,6 +32,12 @@ void main()
     vec3 modelPosition = fPosition;
     vec3 L = normalize(modelLightPosition - modelPosition); // light direction
     vec3 V = normalize(modelCameraPos - modelPosition); // towards viewer
+
+    vec3 worldPosition = (ModelWorld * vec4(modelPosition, 1.0)).xyz;
+    vec4 shadowMapCoord = WorldLightProjection * vec4(worldPosition, 1.0);
+    shadowMapCoord.xyz *= vec3(0.5, 0.5, 0.5); // [-1,+1] -> [-0.5,+0.5]
+    shadowMapCoord.xyz += shadowMapCoord.w * vec3(0.5, 0.5, 0.5); // w will divide up to 0.5 instead of 1.0
+    float shadowPass = textureProj(ShadowMapTexture, shadowMapCoord);
 
     if (IlluminationModel == 1) // standard opaque material
     {
@@ -63,20 +73,27 @@ void main()
         vec3 R = reflect(-L, N); // reflection direction
         float S = pow(max(0, dot(R, V)), a); // specular coefficient
 
-        vec4 ambient = diffuseMap * kA;
-        vec4 diffuse = G * diffuseMap * kD;
-        vec4 specular = S * specularMap * kS;
+        vec3 ambient = diffuseMap.rgb * kA;
+        vec3 diffuse = G * diffuseMap.rgb * kD * shadowPass;
+        vec3 specular = S * specularMap.rgb * kS * shadowPass;
 
-        FragColor = vec4(ambient.rgb + diffuse.rgb + specular.rgb, 1.0);
+        FragColor = vec4(ambient + diffuse + specular, 1.0);
     }
     else if (IlluminationModel == 2) // Transparent objects
     {
         // note: lots of hacks here specific to hellknight...
+        float kA = 0.03;
         float kD = 1.0;
         float kS = 0.1;
-        vec4 diffuseMap = texture(DiffuseTexture, fTexCoord) * kD;
-        vec4 specularMap = texture(SpecularTexture, fTexCoord) * kS;
-        FragColor = vec4(diffuseMap.rgb + specularMap.rgb, diffuseMap.a)* fTexCoord.x * fTexCoord.y;
+        
+        vec4 diffuseMap = texture(DiffuseTexture, fTexCoord);
+        vec4 specularMap = texture(SpecularTexture, fTexCoord);
+
+        vec3 ambient = diffuseMap.rgb * kA;
+        vec3 diffuse = diffuseMap.rgb * kD * shadowPass;
+        vec3 specular = specularMap.rgb * kS * shadowPass;
+
+        FragColor = vec4(ambient + diffuse + specular, diffuseMap.a) * fTexCoord.x * fTexCoord.y;
     }
 
     float kSceneViewRadius = 400.0;

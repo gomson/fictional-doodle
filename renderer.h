@@ -14,6 +14,10 @@ struct Renderer
     GLuint BackbufferColorTexture;
     GLuint BackbufferDepthTexture;
 
+    GLuint ShadowMapFBO;
+    GLuint ShadowMapTexture;
+    int ShadowMapSize;
+
     bool GUIFocusEnabled;
 };
 

@@ -444,9 +444,12 @@ static void ReloadShaders(Scene* scene)
             getUOpt(&scene->SceneSP_ModelViewProjectionLoc, "ModelViewProjection") ||
             getUOpt(&scene->SceneSP_WorldViewLoc, "WorldView") ||
             getUOpt(&scene->SceneSP_CameraPositionLoc, "CameraPosition") ||
+            getUOpt(&scene->SceneSP_LightPositionLoc, "LightPosition") ||
+            getUOpt(&scene->SceneSP_WorldLightProjectionLoc, "WorldLightProjection") ||
             getUOpt(&scene->SceneSP_DiffuseTextureLoc, "DiffuseTexture") ||
             getUOpt(&scene->SceneSP_SpecularTextureLoc, "SpecularTexture") ||
             getUOpt(&scene->SceneSP_NormalTextureLoc, "NormalTexture") ||
+            getUOpt(&scene->SceneSP_ShadowMapTextureLoc, "ShadowMapTexture") ||
             getUOpt(&scene->SceneSP_IlluminationModelLoc, "IlluminationModel") ||
             getUOpt(&scene->SceneSP_HasNormalMapLoc, "HasNormalMap") ||
             getUOpt(&scene->SceneSP_BackgroundColorLoc, "BackgroundColor"))
@@ -457,8 +460,16 @@ static void ReloadShaders(Scene* scene)
 
     if (reload(&scene->SkeletonSP))
     {
-        if (getU(&scene->SkeletonSP_ColorLoc, "Color") ||
-            getU(&scene->SkeletonSP_ModelViewProjectionLoc, "ModelViewProjection"))
+        if (getUOpt(&scene->SkeletonSP_ColorLoc, "Color") ||
+            getUOpt(&scene->ShadowSP_ModelLightProjectionLoc, "ModelLightProjection"))
+        {
+            return;
+        }
+    }
+
+    if (reload(&scene->ShadowSP))
+    {
+        if (getUOpt(&scene->ShadowSP_ModelLightProjectionLoc, "ModelLightProjection"))
         {
             return;
         }

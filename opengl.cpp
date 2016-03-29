@@ -155,6 +155,7 @@ void InitGL()
     GetProcGL(glBlendFunc, "glBlendFunc");
     GetProcGL(glBlendFuncSeparate, "glBlendFuncSeparate");
     GetProcGL(glBlendEquationSeparate, "glBlendEquationSeparate");
+    GetProcGL(glPolygonOffset, "glPolygonOffset");
     GetProcGL(glGenBuffers, "glGenBuffers");
     GetProcGL(glDeleteBuffers, "glDeleteBuffers");
     GetProcGL(glBindBuffer, "glBindBuffer");
@@ -199,6 +200,7 @@ void InitGL()
     GetProcGL(glTexParameterf, "glTexParameterf");
     GetProcGL(glTexParameteri, "glTexParameteri");
     GetProcGL(glTexParameteriv, "glTexParameteriv");
+    GetProcGL(glTexParameterfv, "glTexParameterfv");
     GetProcGL(glGenerateMipmap, "glGenerateMipmap");
     GetProcGL(glDrawElements, "glDrawElements");
     GetProcGL(glDrawArrays, "glDrawArrays");

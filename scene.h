@@ -264,12 +264,12 @@ struct Scene
     std::vector<AnimatedSkeleton> AnimatedSkeletons;
 
     std::vector<SkinnedMesh> SkinnedMeshes;
-    
+
     std::vector<Ragdoll> Ragdolls;
-    
+
     std::vector<DiffuseTexture> DiffuseTextures;
     std::unordered_map<std::string, int> DiffuseTextureNameToID;
-    
+
     std::vector<SpecularTexture> SpecularTextures;
     std::unordered_map<std::string, int> SpecularTextureNameToID;
 
@@ -278,7 +278,7 @@ struct Scene
 
     std::vector<Material> Materials;
     std::vector<SceneNode> SceneNodes;
-  
+
     // Skinning shader programs that output skinned vertices using transform feedback.
     std::vector<const char*> SkinningOutputs{ "oPosition", "gl_NextBuffer", "oNormal", "oTangent", "oBitangent" };
     ReloadableShader SkinningDLB{ "skinning_dlb.vert" };
@@ -300,9 +300,12 @@ struct Scene
     GLint SceneSP_ModelViewProjectionLoc;
     GLint SceneSP_WorldViewLoc;
     GLint SceneSP_CameraPositionLoc;
+    GLint SceneSP_LightPositionLoc;
+    GLint SceneSP_WorldLightProjectionLoc;
     GLint SceneSP_DiffuseTextureLoc;
     GLint SceneSP_SpecularTextureLoc;
     GLint SceneSP_NormalTextureLoc;
+    GLint SceneSP_ShadowMapTextureLoc;
     GLint SceneSP_IlluminationModelLoc;
     GLint SceneSP_HasNormalMapLoc;
     GLint SceneSP_BackgroundColorLoc;
@@ -313,6 +316,12 @@ struct Scene
     ReloadableProgram SkeletonSP{ &SkeletonVS, &SkeletonFS };
     GLint SkeletonSP_ColorLoc;
     GLint SkeletonSP_ModelViewProjectionLoc;
+
+    // Shadow shader program to render vertices into the shadow map
+    ReloadableShader ShadowVS{ "shadow.vert" };
+    ReloadableShader ShadowFS{ "shadow.frag" };
+    ReloadableProgram ShadowSP{ &ShadowVS, &ShadowFS };
+    GLint ShadowSP_ModelLightProjectionLoc;
 
     // true if all shaders in the scene are compiling/linking successfully.
     // Scene updates will stop if not all shaders are working, since it will likely crash.
