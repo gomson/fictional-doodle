@@ -398,6 +398,12 @@ void PaintRenderer(
 
                 glDrawElements(GL_TRIANGLES, numIndices, GL_UNSIGNED_INT, NULL);
 
+                // Restore default state
+                glDepthMask(GL_TRUE);
+                glDepthFunc(GL_LESS);
+                glDisable(GL_BLEND);
+                glBlendFuncSeparate(GL_ONE, GL_ZERO, GL_ONE, GL_ZERO);
+
                 glBindVertexArray(0);
                 glUseProgram(0);
 
@@ -410,10 +416,10 @@ void PaintRenderer(
                     const Skeleton& skeleton = scene->Skeletons[animSequence.SkeletonID];
 
                     glUseProgram(scene->SkeletonSP.Handle);
-                    glPointSize(3.0f); // Make rendered joints visible
                     glDisable(GL_DEPTH_TEST);
 
                     glBindVertexArray(animatedSkeleton.SkeletonVAO);
+                    glPointSize(3.0f); // Make rendered joints visible
 
                     glUniformMatrix4fv(scene->SkeletonSP_ModelViewProjectionLoc, 1, GL_FALSE, value_ptr(modelViewProjection));
 
@@ -425,30 +431,15 @@ void PaintRenderer(
                     glUniform3fv(scene->SkeletonSP_ColorLoc, 1, value_ptr(glm::vec3(0.0f, 1.0f, 0.0f)));
                     glDrawArrays(GL_POINTS, 0, skeleton.NumBones);
 
-                    glBindVertexArray(0);
                     glPointSize(1.0f);
+
+                    glBindVertexArray(0);
                     glUseProgram(0);
                 }
             }
         }
 
-        // Restore default state
-        glDepthMask(GL_TRUE);
-        glDepthFunc(GL_LESS);
-        glDisable(GL_BLEND);
-        glBlendFuncSeparate(GL_ONE, GL_ZERO, GL_ONE, GL_ZERO);
-
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, 0);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, 0);
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, 0);
-
         glDisable(GL_FRAMEBUFFER_SRGB);
-
-        glBindVertexArray(0);
-        glUseProgram(0);
 
         glDisable(GL_DEPTH_TEST);
 
