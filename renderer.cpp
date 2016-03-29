@@ -16,7 +16,7 @@
 
 void InitRenderer(Renderer* renderer)
 {
-    renderer->ShadowMapSize = 2048;
+    renderer->ShadowMapSize = 4096;
 
     glGenTextures(1, &renderer->ShadowMapTexture);
     glBindTexture(GL_TEXTURE_2D, renderer->ShadowMapTexture);
@@ -92,7 +92,7 @@ void PaintRenderer(
 
     glm::vec3 lightPosition = glm::vec3(0.0f, 300.0f, 100.0f);
     glm::mat4 worldLight = glm::lookAt(lightPosition, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    glm::mat4 lightProjection = glm::ortho(-300.0f, 300.0f, -300.0f, 300.0f, 0.0f, 500.0f);
+    glm::mat4 lightProjection = glm::ortho(-1000.0f, 1000.0f, -1000.0f, 1000.0f, -1000.0f, 1000.0f);
     glm::mat4 worldLightProjection = lightProjection * worldLight;
 
     struct DrawCmd

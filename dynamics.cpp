@@ -4,6 +4,7 @@
 #include <glm/mat3x3.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/matrix_cross_product.hpp>
+#include <glm/gtx/rotate_vector.hpp>
 
 #include <vector>
 #include <cstdio>
@@ -238,7 +239,63 @@ static void projectConstraint(
         if (c->Type == CONSTRAINTTYPE_INEQUALITY)
         {
             vec3 to_intersect = qs - ps[i];
-            ps[i] += c->Stiffness * to_intersect;
+            if (dot(ns, to_intersect) >= 0.0f)
+            {
+                ps[i] += c->Stiffness * to_intersect;
+            }
+        }
+        else
+        {
+            assert(false && "Unhandled constraint type");
+        }
+    }
+    else if (c->Func == CONSTRAINTFUNC_ANGULAR)
+    {
+        assert(c->NumParticles == 3);
+        
+        float angle = c->Angle.Angle;
+        int i0 = c->ParticleIDs[0];
+        int i1 = c->ParticleIDs[1];
+        int i2 = c->ParticleIDs[2];
+
+        if (c->Type == CONSTRAINTTYPE_EQUALITY)
+        {
+            if (!isnan(angle)) //&& i0 == 44)
+            {
+                vec3 p0 = ps[i0];
+                vec3 p1 = ps[i1];
+                vec3 p2 = ps[i2];
+                float curr_angle = std::acos(dot(normalize(p1 - p0), normalize(p2 - p0)));
+                float delta_angle = (angle - curr_angle) * c->Stiffness * 0.1f;
+
+                vec3 rotationAxis = normalize(cross(p1 - p0, p2 - p0));
+
+                vec3 newP0P1 = rotate(normalize(p1 - p0), -delta_angle / 2.0f, rotationAxis);
+                vec3 newP0P2 = rotate(normalize(p2 - p0), delta_angle / 2.0f, rotationAxis);
+
+                ps[i1] = p0 + newP0P1 * length(p1 - p0);
+                ps[i2] = p0 + newP0P2 * length(p2 - p0);
+
+                // ps[i0] = ((p0 + newP0P1 * length(p1 - p0)) + (p0 + newP0P2 * length(p2 - p0))) / 2.0f;
+
+                float new_angle = std::acos(dot(normalize(ps[i1] - p0), normalize(ps[i2] - p0)));
+
+                static int asdf = 0;
+                if (asdf < 20)
+                {
+                    if (asdf == 0) printf("start asdf\n\n\n\n\n");
+                    printf("curr_angle: %f\n", curr_angle);
+                    printf("delta_angle: %f\n", delta_angle);
+                    printf("new_angle: %f\n", new_angle);
+                    printf("i0: %d, i1: %d, i2: %d\n", i0, i1, i2);
+                    printf("rotationAxis: {%f,%f,%f}\n", rotationAxis.x, rotationAxis.y, rotationAxis.z);
+                    // printf("p1: {%f,%f,%f}\n", p1.x, p1.y, p1.z);
+                    printf("newP0P1: {%f,%f,%f}\n", newP0P1.x, newP0P1.y, newP0P1.z);
+                    // printf("i0: %d, p0: {%f,%f,%f}\n", i0, p0.x, p0.y, p0.z);
+                    // printf("p1 - p0: {%f,%f,%f}\n", (p1 - p0).x, (p1 - p0).y, (p1 - p0).z);
+                    asdf++;
+                }
+            }
         }
         else
         {
@@ -276,7 +333,7 @@ static void velocityUpdate(
         // Dampen perpendicular to collision normal
         vec3 normalpart = dot(vs[pidx], pcs[i].normal) * pcs[i].normal;
         vec3 nonnormalpart = vs[pidx] - normalpart;
-        vs[pidx] = normalpart + nonnormalpart * 0.99f;
+        vs[pidx] = normalpart + nonnormalpart * 0.5f;
 
         lastpidx = pidx;
     }

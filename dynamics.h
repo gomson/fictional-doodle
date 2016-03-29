@@ -17,6 +17,7 @@ enum ConstraintFunc
     CONSTRAINTFUNC_PROJECTION,
     // Maintains a minimum angle at a joint between two points
     // Resolves by rotating the points away from each other
+    // C(P) = acos((P2 - P1) . (P3 - P1)) - angle
     CONSTRAINTFUNC_ANGULAR
 };
 
@@ -43,6 +44,11 @@ struct ProjectionConstraint
     float Ns[3];
 };
 
+struct AngleConstraint
+{
+    float Angle;
+};
+
 struct Constraint
 {
     ConstraintFunc Func;
@@ -56,6 +62,7 @@ struct Constraint
         DistanceConstraint Distance;
         IntersectionConstraint Intersection;
         ProjectionConstraint Projection;
+        AngleConstraint Angle;
     };
 };
 

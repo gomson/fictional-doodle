@@ -185,6 +185,7 @@ struct Ragdoll
     int AnimatedSkeletonID; // The animated skeleton that is being animated physically
     std::vector<Constraint> BoneConstraints;
     std::vector<glm::ivec2> BoneConstraintParticleIDs;
+    std::vector<glm::ivec3> JointConstraintParticleIDs;
     std::vector<Hull> JointHulls;
 };
 
@@ -355,6 +356,7 @@ struct Scene
     // Damping coefficient for ragdolls
     // 1.0 = rigid body
     float RagdollBoneStiffness;
+    float RagdollJointStiffness;
     float RagdollDampingK;
 };
 

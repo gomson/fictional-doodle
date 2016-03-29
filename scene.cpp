@@ -168,22 +168,66 @@ static int AddRagdoll(
     // FIXME: Actually do want the number of bones here. Not joints.
     int numJoints = skeleton.NumBones;
     // ignore root joint since it doesn't link back to a parent
-    ragdoll.BoneConstraints.resize(numJoints - 1);
-    ragdoll.BoneConstraintParticleIDs.resize(numJoints - 1);
-    for (int jointIdx = 1; jointIdx < numJoints; jointIdx++)
+    ragdoll.BoneConstraints.resize(numJoints - 2);
+    ragdoll.BoneConstraintParticleIDs.resize(numJoints - 2);
+    for (int jointIdx = 2; jointIdx < numJoints; jointIdx++)
     {
         int parentJointIdx = skeleton.BoneParents[jointIdx];
 
-        glm::ivec2& particles = ragdoll.BoneConstraintParticleIDs[jointIdx - 1];
+        glm::ivec2& particles = ragdoll.BoneConstraintParticleIDs[jointIdx - 2];
         particles = glm::ivec2(jointIdx, parentJointIdx);
 
-        Constraint& constraint = ragdoll.BoneConstraints[jointIdx - 1];
+        Constraint& constraint = ragdoll.BoneConstraints[jointIdx - 2];
         constraint.Func = CONSTRAINTFUNC_DISTANCE;
         constraint.NumParticles = 2;
         constraint.ParticleIDs = value_ptr(particles);
         constraint.Stiffness = scene->RagdollBoneStiffness;
         constraint.Type = CONSTRAINTTYPE_EQUALITY;
         constraint.Distance.Distance = skeleton.BoneLengths[jointIdx];
+    }
+
+    // Angular constraints for the joints
+    int numAngularJointsAdded = 0;
+    for (int jointIdx = 2; jointIdx < numJoints; jointIdx++)
+    {
+        int parentJointIdx = skeleton.BoneParents[jointIdx];
+        if (parentJointIdx == -1)
+        {
+            continue;
+        }
+
+        int parentParentJointIdx = skeleton.BoneParents[parentJointIdx];
+        if (parentParentJointIdx == -1)
+        {
+            continue;
+        }
+
+        glm::vec3 bonePos = glm::vec3(inverse(skeleton.BoneInverseBindPoseTransforms[jointIdx])[3]);
+        glm::vec3 parentBonePos = glm::vec3(inverse(skeleton.BoneInverseBindPoseTransforms[parentJointIdx])[3]);
+        glm::vec3 parentParentBonePos = glm::vec3(inverse(skeleton.BoneInverseBindPoseTransforms[parentParentJointIdx])[3]);
+
+        float angle = std::acos(dot(normalize(bonePos - parentBonePos), normalize(parentParentBonePos - parentBonePos)));
+
+        glm::ivec3 particles(parentJointIdx, jointIdx, parentParentJointIdx);
+        ragdoll.JointConstraintParticleIDs.push_back(particles);
+        
+        Constraint constraint;
+        constraint.Func = CONSTRAINTFUNC_ANGULAR;
+        constraint.NumParticles = 3;
+        constraint.ParticleIDs = NULL; // hack: will be set after
+        constraint.Stiffness = scene->RagdollJointStiffness;
+        constraint.Type = CONSTRAINTTYPE_EQUALITY;
+        constraint.Angle.Angle = angle;
+        ragdoll.BoneConstraints.push_back(constraint);
+
+        numAngularJointsAdded++;
+    }
+    // patch in all the pointers (starting to dislike this design)
+    for (int constraintToFix = 0; constraintToFix < numAngularJointsAdded; constraintToFix++)
+    {
+        int i = (int)ragdoll.BoneConstraints.size() - numAngularJointsAdded + constraintToFix;
+        int j = (int)ragdoll.JointConstraintParticleIDs.size() - numAngularJointsAdded + constraintToFix;
+        ragdoll.BoneConstraints[i].ParticleIDs = &ragdoll.JointConstraintParticleIDs[j][0];
     }
 
     // The radius of vertices influenced by the joint
@@ -302,8 +346,9 @@ void InitScene(Scene* scene)
         std::pow(25.0f / 255.0f, 2.2f));
     scene->ShowBindPoses = false;
     scene->ShowSkeletons = false;
-    scene->RagdollDampingK = 0.5f;
-    scene->RagdollBoneStiffness = 0.5f;
+    scene->RagdollDampingK = 0.264f;
+    scene->RagdollBoneStiffness = 0.193f;
+    scene->RagdollJointStiffness = 0.1f;
 
     std::string assetFolder = "assets/";
 
@@ -363,7 +408,7 @@ void InitScene(Scene* scene)
 
     int hellknightRagdollID = AddRagdoll(
         scene, 
-        hellknightBindPoseMeshIDs.data(), (int)hellknightBindPoseMeshIDs.size(), 
+        hellknightBindPoseMeshIDs.data(), 1,// (int)hellknightBindPoseMeshIDs.size(), 
         hellknightAnimatedSkeletonID);
 
     std::vector<int> floorStaticMeshIDs;
@@ -592,7 +637,25 @@ static void ShowToolboxGUI(Scene* scene, SDL_Window* window)
                     {
                         for (Constraint& c : scene->Ragdolls[ragdollIdx].BoneConstraints)
                         {
-                            c.Stiffness = scene->RagdollBoneStiffness;
+                            if (c.Func == CONSTRAINTFUNC_DISTANCE)
+                            {
+                                c.Stiffness = scene->RagdollBoneStiffness;
+                            }
+                        }
+                    }
+                }
+
+                ImGui::Text("Ragdoll Joint Stiffness");
+                if (ImGui::SliderFloat("##jointstiffness", &scene->RagdollJointStiffness, 0.0f, 1.0f))
+                {
+                    for (int ragdollIdx = 0; ragdollIdx < (int)scene->Ragdolls.size(); ragdollIdx++)
+                    {
+                        for (Constraint& c : scene->Ragdolls[ragdollIdx].BoneConstraints)
+                        {
+                            if (c.Func == CONSTRAINTFUNC_ANGULAR)
+                            {
+                                c.Stiffness = scene->RagdollBoneStiffness;
+                            }
                         }
                     }
                 }
