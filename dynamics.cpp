@@ -273,7 +273,7 @@ static void projectConstraint(
 
                 vec3 rotationAxis = normalize(cross(p1 - p0, p2 - p0));
 
-                vec3 newP0P1 = normalize(rotate(normalize(p1 - p0), -delta_angle, rotationAxis));
+                vec3 newP0P1 = rotate(normalize(p1 - p0), -delta_angle / 2.0f, rotationAxis);
                 vec3 newP0P2 = rotate(normalize(p2 - p0), delta_angle / 2.0f, rotationAxis);
 
                 // Probably more stable to move just p0 instead of p1 and p2
