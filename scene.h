@@ -183,10 +183,10 @@ struct SkinnedMesh
 struct Ragdoll
 {
     int AnimatedSkeletonID; // The animated skeleton that is being animated physically
-    std::vector<Constraint> BoneConstraints;
-    std::vector<glm::ivec2> BoneConstraintParticleIDs;
-    std::vector<glm::ivec3> JointConstraintParticleIDs;
-    std::vector<Hull> JointHulls;
+    std::vector<Constraint> BoneConstraints; // all constraints in the simulation used to stop the skeleton from separating
+    std::vector<glm::ivec2> BoneConstraintParticleIDs; // particle IDs used in the bone distance constraints 
+    std::vector<glm::ivec3> JointConstraintParticleIDs; // particles IDs used in the joint angular constraints
+    std::vector<Hull> JointHulls; // the collision hulls associated to every joint
 };
 
 // DiffuseTexture Table
@@ -226,16 +226,15 @@ struct TransformSceneNode
 
 struct StaticMeshSceneNode
 {
-    int StaticMeshID;
+    int StaticMeshID; // The static mesh to render
 };
 
 struct SkinnedMeshSceneNode
 {
-    int SkinnedMeshID;
+    int SkinnedMeshID; // The skinned mesh to render
 };
 
 // SceneNode Table
-// Each node is associated to one material.
 struct SceneNode
 {
     glm::mat4 LocalTransform; // Transform relative to parent (or relative to world if no parent exists)

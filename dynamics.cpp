@@ -260,46 +260,47 @@ static void projectConstraint(
 
         if (c->Type == CONSTRAINTTYPE_EQUALITY)
         {
-            if (!isnan(angle))
+            assert(!isnan(angle));
+            
+            vec3 p0 = ps[i0];
+            vec3 p1 = ps[i1];
+            vec3 p2 = ps[i2];
+            
+            if (length(p1 - p0) > 0.0001f && length(p2 - p0) > 0.0001f)
             {
-                vec3 p0 = ps[i0];
-                vec3 p1 = ps[i1];
-                vec3 p2 = ps[i2];
                 float curr_angle = std::acos(dot(normalize(p1 - p0), normalize(p2 - p0)));
                 float delta_angle = (angle - curr_angle) * c->Stiffness;
-                if (delta_angle > 0.05f)
-                {
-                    vec3 rotationAxis = normalize(cross(p1 - p0, p2 - p0));
 
-                    vec3 newP0P1 = rotate(normalize(p1 - p0), -delta_angle / 2.0f, rotationAxis);
-                    vec3 newP0P2 = rotate(normalize(p2 - p0), delta_angle / 2.0f, rotationAxis);
+                vec3 rotationAxis = normalize(cross(p1 - p0, p2 - p0));
 
-                    // Probably more stable to move just p0 instead of p1 and p2
-                    ps[i1] = p0 + newP0P1 * length(p1 - p0);
-                    ps[i2] = p0 + newP0P2 * length(p2 - p0);
+                vec3 newP0P1 = normalize(rotate(normalize(p1 - p0), -delta_angle, rotationAxis));
+                vec3 newP0P2 = rotate(normalize(p2 - p0), delta_angle / 2.0f, rotationAxis);
 
-                    // ps[i0] = ((p0 + newP0P1 * length(p1 - p0)) + (p0 + newP0P2 * length(p2 - p0))) / 2.0f;
+                // Probably more stable to move just p0 instead of p1 and p2
+                // ps[i1] = p0 + newP0P1 * length(p1 - p0);
+                // ps[i2] = p0 + newP0P2 * length(p2 - p0);
 
-                    /*
-                    float new_angle = std::acos(dot(normalize(ps[i1] - p0), normalize(ps[i2] - p0)));
+                // float w0 = ws[i1];
+                // float w1 = ws[i2];
+                // ps[i0] = (-w0/(w0+w1)*(p0 + newP0P1 * length(p1 - p0)) + w1 / (w0 + w1)*(p0 + newP0P2 * length(p2 - p0))) / 2.0f;
 
-                    static int asdf = 0;
-                    if (asdf < 20)
-                    {
-                        if (asdf == 0) printf("start asdf\n\n\n\n\n");
-                        printf("curr_angle: %f\n", curr_angle);
-                        printf("delta_angle: %f\n", delta_angle);
-                        printf("new_angle: %f\n", new_angle);
-                        printf("i0: %d, i1: %d, i2: %d\n", i0, i1, i2);
-                        printf("rotationAxis: {%f,%f,%f}\n", rotationAxis.x, rotationAxis.y, rotationAxis.z);
-                        // printf("p1: {%f,%f,%f}\n", p1.x, p1.y, p1.z);
-                        printf("newP0P1: {%f,%f,%f}\n", newP0P1.x, newP0P1.y, newP0P1.z);
-                        // printf("i0: %d, p0: {%f,%f,%f}\n", i0, p0.x, p0.y, p0.z);
-                        // printf("p1 - p0: {%f,%f,%f}\n", (p1 - p0).x, (p1 - p0).y, (p1 - p0).z);
-                        asdf++;
-                    }
-                    */
-                }
+                float new_angle = std::acos(dot(normalize(ps[i1] - p0), normalize(ps[i2] - p0)));
+
+                //static int asdf = 0;
+                //if (asdf < 400)
+                //{
+                //    if (asdf == 0) printf("start asdf\n\n\n\n\n");
+                //    printf("curr_angle: %f\n", curr_angle);
+                //    printf("delta_angle: %f\n", delta_angle);
+                //    printf("new_angle: %f\n", new_angle);
+                //    printf("i0: %d, i1: %d, i2: %d\n", i0, i1, i2);
+                //    printf("rotationAxis: {%f,%f,%f}\n", rotationAxis.x, rotationAxis.y, rotationAxis.z);
+                //    // printf("p1: {%f,%f,%f}\n", p1.x, p1.y, p1.z);
+                //    printf("newP0P1: {%f,%f,%f}\n", newP0P1.x, newP0P1.y, newP0P1.z);
+                //    // printf("i0: %d, p0: {%f,%f,%f}\n", i0, p0.x, p0.y, p0.z);
+                //    // printf("p1 - p0: {%f,%f,%f}\n", (p1 - p0).x, (p1 - p0).y, (p1 - p0).z);
+                //    asdf++;
+                //}
             }
         }
         else

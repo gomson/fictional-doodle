@@ -215,8 +215,20 @@ static void ReinitRagdollConstraintsToPose(
         glm::vec3 parentBonePos = animatedSkeleton.JointPositions[parentJointIdx];
         glm::vec3 parentParentBonePos = animatedSkeleton.JointPositions[parentParentJointIdx];
 
+        if (length(bonePos - parentBonePos) < 0.0001f)
+        {
+            continue;
+        }
+        if (length(parentParentBonePos - parentBonePos) < 0.0001f)
+        {
+            continue;
+        }
+
         float angle = std::acos(dot(normalize(bonePos - parentBonePos), normalize(parentParentBonePos - parentBonePos)));
-        if (isnan(angle)) { printf("NaN angle: %f\n", angle); }
+        if (isnan(angle)) 
+        {
+            printf("NaN angle: %f\n", angle); 
+        }
 
         glm::ivec3 particles(parentJointIdx, jointIdx, parentParentJointIdx);
         ragdoll.JointConstraintParticleIDs.push_back(particles);
