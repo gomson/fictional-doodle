@@ -191,7 +191,6 @@ static void ReinitRagdollConstraintsToPose(
         constraint.Distance.Distance = length(animatedSkeleton.JointPositions[jointIdx] - animatedSkeleton.JointPositions[parentJointIdx]);
     }
 
-    ragdoll.BoneConstraints.resize(ragdoll.BoneConstraints.size() - ragdoll.JointConstraintParticleIDs.size());
     ragdoll.JointConstraintParticleIDs.clear();
 
     // Grab current angles for angle constraints
