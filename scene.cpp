@@ -403,6 +403,7 @@ void InitScene(Scene* scene)
     scene->RagdollBoneStiffness = 0.279f;
     scene->RagdollJointStiffness = 0.01f;
     scene->Gravity = -981.0f;
+    scene->LightPosition = glm::vec3(0.0f, 300.0f, 100.0f);
 
     std::string assetFolder = "assets/";
 
@@ -1064,6 +1065,9 @@ void UpdateScene(Scene* scene, SDL_Window* window, uint32_t dt_ms)
             !scene->EnableCamera ? 0 : keyboardState[SDL_SCANCODE_SPACE],
             !scene->EnableCamera ? 0 : keyboardState[SDL_SCANCODE_LCTRL] || keyboardState[SDL_SCANCODE_LSHIFT]);
     }
+
+    // Move light position relative to camera
+    scene->LightPosition = scene->CameraPosition + glm::vec3(0.0f, 50.0f, 0.0f);
 
     if (scene->IsPlaying || scene->ShouldStep)
     {

@@ -359,6 +359,8 @@ struct Scene
     float RagdollDampingK;
 
     float Gravity;
+
+    glm::vec3 LightPosition;
 };
 
 void InitScene(Scene* scene);

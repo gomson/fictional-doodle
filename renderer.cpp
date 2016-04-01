@@ -90,8 +90,7 @@ void PaintRenderer(
 {
     glm::mat4 worldView = glm::translate(glm::mat4(scene->CameraRotation), -scene->CameraPosition);
 
-    glm::vec3 lightPosition = glm::vec3(0.0f, 300.0f, 100.0f);
-    glm::mat4 worldLight = glm::lookAt(lightPosition, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    glm::mat4 worldLight = glm::lookAt(scene->LightPosition, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     glm::mat4 lightProjection = glm::ortho(-1000.0f, 1000.0f, -1000.0f, 1000.0f, -1000.0f, 1000.0f);
     glm::mat4 worldLightProjection = lightProjection * worldLight;
 
@@ -297,7 +296,7 @@ void PaintRenderer(
                 glUniform1i(scene->SceneSP_NormalTextureLoc, 2);
                 glUniform1i(scene->SceneSP_ShadowMapTextureLoc, 3);
                 glUniform3fv(scene->SceneSP_CameraPositionLoc, 1, value_ptr(scene->CameraPosition));
-                glUniform3fv(scene->SceneSP_LightPositionLoc, 1, value_ptr(lightPosition));
+                glUniform3fv(scene->SceneSP_LightPositionLoc, 1, value_ptr(scene->LightPosition));
                 glUniform3fv(scene->SceneSP_BackgroundColorLoc, 1, value_ptr(scene->BackgroundColor));
 
                 glEnable(GL_DEPTH_TEST);

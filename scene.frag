@@ -63,8 +63,8 @@ void main()
             modelNormal = normalize(fNormal);
         }
 
-        float a = 30;
-        float kA = 0.15;
+        float a = 50;
+        float kA = 0.03;
         float kD = 0.5;
         float kS = 0.7;
 
