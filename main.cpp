@@ -106,14 +106,14 @@ int main(int argc, char *argv[])
     {
         if (guiFocusEnabled)
         {
-            SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "0");
+            //SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "0");
             SDL_SetRelativeMouseMode(SDL_FALSE);
             scene.EnableCamera = false;
         }
         else
         {
             // Warping mouse seems necessary to acquire mouse focus for OS X track pad.
-            SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1");
+            //SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1");
             SDL_SetRelativeMouseMode(SDL_TRUE);
 
             // Prevent initial mouse warp state change from reorienting the camera.
