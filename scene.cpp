@@ -1055,7 +1055,7 @@ void UpdateScene(Scene* scene, SDL_Window* window, uint32_t dt_ms)
             glm::value_ptr(scene->CameraQuaternion),
             glm::value_ptr(scene->CameraRotation),
             0.10f,
-            60.0f * dt_s,
+            100.0f * dt_s * (keyboardState[SDL_SCANCODE_LSHIFT] ? 2.0f : 1.0f),
             !scene->EnableCamera ? 0 : relativeMouseX,
             !scene->EnableCamera ? 0 : relativeMouseY,
             !scene->EnableCamera ? 0 : keyboardState[SDL_SCANCODE_W],
@@ -1063,7 +1063,7 @@ void UpdateScene(Scene* scene, SDL_Window* window, uint32_t dt_ms)
             !scene->EnableCamera ? 0 : keyboardState[SDL_SCANCODE_S],
             !scene->EnableCamera ? 0 : keyboardState[SDL_SCANCODE_D],
             !scene->EnableCamera ? 0 : keyboardState[SDL_SCANCODE_SPACE],
-            !scene->EnableCamera ? 0 : keyboardState[SDL_SCANCODE_LCTRL] || keyboardState[SDL_SCANCODE_LSHIFT]);
+            !scene->EnableCamera ? 0 : keyboardState[SDL_SCANCODE_LCTRL]);
     }
 
     // Move light position relative to camera
