@@ -220,6 +220,11 @@ void InitGL()
     GetProcGL(glEndTransformFeedback, "glEndTransformFeedback");
     GetProcGL(glPointSize, "glPointSize");
     GetProcGL(glFinish, "glFinish");
+    GetProcGL(glGenQueries, "glGenQueries");
+    GetProcGL(glBeginQuery, "glBeginQuery");
+    GetProcGL(glEndQuery, "glEndQuery");
+    GetProcGL(glGetQueryObjectiv, "glGetQueryObjectiv");
+    GetProcGL(glGetQueryObjectuiv, "glGetQueryObjectuiv");
 
     GLint majorVersion, minorVersion;
     glGetIntegerv(GL_MAJOR_VERSION, &majorVersion);
