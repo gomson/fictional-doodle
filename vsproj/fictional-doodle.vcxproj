@@ -99,6 +99,7 @@ xcopy /d /y "$(SolutionDir)lib\assimp.dll" "$(OutDir)"</Command>
     <ClCompile Include="..\main.cpp" />
     <ClCompile Include="..\mysdl_dpi.cpp" />
     <ClCompile Include="..\opengl.cpp" />
+    <ClCompile Include="..\profiler.cpp" />
     <ClCompile Include="..\renderer.cpp" />
     <ClCompile Include="..\runtimecpp.cpp" />
     <ClCompile Include="..\scene.cpp" />
@@ -123,6 +124,7 @@ xcopy /d /y "$(SolutionDir)lib\assimp.dll" "$(OutDir)"</Command>
     <ClInclude Include="..\imgui_impl_sdl_gl3.h" />
     <ClInclude Include="..\mysdl_dpi.h" />
     <ClInclude Include="..\opengl.h" />
+    <ClInclude Include="..\profiler.h" />
     <ClInclude Include="..\renderer.h" />
     <ClInclude Include="..\runtimecpp.h" />
     <ClInclude Include="..\scene.h" />

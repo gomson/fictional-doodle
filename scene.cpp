@@ -576,7 +576,7 @@ static void ShowGPUProfilingGUI(Scene* scene)
     int windowWidth = 300;
     int windowHeight = 150;
 
-    ImGui::SetNextWindowSize(ImVec2(windowWidth, windowHeight), ImGuiSetCond_Always);
+    ImGui::SetNextWindowSize(ImVec2((float)windowWidth, (float)windowHeight), ImGuiSetCond_Always);
     ImGui::SetNextWindowPos(ImVec2(0, 120), ImGuiSetCond_Always);
 
     if (!ImGui::Begin("GPU Profiling", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize ))
@@ -598,7 +598,7 @@ static void ShowGPUProfilingGUI(Scene* scene)
     for (const GPUMarker& marker : markers)
     {
         // Convert elapsed time from nanoseconds to milliseconds
-        float time = marker.TimeElapsed / 1e6;
+        float time = marker.TimeElapsed / 1e6f;
 
         // Compute exponential weighted moving average of elapsed time to smooth displayed results
         float weight = 0.05f;
