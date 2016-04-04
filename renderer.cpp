@@ -206,6 +206,8 @@ void PaintRenderer(
     // Shadow rendering
     if (scene->AllShadersOK)
     {
+        scene->Profiling.PushGPUMarker("Shadows");
+
         glBindFramebuffer(GL_FRAMEBUFFER, renderer->ShadowMapFBO);
         glViewport(0, 0, renderer->ShadowMapSize, renderer->ShadowMapSize);
         glClear(GL_DEPTH_BUFFER_BIT);
@@ -265,11 +267,15 @@ void PaintRenderer(
         glDisable(GL_POLYGON_OFFSET_FILL);
         glDisable(GL_DEPTH_TEST);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        scene->Profiling.PopGPUMarker();
     }
 
     // Scene rendering
     if (scene->AllShadersOK)
     {
+        scene->Profiling.PushGPUMarker("Rendering");
+
         glm::mat4 projection = glm::perspective(70.0f, (float)drawableWidth / drawableHeight, 0.01f, 1000.0f);
         glm::mat4 worldViewProjection = projection * worldView;
 
@@ -443,15 +449,21 @@ void PaintRenderer(
         glDisable(GL_DEPTH_TEST);
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        scene->Profiling.PopGPUMarker();
     }
 
     // GUI rendering
     {
+        scene->Profiling.PushGPUMarker("Interface");
+
         glBindFramebuffer(GL_FRAMEBUFFER, renderer->BackbufferFBO);
         glEnable(GL_FRAMEBUFFER_SRGB);
         ImGui::Render();
         glDisable(GL_FRAMEBUFFER_SRGB);
         glBindFramebuffer(GL_FRAMEBUFFER, renderer->BackbufferFBO);
+
+        scene->Profiling.PopGPUMarker();
     }
 
     // Draw to window's framebuffer

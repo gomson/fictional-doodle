@@ -3,6 +3,7 @@
 #include "opengl.h"
 #include "shaderreloader.h"
 #include "dynamics.h"
+#include "profiler.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/type_precision.hpp>
@@ -361,6 +362,11 @@ struct Scene
     float Gravity;
 
     glm::vec3 LightPosition;
+
+    Profiler Profiling;
+
+    // Exponential weighted moving averages for profiling statistics
+    std::unordered_map<std::string,float> ProfilingEMAs;
 };
 
 void InitScene(Scene* scene);

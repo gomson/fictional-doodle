@@ -129,6 +129,8 @@ int main(int argc, char *argv[])
     // main loop
     for (;;)
     {
+        scene.Profiling.RecordFrame();
+
         SDL_Event ev;
         while (SDL_PollEvent(&ev))
         {

@@ -571,6 +571,59 @@ static void ReloadShaders(Scene* scene)
     }
 }
 
+static void ShowGPUProfilingGUI(Scene* scene)
+{
+    int windowWidth = 300;
+    int windowHeight = 150;
+
+    ImGui::SetNextWindowSize(ImVec2(windowWidth, windowHeight), ImGuiSetCond_Always);
+    ImGui::SetNextWindowPos(ImVec2(0, 120), ImGuiSetCond_Always);
+
+    if (!ImGui::Begin("GPU Profiling", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize ))
+    {
+        ImGui::End();
+        return;
+    }
+
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
+
+    // Compute height of profiling statistic bars
+    float spacing = 6.0f;
+    float textHeight = ImGui::GetTextLineHeightWithSpacing();
+    float height = textHeight + 2 * spacing;
+
+    std::vector<GPUMarker> markers;
+    scene->Profiling.ReadFrame(markers);
+
+    for (const GPUMarker& marker : markers)
+    {
+        // Convert elapsed time from nanoseconds to milliseconds
+        float time = marker.TimeElapsed / 1e6;
+
+        // Compute exponential weighted moving average of elapsed time to smooth displayed results
+        float weight = 0.05f;
+        float emaTime = weight * time + (1.0f - weight) * scene->ProfilingEMAs[marker.Name];
+        scene->ProfilingEMAs[marker.Name] = emaTime;
+
+        // Computer width and color of bar
+        float heat = std::min(emaTime * 60.0f / 1000.0f, 1.0f);
+        float width = windowWidth * heat;
+        ImU32 color = ImColor(0.3f * heat, 0.3f * (1.0f - heat), 0.0f);
+
+        // Draw bar
+        ImVec2 p0 = ImGui::GetCursorScreenPos();
+        ImVec2 p1 = ImVec2(p0.x + width, p0.y + height);
+        drawList->AddRectFilled(p0, p1, color, 0.0f);
+
+        // Draw text inside bar and move cursor to start of next bar
+        ImGui::SetCursorScreenPos(ImVec2(p0.x + spacing, p0.y + spacing));
+        ImGui::Text("%s (%.2f ms)", marker.Name.c_str(), emaTime);
+        ImGui::SetCursorScreenPos(ImVec2(p0.x, p0.y + height));
+    }
+
+    ImGui::End();
+}
+
 static void ShowSystemInfoGUI(Scene* scene)
 {
     ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiSetCond_Always);
@@ -593,12 +646,13 @@ static void ShowSystemInfoGUI(Scene* scene)
         sysctlbyname("machdep.cpu.brand_string", &cpuBrandString, &len, NULL, 0);
 #endif
 
-        ImGui::Text("CPU: %s\n", cpuBrandString);
+        ImGui::Text("CPU: %s", cpuBrandString);
         ImGui::Text("GL_VENDOR: %s", glGetString(GL_VENDOR));
         ImGui::Text("GL_RENDERER: %s", glGetString(GL_RENDERER));
         ImGui::Text("GL_VERSION: %s", glGetString(GL_VERSION));
         ImGui::Text("GL_SHADING_LANGUAGE_VERSION: %s", glGetString(GL_SHADING_LANGUAGE_VERSION));
     }
+
     ImGui::End();
 }
 
@@ -911,6 +965,8 @@ static void UpdateTransformations(Scene* scene, uint32_t dt_ms)
 
 static void UpdateSkinnedGeometry(Scene* scene, uint32_t dt_ms)
 {
+    scene->Profiling.PushGPUMarker("Skinning");
+
     // Skin vertices using the matrix palette and store them with transform feedback
     glUseProgram(scene->SkinningSPs[scene->MeshSkinningMethod].Handle);
     glUniform1i(scene->SkinningSP_BoneTransformsLoc, 0);
@@ -939,6 +995,8 @@ static void UpdateSkinnedGeometry(Scene* scene, uint32_t dt_ms)
     glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, 0);
     glBindVertexArray(0);
     glUseProgram(0);
+
+    scene->Profiling.PopGPUMarker();
 }
 
 static void UpdateDynamics(Scene* scene, uint32_t dt_ms)
@@ -1035,6 +1093,7 @@ void UpdateScene(Scene* scene, SDL_Window* window, uint32_t dt_ms)
 
     ShowSystemInfoGUI(scene);
     ShowToolboxGUI(scene, window);
+    ShowGPUProfilingGUI(scene);
 
     if (!scene->AllShadersOK)
     {
