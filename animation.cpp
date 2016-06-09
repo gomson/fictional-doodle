@@ -25,7 +25,7 @@ void DecodeFrame(Scene* scene, int animID, int frameID, std::vector<SQT>& frame)
     // Decode channel animation data
     for (int bone = 0; bone < skeleton.NumBones; bone++)
     {
-        const float* frameData = data(animSeq.BoneFrameData) + animSeq.BoneFrameDataOffsets[bone] + frameOffset;
+        const float* frameData = animSeq.BoneFrameData.data() + animSeq.BoneFrameDataOffsets[bone] + frameOffset;
         glm::vec3 animatedT = animSeq.BoneBaseFrame[bone].T;
         glm::quat animatedQ = animSeq.BoneBaseFrame[bone].Q;
 

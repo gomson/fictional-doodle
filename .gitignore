@@ -49,3 +49,4 @@ imgui.ini
 
 # Temporary files
 *.tmp
+*.opensdf

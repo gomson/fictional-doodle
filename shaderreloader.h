@@ -62,6 +62,8 @@ struct ReloadableShader
 
 struct ReloadableProgram
 {
+    ReloadableProgram() = default;
+
     ReloadableProgram(
         ReloadableShader* vs,
         ReloadableShader* fs,

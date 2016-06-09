@@ -98,7 +98,7 @@ int main(int argc, char *argv[])
         ResizeRenderer(&renderer,windowWidth, windowHeight, drawableWidth, drawableHeight, numSamples);
     }
 
-    Scene scene{};
+    Scene scene = Scene();
     InitScene(&scene);
 
     bool guiFocusEnabled = true;

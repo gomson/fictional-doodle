@@ -17,6 +17,7 @@
 #include <vector>
 #include <string>
 #include <functional>
+#include <array>
 
 static void LoadMD5Materials(
     Scene* scene,
@@ -25,12 +26,12 @@ static void LoadMD5Materials(
     int* materialIDMapping)
 {
     // Only the texture types we care about
-    aiTextureType textureTypes[] = {
+    std::array<aiTextureType,3> textureTypes = {
         aiTextureType_DIFFUSE,
         aiTextureType_SPECULAR,
         aiTextureType_NORMALS
     };
-    static const int numTextureTypes = sizeof(textureTypes) / sizeof(*textureTypes);
+    static const int numTextureTypes = (int)textureTypes.size();
 
     // find all textures that need to be loaded
     std::vector<std::vector<std::string>> texturesToLoad(numTextureTypes);
@@ -38,7 +39,7 @@ static void LoadMD5Materials(
     {
         aiMaterial* material = materials[materialIdx];
 
-        for (int textureTypeIdx = 0; textureTypeIdx < (int)std::size(textureTypes); textureTypeIdx++)
+        for (int textureTypeIdx = 0; textureTypeIdx < (int)textureTypes.size(); textureTypeIdx++)
         {
             int textureCount = (int)aiGetMaterialTextureCount(material, textureTypes[textureTypeIdx]);
 
@@ -230,7 +231,7 @@ static void LoadMD5Materials(
         // instead of creating a new one.
         Material newMat;
 
-        for (int textureTypeIdx = 0; textureTypeIdx < (int)std::size(textureTypes); textureTypeIdx++)
+        for (int textureTypeIdx = 0; textureTypeIdx < (int)textureTypes.size(); textureTypeIdx++)
         {
             int textureCount = (int)aiGetMaterialTextureCount(material, textureTypes[textureTypeIdx]);
 
@@ -302,7 +303,7 @@ static int LoadMD5SkeletonNode(
         skeletonDFSStack.emplace_back(ainode->mChildren[childIdx], -1);
     }
 
-    while (!empty(skeletonDFSStack))
+    while (!skeletonDFSStack.empty())
     {
         aiNode* node = skeletonDFSStack.back().first;
         int parentID = skeletonDFSStack.back().second;

@@ -405,6 +405,10 @@ void InitScene(Scene* scene)
     scene->Gravity = -981.0f;
     scene->LightPosition = glm::vec3(0.0f, 300.0f, 100.0f);
 
+    scene->SkinningOutputs = { "oPosition", "gl_NextBuffer", "oNormal", "oTangent", "oBitangent" };
+    scene->SkinningSPs[0] = ReloadableProgram(&scene->SkinningDLB).WithVaryings(scene->SkinningOutputs, GL_INTERLEAVED_ATTRIBS);
+    scene->SkinningSPs[1] = ReloadableProgram(&scene->SkinningLBS).WithVaryings(scene->SkinningOutputs, GL_INTERLEAVED_ATTRIBS);
+
     std::string assetFolder = "assets/";
 
     std::string hellknight_modelFolder = "hellknight/";
@@ -1047,16 +1051,16 @@ static void UpdateDynamics(Scene* scene, uint32_t dt_ms)
         // do the dynamics dance
         pfnSimulateDynamics(
             dt_s,
-            (float*)data(oldPositions),
-            (float*)data(oldVelocities),
-            (float*)data(masses),
-            (float*)data(externalForces),
-            data(ragdoll.JointHulls),
+            (float*)oldPositions.data(),
+            (float*)oldVelocities.data(),
+            (float*)masses.data(),
+            (float*)externalForces.data(),
+            ragdoll.JointHulls.data(),
             skeleton.NumBones, DEFAULT_DYNAMICS_NUM_ITERATIONS,
-            data(ragdoll.BoneConstraints), (int)ragdoll.BoneConstraints.size(),
+            ragdoll.BoneConstraints.data(), (int)ragdoll.BoneConstraints.size(),
             scene->RagdollDampingK,
-            (float*)data(newPositions),
-            (float*)data(newVelocities));
+            (float*)newPositions.data(),
+            (float*)newVelocities.data());
 
         // Update select bones based on dynamics
         for (int boneIdx = 0; boneIdx < skeleton.NumBones; boneIdx++)

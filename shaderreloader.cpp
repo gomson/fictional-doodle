@@ -154,12 +154,12 @@ void ReloadProgram(
             glAttachShader(newProgram, shaders[i]->Handle);
         }
 
-        if (size(program->TransformFeedbackVaryings))
+        if (program->TransformFeedbackVaryings.size())
         {
             glTransformFeedbackVaryings(
                 newProgram,
-                (GLsizei)size(program->TransformFeedbackVaryings),
-                data(program->TransformFeedbackVaryings),
+                (GLsizei)program->TransformFeedbackVaryings.size(),
+                program->TransformFeedbackVaryings.data(),
                 program->TransformFeedbackBufferMode);
         }
 

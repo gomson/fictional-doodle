@@ -281,14 +281,10 @@ struct Scene
     std::vector<SceneNode> SceneNodes;
 
     // Skinning shader programs that output skinned vertices using transform feedback.
-    std::vector<const char*> SkinningOutputs{ "oPosition", "gl_NextBuffer", "oNormal", "oTangent", "oBitangent" };
+    std::vector<const char*> SkinningOutputs;
     ReloadableShader SkinningDLB{ "skinning_dlb.vert" };
     ReloadableShader SkinningLBS{ "skinning_lbs.vert" };
-    ReloadableProgram SkinningSPs[2] =
-    {
-        ReloadableProgram(&SkinningDLB).WithVaryings(SkinningOutputs, GL_INTERLEAVED_ATTRIBS),
-        ReloadableProgram(&SkinningLBS).WithVaryings(SkinningOutputs, GL_INTERLEAVED_ATTRIBS)
-    };
+    ReloadableProgram SkinningSPs[2];
     GLint SkinningSP_BoneTransformsLoc;
 
     // Scene shader. Used to render objects in the scene which have their geometry defined in world space.
